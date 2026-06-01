@@ -1,0 +1,75 @@
+import { Module } from '@nestjs/common';
+import { AiProviderModule } from './modules/ai-provider/ai-provider.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { ClientPortalModule } from './modules/client-portal/client-portal.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { CollaborationModule } from './modules/collaboration/collaboration.module';
+import { CrmModule } from './modules/crm/crm.module';
+import { DevicesModule } from './modules/devices/devices.module';
+import { DashboardsModule } from './modules/dashboards/dashboards.module';
+import { ApprovalsModule } from './modules/approvals/approvals.module';
+import { FileVersionsModule } from './modules/file-versions/file-versions.module';
+import { FilesModule } from './modules/files/files.module';
+import { FinanceModule } from './modules/finance/finance.module';
+import { HealthController } from './modules/health/health.controller';
+import { InvitesModule } from './modules/invites/invites.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { LoginHistoryModule } from './modules/login-history/login-history.module';
+import { MembershipsModule } from './modules/memberships/memberships.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { PrismaModule } from './modules/prisma/prisma.module';
+import { ProjectsModule } from './modules/projects/projects.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
+import { SubtasksModule } from './modules/subtasks/subtasks.module';
+import { TenantsModule } from './modules/tenants/tenants.module';
+import { TenantContextModule } from './modules/tenant-context/tenant-context.module';
+import { TasksModule } from './modules/tasks/tasks.module';
+import { UsersModule } from './modules/users/users.module';
+import { TranscriptionModule } from './modules/transcription/transcription.module';
+import { VoiceNotesModule } from './modules/voice-notes/voice-notes.module';
+import { VoiceToTaskModule } from './modules/voice-to-task/voice-to-task.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    TenantContextModule,
+    TenantsModule,
+    UsersModule,
+    MembershipsModule,
+    PermissionsModule,
+    AuditModule,
+    InvitesModule,
+    AuthModule,
+    SessionsModule,
+    DevicesModule,
+    LoginHistoryModule,
+    ProjectsModule,
+    TasksModule,
+    SubtasksModule,
+    ClientPortalModule,
+    CrmModule,
+    CollaborationModule,
+    FilesModule,
+    FileVersionsModule,
+    ApprovalsModule,
+    RealtimeModule,
+    ChatModule,
+    NotificationsModule,
+    TranscriptionModule,
+    AiProviderModule,
+    VoiceNotesModule,
+    VoiceToTaskModule,
+    FinanceModule,
+    InvoicesModule,
+    PaymentsModule,
+    DashboardsModule,
+    ReportsModule,
+  ],
+  controllers: [HealthController],
+})
+export class AppModule {}
