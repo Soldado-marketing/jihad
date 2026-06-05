@@ -2,8 +2,20 @@ import { FileList, type FileListItem } from '@/components/files/file-list';
 
 const sprint6Files: FileListItem[] = [
   {
-    id: 'sprint-6-file-placeholder',
-    name: 'Sprint 6 File Placeholder',
+    id: 'uat-evidence-folder',
+    name: 'UAT evidence folder',
+    versionCount: 3,
+    visibility: 'INTERNAL',
+  },
+  {
+    id: 'client-brand-assets',
+    name: 'Client brand assets',
+    versionCount: 2,
+    visibility: 'CLIENT_VISIBLE',
+  },
+  {
+    id: 'release-checklist-export',
+    name: 'Release checklist export',
     versionCount: 1,
     visibility: 'INTERNAL',
   },
@@ -20,7 +32,8 @@ export default function FilesPage() {
           Files
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Internal file metadata, versioning, and signed URL placeholders for workspace users.
+          File metadata, version history, and permission-checked signed URL placeholders
+          for internal workspace users.
         </p>
       </section>
       <FileList files={sprint6Files} />

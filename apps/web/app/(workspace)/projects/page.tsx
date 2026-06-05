@@ -2,10 +2,22 @@ import { ProjectList, type ProjectListItem } from '@/components/projects/project
 
 const sprint3Projects: ProjectListItem[] = [
   {
-    id: 'sprint-3-project-placeholder',
-    name: 'Sprint 3 Project Placeholder',
-    openTaskCount: 2,
+    id: 'brand-launch-roadmap',
+    name: 'Brand launch roadmap',
+    openTaskCount: 8,
     status: 'ACTIVE',
+  },
+  {
+    id: 'client-portal-foundation',
+    name: 'Client portal foundation',
+    openTaskCount: 4,
+    status: 'ACTIVE',
+  },
+  {
+    id: 'railway-staging-readiness',
+    name: 'Railway staging readiness',
+    openTaskCount: 6,
+    status: 'PAUSED',
   },
 ];
 
@@ -20,8 +32,8 @@ export default function ProjectsPage() {
           Projects
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Sprint 3 adds project routes and placeholder UI for internal workspace users only.
-          Client portal access remains deferred.
+          Delivery projects for internal workspace users. The list uses preview data until
+          PostgreSQL and API data are connected in staging.
         </p>
       </section>
       <ProjectList projects={sprint3Projects} />

@@ -2,10 +2,28 @@ import { TaskList, type TaskListItem } from '@/components/tasks/task-list';
 
 const sprint3Tasks: TaskListItem[] = [
   {
-    id: 'sprint-3-task-placeholder',
-    priority: 'MEDIUM',
+    id: 'publish-main-branch',
+    priority: 'URGENT',
+    status: 'IN_PROGRESS',
+    title: 'Publish main branch to GitHub',
+  },
+  {
+    id: 'configure-railway-api',
+    priority: 'HIGH',
     status: 'TODO',
-    title: 'Sprint 3 Task Placeholder',
+    title: 'Configure Railway API service and DATABASE_URL',
+  },
+  {
+    id: 'capture-uat-evidence',
+    priority: 'HIGH',
+    status: 'BLOCKED',
+    title: 'Capture UAT evidence after staging deployment',
+  },
+  {
+    id: 'review-client-boundary',
+    priority: 'MEDIUM',
+    status: 'IN_REVIEW',
+    title: 'Review client-safe navigation and finance boundaries',
   },
 ];
 
@@ -20,8 +38,8 @@ export default function TasksPage() {
           Tasks
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Sprint 3 adds task and subtask route foundations with placeholder data.
-          Advanced dependencies, workload, recurrence, templates, and approvals remain deferred.
+          Operational task queue for the MVP launch path. Advanced dependencies,
+          recurrence, workload balancing, and templates remain deferred.
         </p>
       </section>
       <TaskList tasks={sprint3Tasks} />

@@ -19,6 +19,9 @@ export function Sidebar({ role }: SidebarProps) {
       <div className="border-b border-white/10 px-4 py-5">
         <p className="text-lg font-semibold">MAOS</p>
         <p className="mt-1 text-xs text-white/70">Marketing Agency OS</p>
+        <p className="mt-3 rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/80">
+          Owner workspace preview
+        </p>
       </div>
       <nav className="flex gap-1 overflow-x-auto p-3 md:block" aria-label="Workspace">
         {items.map((item) => (

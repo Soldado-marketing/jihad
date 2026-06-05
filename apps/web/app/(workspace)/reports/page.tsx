@@ -3,9 +3,19 @@ import { HiddenDataNotice } from '@/components/dashboard/hidden-data-notice';
 
 const sprint10Reports: ReportListItem[] = [
   {
-    id: 'sprint-10-report-placeholder',
+    id: 'mvp-delivery-summary',
     name: 'MVP delivery summary',
     visibility: 'INTERNAL',
+  },
+  {
+    id: 'client-safe-status',
+    name: 'Client-safe status summary',
+    visibility: 'CLIENT_SAFE',
+  },
+  {
+    id: 'owner-finance-overview',
+    name: 'Owner finance overview',
+    visibility: 'OWNER_ONLY',
   },
 ];
 

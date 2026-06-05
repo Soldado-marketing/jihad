@@ -2,9 +2,19 @@ import { ApprovalList, type ApprovalListItem } from '@/components/approvals/appr
 
 const sprint6Approvals: ApprovalListItem[] = [
   {
-    id: 'sprint-6-approval-placeholder',
+    id: 'homepage-copy-review',
     status: 'REQUESTED',
-    title: 'Sprint 6 Approval Placeholder',
+    title: 'Homepage copy review',
+  },
+  {
+    id: 'client-portal-preview-approval',
+    status: 'CHANGES_REQUESTED',
+    title: 'Client portal preview approval',
+  },
+  {
+    id: 'launch-checklist-signoff',
+    status: 'APPROVED',
+    title: 'Launch checklist signoff',
   },
 ];
 
@@ -19,7 +29,8 @@ export default function ApprovalsPage() {
           Approvals
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Approval request and decision placeholders for file review workflows.
+          Review requests, approval decisions, and launch signoff placeholders for
+          controlled file and delivery workflows.
         </p>
       </section>
       <ApprovalList approvals={sprint6Approvals} />
