@@ -3,6 +3,7 @@ import { filterNavigationItems } from '@/security/ui-permissions';
 import { workspaceNavigation } from '@/navigation/navigation';
 import type { WorkspaceRole } from '@/navigation/roles';
 import { cn } from '@/lib/class-names';
+import { RolePreviewBadge } from './role-preview-badge';
 
 type SidebarProps = {
   role: WorkspaceRole;
@@ -26,9 +27,7 @@ export function Sidebar({ role }: SidebarProps) {
             <p className="mt-0.5 text-xs text-muted">Marketing Agency OS</p>
           </div>
         </div>
-        <p className="mt-4 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-800">
-          Owner workspace preview
-        </p>
+        <RolePreviewBadge />
       </div>
       <nav className="flex max-w-full gap-1 overflow-x-auto p-3 md:block md:space-y-1" aria-label="Workspace">
         {items.map((item) => (

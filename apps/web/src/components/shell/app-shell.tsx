@@ -16,6 +16,7 @@ export function AppShell({ children, locale = 'en', role = 'OWNER' }: AppShellPr
   return (
     <div
       className={cn('min-h-screen bg-canvas text-ink md:flex', getDirectionalClass(locale))}
+      data-app-shell
       dir={getDirection(locale)}
       lang={locale}
     >
