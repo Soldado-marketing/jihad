@@ -9,17 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: '#17202a',
-        canvas: '#f7f9fb',
+        ink: '#111827',
+        canvas: '#eef3f8',
         panel: '#ffffff',
-        line: '#d9e2ec',
+        line: '#dbe5ef',
         focus: '#2563eb',
-        accent: '#0f766e',
+        accent: '#0d9488',
+        muted: '#64748b',
+        soft: '#f8fafc',
+        ocean: '#2563eb',
         warning: '#b45309',
         danger: '#b91c1c',
       },
       boxShadow: {
-        shell: '0 18px 45px -30px rgba(15, 23, 42, 0.45)',
+        shell: '0 22px 70px -46px rgba(15, 23, 42, 0.55)',
+        card: '0 16px 40px -30px rgba(15, 23, 42, 0.6)',
       },
     },
   },

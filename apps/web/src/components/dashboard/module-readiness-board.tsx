@@ -11,7 +11,7 @@ const modules = [
 
 export function ModuleReadinessBoard() {
   return (
-    <section aria-labelledby="module-readiness-title" className="rounded-md border border-line bg-panel p-5 shadow-shell">
+    <section aria-labelledby="module-readiness-title" className="rounded-md border border-line bg-panel p-5 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-accent">

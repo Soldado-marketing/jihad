@@ -7,13 +7,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <section aria-labelledby="dashboard-title">
-        <div className="rounded-md border border-line bg-panel p-6 shadow-shell">
+        <div className="rounded-md border border-line bg-panel p-6 shadow-card">
           <p className="text-sm font-semibold uppercase tracking-wide text-accent">
             MAOS MVP preview
           </p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 id="dashboard-title" className="text-3xl font-semibold text-ink">
+              <h2 id="dashboard-title" className="max-w-full break-words text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
                 Workspace dashboard
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
