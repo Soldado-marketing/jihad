@@ -64,9 +64,10 @@ export function TopbarActions({ apiHealth, locale }: TopbarActionsProps) {
       <button
         className="rounded-md border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus-visible:bg-slate-50"
         onClick={checkApiHealth}
+        title="Checks the local API. It will show offline until apps/api and DATABASE_URL are running."
         type="button"
       >
-        API: {apiStatus === 'idle' ? `${apiHealth.method} /api/health` : apiStatus}
+        API: {apiStatus === 'idle' ? `${apiHealth.method} /api/health` : apiStatus === 'offline' ? 'not connected' : apiStatus}
       </button>
     </>
   );

@@ -38,3 +38,7 @@ a {
   outline: 3px solid var(--maos-focus);
   outline-offset: 3px;
 }
+
+nextjs-portal {
+  display: none !important;
+}
