@@ -1,4 +1,5 @@
-import { FileList, type FileListItem } from '@/components/files/file-list';
+import { ClientFileRecordPanel } from '@/components/files/client-file-record-panel';
+import type { FileListItem } from '@/components/files/file-list';
 
 const sprint6Files: FileListItem[] = [
   {
@@ -36,7 +37,7 @@ export default function FilesPage() {
           for internal workspace users.
         </p>
       </section>
-      <FileList files={sprint6Files} />
+      <ClientFileRecordPanel files={sprint6Files} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { TaskList, type TaskListItem } from '@/components/tasks/task-list';
+import { TaskKanbanPreview } from '@/components/tasks/task-kanban-preview';
 
 const sprint3Tasks: TaskListItem[] = [
   {
@@ -42,6 +43,7 @@ export default function TasksPage() {
           recurrence, workload balancing, and templates remain deferred.
         </p>
       </section>
+      <TaskKanbanPreview tasks={sprint3Tasks} />
       <TaskList tasks={sprint3Tasks} />
     </div>
   );
