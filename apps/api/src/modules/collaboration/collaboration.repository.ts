@@ -1,56 +1,49 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { CreateInternalNoteDto } from './dto/create-internal-note.dto';
-
-export type InternalNoteRecord = {
-  id: string;
-  tenantId: string;
-  body: string;
-  threadKey?: string;
-  resourceType?: string;
-  resourceId?: string;
-  createdByUserId?: string;
-  visibility: 'internal-only';
-  sourceType: 'sprint-5-placeholder';
-};
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class CollaborationRepository extends TenantAwareRepository {
-  listInternalNotes(context: TenantContext): InternalNoteRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class CollaborationRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [
-      {
-        body: 'Sprint 5 internal note placeholder.',
-        id: 'sprint-5-internal-note-placeholder',
-        sourceType: 'sprint-5-placeholder',
-        tenantId: tenant.tenantId,
-        threadKey: 'sprint-5-internal-thread',
-        visibility: 'internal-only',
+  listNotes(tenantId: string, resourceType?: string, resourceId?: string) {
+    return this.prisma.internalNote.findMany({
+      where: {
+        tenantId,
+        ...(resourceType ? { resourceType } : {}),
+        ...(resourceId ? { resourceId } : {}),
       },
-    ];
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, body: true, resourceType: true, resourceId: true,
+        threadKey: true, createdAt: true, updatedAt: true,
+        createdBy: { select: { id: true, displayName: true } },
+      },
+    });
   }
 
-  createInternalNote(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    dto: CreateInternalNoteDto,
-  ): InternalNoteRecord {
-    const tenant = this.requireTenantContext(context);
+  createNote(tenantId: string, actorId: string, body: string, resourceType?: string, resourceId?: string, threadKey?: string) {
+    return this.prisma.internalNote.create({
+      data: {
+        tenantId, body, resourceType, resourceId, threadKey, createdByUserId: actorId,
+      },
+    });
+  }
 
-    return {
-      body: dto.body,
-      createdByUserId: actor?.actorId,
-      id: randomUUID(),
-      resourceId: dto.resourceId,
-      resourceType: dto.resourceType,
-      sourceType: 'sprint-5-placeholder',
-      tenantId: tenant.tenantId,
-      threadKey: dto.threadKey,
-      visibility: 'internal-only',
-    };
+  getNoteById(tenantId: string, id: string) {
+    return this.prisma.internalNote.findFirst({
+      where: { id, tenantId },
+      include: { createdBy: { select: { id: true, displayName: true } } },
+    });
+  }
+
+  updateNote(tenantId: string, id: string, body: string) {
+    return this.prisma.internalNote.update({
+      where: { id, tenantId },
+      data: { body },
+    });
+  }
+
+  deleteNote(tenantId: string, id: string) {
+    return this.prisma.internalNote.delete({ where: { id, tenantId } });
   }
 }

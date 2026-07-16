@@ -1,11 +1,11 @@
 import { UnauthorizedState } from '@/components/states/unauthorized-state';
 
-export default function InvitePlaceholderPage() {
+export default function InvitePage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas p-6">
       <UnauthorizedState
-        title="Invite acceptance placeholder"
-        description="Invite-only access is preserved. Full invite acceptance UI remains outside Sprint 2 shell scope."
+        title="Invalid or expired invite link"
+        description="This invite link is not valid. Please contact your administrator for a new invitation."
       />
     </main>
   );

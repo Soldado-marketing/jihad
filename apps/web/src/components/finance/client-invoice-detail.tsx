@@ -10,7 +10,7 @@ export type ClientInvoiceDetailData = {
 
 export function ClientInvoiceDetail({ invoice }: { invoice: ClientInvoiceDetailData }) {
   return (
-    <section aria-label="Client invoice detail" className="rounded-md border border-line bg-panel p-5">
+    <section aria-label="Client invoice detail" className="rounded-2xl border border-line bg-white p-6 shadow-lift">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-xl font-semibold text-ink">{invoice.number}</h3>
         <InvoiceStatusBadge status={invoice.status} />

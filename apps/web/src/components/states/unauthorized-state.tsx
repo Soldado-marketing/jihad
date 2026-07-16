@@ -10,7 +10,7 @@ export function UnauthorizedState({
   return (
     <section
       aria-labelledby="unauthorized-state-title"
-      className="rounded-md border border-line bg-panel p-6 shadow-shell"
+      className="rounded-2xl border border-line bg-panel p-6 shadow-card"
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-warning">
         Unauthorized

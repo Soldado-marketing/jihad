@@ -1,3 +1,7 @@
+// Re-export VisibilityScope from @prisma/client so permission service and Prisma
+// queries share the exact same type — no type-assertion casts required.
+export { VisibilityScope } from '@prisma/client';
+
 export enum PermissionAction {
   READ = 'read',
   CREATE = 'create',
@@ -55,4 +59,5 @@ export interface PermissionRequirement {
 export interface PermissionDecision {
   allowed: boolean;
   reason: string;
+  visibilityScope?: import('@prisma/client').VisibilityScope;
 }

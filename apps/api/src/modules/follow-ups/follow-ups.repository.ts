@@ -1,55 +1,57 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
+import { FollowUpStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
 
-export type FollowUpRecord = {
-  id: string;
-  tenantId: string;
-  leadId?: string;
-  opportunityId?: string;
-  title: string;
-  dueAt?: string;
-  status: 'OPEN' | 'COMPLETED' | 'OVERDUE';
-  ownerUserId?: string;
-  sourceType: 'sprint-5-placeholder';
-};
-
 @Injectable()
-export class FollowUpsRepository extends TenantAwareRepository {
-  list(context: TenantContext): FollowUpRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class FollowUpsRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [
-      {
-        id: 'sprint-5-follow-up-placeholder',
-        sourceType: 'sprint-5-placeholder',
-        status: 'OPEN',
-        tenantId: tenant.tenantId,
-        title: 'Sprint 5 Follow-up Placeholder',
+  list(tenantId: string) {
+    return this.prisma.followUp.findMany({
+      where: { tenantId },
+      orderBy: { dueAt: 'asc' },
+      select: {
+        id: true, title: true, status: true, dueAt: true, createdAt: true, updatedAt: true,
+        lead: { select: { id: true, name: true } },
+        opportunity: { select: { id: true, title: true } },
+        owner: { select: { id: true, displayName: true } },
       },
-    ];
+    });
   }
 
-  create(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    dto: CreateFollowUpDto,
-  ): FollowUpRecord {
-    const tenant = this.requireTenantContext(context);
+  create(tenantId: string, actorId: string, dto: CreateFollowUpDto) {
+    return this.prisma.followUp.create({
+      data: {
+        tenantId, title: dto.title, leadId: dto.leadId, opportunityId: dto.opportunityId,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined, ownerUserId: actorId,
+      },
+    });
+  }
 
-    return {
-      dueAt: dto.dueAt,
-      id: randomUUID(),
-      leadId: dto.leadId,
-      opportunityId: dto.opportunityId,
-      ownerUserId: actor?.actorId,
-      sourceType: 'sprint-5-placeholder',
-      status: 'OPEN',
-      tenantId: tenant.tenantId,
-      title: dto.title,
-    };
+  getById(tenantId: string, id: string) {
+    return this.prisma.followUp.findFirst({
+      where: { id, tenantId },
+      include: {
+        lead: { select: { id: true, name: true } },
+        opportunity: { select: { id: true, title: true } },
+        owner: { select: { id: true, displayName: true } },
+      },
+    });
+  }
+
+  update(tenantId: string, id: string, dto: Partial<CreateFollowUpDto> & { status?: FollowUpStatus }) {
+    return this.prisma.followUp.update({
+      where: { id, tenantId },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.dueAt !== undefined && { dueAt: dto.dueAt ? new Date(dto.dueAt) : null }),
+      },
+    });
+  }
+
+  delete(tenantId: string, id: string) {
+    return this.prisma.followUp.delete({ where: { id, tenantId } });
   }
 }

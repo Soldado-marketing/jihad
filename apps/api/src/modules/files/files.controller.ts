@@ -1,83 +1,39 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import {
-  actorContextFromHeaders,
-  RequestHeaders,
-  tenantContextFromHeaders,
-} from '../../common/http/request-context';
-import { CreateFileVersionDto } from '../file-versions/dto/create-file-version.dto';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
-import { CreateFileDto } from './dto/create-file.dto';
-import { UpdateFileDto } from './dto/update-file.dto';
 import { FilesService } from './files.service';
 
 @Controller('files')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class FilesController {
-  constructor(private readonly filesService: FilesService) {}
+  constructor(private readonly svc: FilesService) {}
 
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE })
-  listFiles(@Headers() headers: RequestHeaders) {
-    return this.filesService.listFiles(tenantContextFromHeaders(headers));
-  }
+  list(@CurrentUser() user: JwtPayload) { return this.svc.list(user.tenantId); }
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.FILE })
-  createFile(@Headers() headers: RequestHeaders, @Body() dto: CreateFileDto) {
-    return this.filesService.createFile(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      dto,
-    );
+  create(@CurrentUser() user: JwtPayload, @Body() dto: { name: string; mimeType?: string; projectId?: string; taskId?: string }) {
+    return this.svc.create(user.tenantId, user.sub, dto);
   }
 
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE })
-  getFile(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.filesService.getFile(tenantContextFromHeaders(headers), id);
-  }
+  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.get(user.tenantId, id); }
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.FILE })
-  updateFile(@Headers() headers: RequestHeaders, @Param('id') id: string, @Body() dto: UpdateFileDto) {
-    return this.filesService.updateFile(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-      dto,
-    );
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: { name?: string }) {
+    return this.svc.update(user.tenantId, id, dto);
   }
 
-  @Get(':id/versions')
-  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE_VERSION })
-  listVersions(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.filesService.listVersions(tenantContextFromHeaders(headers), id);
-  }
-
-  @Post(':id/versions')
-  @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.FILE_VERSION })
-  createVersion(
-    @Headers() headers: RequestHeaders,
-    @Param('id') id: string,
-    @Body() dto: CreateFileVersionDto,
-  ) {
-    return this.filesService.createVersion(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-      dto,
-    );
-  }
-
-  @Get(':id/signed-url')
-  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE, sensitive: true })
-  getSignedUrl(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.filesService.getSignedUrl(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-    );
-  }
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermission({ action: PermissionAction.DELETE, resource: PermissionResource.FILE })
+  delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.delete(user.tenantId, id); }
 }

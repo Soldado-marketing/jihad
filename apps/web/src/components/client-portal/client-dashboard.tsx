@@ -12,7 +12,7 @@ export function ClientDashboard() {
           Welcome
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          View approved project, task, and invoice placeholders prepared for your account.
+          View approved project, task, and invoice information prepared for your account.
         </p>
       </section>
       <ClientSafeNotice />

@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -7,10 +7,12 @@ export class UpdateTaskDto {
   @MaxLength(180)
   title?: string;
 
+  /** Accepts a non-empty string, an empty string (treated as clear), or explicit null to clear. */
   @IsOptional()
+  @ValidateIf((o) => o.description !== null)
   @IsString()
   @MaxLength(2000)
-  description?: string;
+  description?: string | null;
 
   @IsOptional()
   @IsIn(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED', 'ARCHIVED'])
@@ -27,4 +29,8 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsDateString()
   dueAt?: string;
+
+  @IsOptional()
+  @IsString()
+  projectId?: string;
 }

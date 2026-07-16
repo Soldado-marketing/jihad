@@ -15,7 +15,7 @@ export function FileDetail({
 }) {
   return (
     <div className="space-y-6">
-      <section aria-labelledby="file-detail-title" className="rounded-md border border-line bg-panel p-6 shadow-shell">
+      <section aria-labelledby="file-detail-title" className="rounded-2xl border border-line bg-white p-6 shadow-lift">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">File</p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h2 id="file-detail-title" className="text-3xl font-semibold text-ink">

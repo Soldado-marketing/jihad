@@ -11,7 +11,7 @@ export function InternalNotesPanel({ notes }: { notes: InternalNoteItem[] }) {
     return (
       <EmptyState
         title="No internal notes yet"
-        description="Sprint 5 only reserves an internal collaboration note foundation."
+        description="Internal notes will appear after collaboration persistence is connected."
       />
     );
   }
@@ -21,9 +21,9 @@ export function InternalNotesPanel({ notes }: { notes: InternalNoteItem[] }) {
       <h3 id="internal-notes-title" className="text-lg font-semibold text-ink">
         Internal notes
       </h3>
-      <ul className="divide-y divide-line rounded-md border border-line bg-panel">
+      <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift">
         {notes.map((note) => (
-          <li key={note.id} className="p-4">
+          <li key={note.id} className="p-5">
             <p className="text-sm leading-6 text-slate-700">{note.body}</p>
             <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
               {note.visibility}

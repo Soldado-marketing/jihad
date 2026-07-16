@@ -11,15 +11,15 @@ export type InvoiceListItem = {
 
 export function InvoiceList({ invoices }: { invoices: InvoiceListItem[] }) {
   if (invoices.length === 0) {
-    return <EmptyState title="No invoices" description="Basic invoice placeholders appear here." />;
+    return <EmptyState title="No invoices yet" description="Invoices will appear after the live finance API is connected." />;
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Invoice list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Invoice list">
       {invoices.map((invoice) => (
         <li key={invoice.id}>
           <Link
-            className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50"
+            className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50"
             href={`/finance/invoices/${invoice.id}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">

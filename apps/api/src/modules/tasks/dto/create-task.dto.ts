@@ -12,16 +12,20 @@ export class CreateTaskDto {
   description?: string;
 
   @IsOptional()
+  @IsIn(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED', 'ARCHIVED'])
+  status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED' | 'ARCHIVED';
+
+  @IsOptional()
+  @IsIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+  @IsOptional()
   @IsString()
   projectId?: string;
 
   @IsOptional()
   @IsString()
   assignedToUserId?: string;
-
-  @IsOptional()
-  @IsIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
   @IsOptional()
   @IsDateString()

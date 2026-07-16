@@ -1,57 +1,28 @@
-import { Injectable } from '@nestjs/common';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { AuditService } from '../audit/audit.service';
-import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
-import { ResourceScopeService } from '../permissions/resource-scope.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { FollowUpStatus } from '@prisma/client';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
-import { FollowUpRecord, FollowUpsRepository } from './follow-ups.repository';
+import { FollowUpsRepository } from './follow-ups.repository';
 
 @Injectable()
 export class FollowUpsService {
-  constructor(
-    private readonly followUpsRepository: FollowUpsRepository,
-    private readonly resourceScopeService: ResourceScopeService,
-    private readonly auditService: AuditService,
-  ) {}
+  constructor(private readonly repo: FollowUpsRepository) {}
 
-  listFollowUps(context: TenantContext) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
+  list(tenantId: string) { return this.repo.list(tenantId); }
+  create(tenantId: string, actorId: string, dto: CreateFollowUpDto) { return this.repo.create(tenantId, actorId, dto); }
 
-    return this.followUpsRepository.list(context);
+  async get(tenantId: string, id: string) {
+    const item = await this.repo.getById(tenantId, id);
+    if (!item) throw new NotFoundException('Follow-up not found');
+    return item;
   }
 
-  createFollowUp(context: TenantContext, actor: ActorContext | undefined, dto: CreateFollowUpDto) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const followUp = this.followUpsRepository.create(context, actor, dto);
-    return {
-      followUp,
-      auditEvent: this.recordAudit(context, actor, followUp),
-    };
+  async update(tenantId: string, id: string, dto: Partial<CreateFollowUpDto> & { status?: FollowUpStatus }) {
+    await this.get(tenantId, id);
+    return this.repo.update(tenantId, id, dto);
   }
 
-  private recordAudit(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    followUp: FollowUpRecord,
-  ) {
-    return this.auditService.createAuditEventPlaceholder({
-      action: 'followup.created',
-      actorId: actor?.actorId,
-      actorRole: actor?.role,
-      deviceId: actor?.deviceId,
-      outcome: AuditOutcome.SUCCESS,
-      permissionResult: AuditPermissionResult.ALLOWED,
-      resourceId: followUp.id,
-      resourceType: 'follow-up',
-      sessionId: actor?.sessionId,
-      tenantId: context.tenantId,
-      payload: { followUp },
-    });
+  async delete(tenantId: string, id: string) {
+    await this.get(tenantId, id);
+    return this.repo.delete(tenantId, id);
   }
 }

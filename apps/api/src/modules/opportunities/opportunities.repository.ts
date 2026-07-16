@@ -1,97 +1,64 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { CrmPipelineStatus } from '../leads/leads.repository';
+import { CrmPipelineStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
-import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
-
-export type OpportunityRecord = {
-  id: string;
-  tenantId: string;
-  leadId?: string;
-  title: string;
-  valueCents?: number;
-  currency?: string;
-  status: CrmPipelineStatus;
-  ownerUserId?: string;
-  expectedCloseAt?: string;
-  sourceType: 'sprint-5-placeholder';
-};
 
 @Injectable()
-export class OpportunitiesRepository extends TenantAwareRepository {
-  list(context: TenantContext): OpportunityRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class OpportunitiesRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [
-      {
-        currency: 'USD',
-        id: 'sprint-5-opportunity-placeholder',
-        sourceType: 'sprint-5-placeholder',
-        status: 'CONTACTED',
-        tenantId: tenant.tenantId,
-        title: 'Sprint 5 Opportunity Placeholder',
-        valueCents: 250000,
+  list(tenantId: string) {
+    return this.prisma.opportunity.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, title: true, valueCents: true, currency: true,
+        status: true, expectedCloseAt: true, createdAt: true, updatedAt: true,
+        lead: { select: { id: true, name: true, company: true } },
+        owner: { select: { id: true, displayName: true } },
       },
-    ];
+    });
   }
 
-  create(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    dto: CreateOpportunityDto,
-  ): OpportunityRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      currency: dto.currency,
-      expectedCloseAt: dto.expectedCloseAt,
-      id: randomUUID(),
-      leadId: dto.leadId,
-      ownerUserId: actor?.actorId,
-      sourceType: 'sprint-5-placeholder',
-      status: 'CONTACTED',
-      tenantId: tenant.tenantId,
-      title: dto.title,
-      valueCents: dto.valueCents,
-    };
+  create(tenantId: string, actorId: string, dto: CreateOpportunityDto) {
+    return this.prisma.opportunity.create({
+      data: {
+        tenantId, title: dto.title, leadId: dto.leadId,
+        valueCents: dto.valueCents, currency: dto.currency ?? 'USD',
+        ownerUserId: actorId,
+        expectedCloseAt: dto.expectedCloseAt ? new Date(dto.expectedCloseAt) : undefined,
+      },
+    });
   }
 
-  getById(context: TenantContext, id: string): OpportunityRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      currency: 'USD',
-      id,
-      sourceType: 'sprint-5-placeholder',
-      status: 'CONTACTED',
-      tenantId: tenant.tenantId,
-      title: 'Sprint 5 Opportunity Placeholder',
-      valueCents: 250000,
-    };
+  getById(tenantId: string, id: string) {
+    return this.prisma.opportunity.findFirst({
+      where: { id, tenantId },
+      include: {
+        lead: { select: { id: true, name: true, company: true } },
+        owner: { select: { id: true, displayName: true } },
+        meetings: { select: { id: true, title: true, status: true, scheduledAt: true } },
+        followUps: { select: { id: true, title: true, status: true, dueAt: true } },
+      },
+    });
   }
 
-  update(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-    dto: UpdateOpportunityDto,
-  ): OpportunityRecord {
-    const tenant = this.requireTenantContext(context);
+  update(tenantId: string, id: string, dto: Partial<CreateOpportunityDto> & { status?: CrmPipelineStatus }) {
+    return this.prisma.opportunity.update({
+      where: { id, tenantId },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.valueCents !== undefined && { valueCents: dto.valueCents }),
+        ...(dto.currency !== undefined && { currency: dto.currency }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.expectedCloseAt !== undefined && {
+          expectedCloseAt: dto.expectedCloseAt ? new Date(dto.expectedCloseAt) : null,
+        }),
+      },
+    });
+  }
 
-    return {
-      currency: dto.currency,
-      expectedCloseAt: dto.expectedCloseAt,
-      id,
-      leadId: dto.leadId,
-      ownerUserId: actor?.actorId,
-      sourceType: 'sprint-5-placeholder',
-      status: dto.status ?? 'CONTACTED',
-      tenantId: tenant.tenantId,
-      title: dto.title ?? 'Sprint 5 Opportunity Placeholder',
-      valueCents: dto.valueCents,
-    };
+  delete(tenantId: string, id: string) {
+    return this.prisma.opportunity.delete({ where: { id, tenantId } });
   }
 }

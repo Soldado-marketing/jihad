@@ -9,7 +9,7 @@ type ProjectDetailProps = {
 export function ProjectDetail({ id, name, status }: ProjectDetailProps) {
   return (
     <div className="space-y-6">
-      <section aria-labelledby="project-detail-title" className="rounded-md border border-line bg-panel p-6 shadow-shell">
+      <section aria-labelledby="project-detail-title" className="rounded-2xl border border-line bg-white p-6 shadow-lift">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">Project</p>
         <h2 id="project-detail-title" className="mt-2 text-3xl font-semibold text-ink">
           {name}
@@ -18,8 +18,8 @@ export function ProjectDetail({ id, name, status }: ProjectDetailProps) {
         <p className="mt-2 text-sm font-semibold text-slate-700">Status: {status}</p>
       </section>
       <EmptyState
-        title="Live project data is not connected yet"
-        description="Sprint 3 defines the core route and component baseline. Advanced project workflows remain deferred."
+        title="No live project activity yet"
+        description="Detailed milestones, assignments, and activity history will appear after persistent project data is connected."
       />
     </div>
   );

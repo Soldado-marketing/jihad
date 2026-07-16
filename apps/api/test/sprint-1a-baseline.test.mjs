@@ -41,17 +41,11 @@ describe('Sprint 1A identity foundation baseline', () => {
     }
   });
 
-  it('does not expose a public registration endpoint', () => {
-    const sourceFiles = [
-      'src/modules/auth/auth.controller.ts',
-      'src/modules/invites/invites.controller.ts',
-    ];
-
-    for (const file of sourceFiles) {
-      const contents = read(file);
-      assert.doesNotMatch(contents, /@(Post|Get|Put|Patch|Delete)\(['"`]register['"`]\)/);
-      assert.doesNotMatch(contents, /@(Post|Get|Put|Patch|Delete)\(['"`]signup['"`]\)/);
-    }
+  it('exposes a public registration endpoint (added Sprint 13)', () => {
+    // Sprint 13 intentionally added POST /auth/register for public registration with owner approval.
+    // This test was updated from "does not expose" to "exposes" to reflect that change.
+    const authController = read('src/modules/auth/auth.controller.ts');
+    assert.match(authController, /@Post\(['"`]register['"`]\)/);
   });
 
   it('creates the approved Sprint 1A module directories', () => {

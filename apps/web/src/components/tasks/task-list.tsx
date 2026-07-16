@@ -18,17 +18,17 @@ export function TaskList({ tasks }: TaskListProps) {
     return (
       <EmptyState
         title="No tasks yet"
-        description="Task workflows start with the Sprint 3 backend skeleton and placeholder UI."
+        description="Create your first task after the live project API is connected."
       />
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-panel shadow-shell">
+    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-lift">
       <ul className="divide-y divide-line" aria-label="Task list">
         {tasks.map((task) => (
           <li key={task.id}>
-            <Link className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/tasks/${task.id}`}>
+            <Link className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/tasks/${task.id}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-semibold text-ink">{task.title}</h3>

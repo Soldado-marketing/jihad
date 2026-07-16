@@ -51,22 +51,22 @@ export function TaskKanbanPreview({ tasks }: TaskKanbanPreviewProps) {
   }
 
   return (
-    <section aria-labelledby="kanban-preview-title" className="rounded-md border border-line bg-panel p-5 shadow-card">
+    <section aria-labelledby="kanban-preview-title" className="rounded-2xl border border-line bg-panel p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-accent">
-            Kanban preview
+            Work board
           </p>
           <h3 id="kanban-preview-title" className="mt-2 text-xl font-semibold tracking-tight text-ink">
-            Move work like a board
+            Move work like a Trello board
           </h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Drag cards between columns or use the move buttons. Changes stay in this local
-            preview until the API and database are connected.
+            Drag cards between columns or use the move buttons. Changes stay in the browser
+            until API persistence is connected.
           </p>
         </div>
-        <span className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800">
-          Local only
+        <span className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800">
+          Browser state
         </span>
       </div>
 
@@ -74,7 +74,7 @@ export function TaskKanbanPreview({ tasks }: TaskKanbanPreviewProps) {
         {groupedCards.map((column) => (
           <section
             aria-label={`${column.label} column`}
-            className="min-h-48 rounded-md border border-line bg-soft p-3"
+            className="min-h-48 rounded-xl border border-line bg-soft p-3"
             key={column.id}
             onDragOver={(event) => event.preventDefault()}
             onDrop={() => {
@@ -89,7 +89,7 @@ export function TaskKanbanPreview({ tasks }: TaskKanbanPreviewProps) {
                 <h4 className="font-semibold text-ink">{column.label}</h4>
                 <p className="mt-1 text-xs text-slate-500">{column.description}</p>
               </div>
-              <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+              <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-600">
                 {column.cards.length}
               </span>
             </div>
@@ -97,7 +97,7 @@ export function TaskKanbanPreview({ tasks }: TaskKanbanPreviewProps) {
             <div className="mt-3 space-y-3">
               {column.cards.map((task) => (
                 <article
-                  className="cursor-grab rounded-md border border-line bg-white p-3 shadow-[0_12px_28px_-26px_rgba(15,23,42,0.7)] active:cursor-grabbing"
+                  className="cursor-grab rounded-xl border border-line bg-white p-3 shadow-[0_12px_28px_-26px_rgba(15,23,42,0.7)] active:cursor-grabbing"
                   draggable
                   key={task.id}
                   onDragStart={() => setDraggedTaskId(task.id)}
@@ -111,7 +111,7 @@ export function TaskKanbanPreview({ tasks }: TaskKanbanPreviewProps) {
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
-                      className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      className="rounded-lg border border-line px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
                       disabled={orderedStatuses.indexOf(task.status) === 0}
                       onClick={() => moveByStep(task, -1)}
                       type="button"
@@ -119,7 +119,7 @@ export function TaskKanbanPreview({ tasks }: TaskKanbanPreviewProps) {
                       Back
                     </button>
                     <button
-                      className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      className="rounded-lg border border-line px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
                       disabled={orderedStatuses.indexOf(task.status) === orderedStatuses.length - 1}
                       onClick={() => moveByStep(task, 1)}
                       type="button"

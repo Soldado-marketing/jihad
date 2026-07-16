@@ -3,9 +3,9 @@ import { SummaryCard } from './summary-card';
 export function ProjectTaskSummary() {
   return (
     <SummaryCard
-      detail="Basic delivery totals from project and task foundations."
+      detail="Active projects and open tasks across your workspace."
       label="Projects and tasks"
-      value="6 / 18"
+      value="—"
     />
   );
 }

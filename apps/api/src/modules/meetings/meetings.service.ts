@@ -1,57 +1,28 @@
-import { Injectable } from '@nestjs/common';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { AuditService } from '../audit/audit.service';
-import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
-import { ResourceScopeService } from '../permissions/resource-scope.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { MeetingStatus } from '@prisma/client';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
-import { MeetingRecord, MeetingsRepository } from './meetings.repository';
+import { MeetingsRepository } from './meetings.repository';
 
 @Injectable()
 export class MeetingsService {
-  constructor(
-    private readonly meetingsRepository: MeetingsRepository,
-    private readonly resourceScopeService: ResourceScopeService,
-    private readonly auditService: AuditService,
-  ) {}
+  constructor(private readonly repo: MeetingsRepository) {}
 
-  listMeetings(context: TenantContext) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
+  list(tenantId: string) { return this.repo.list(tenantId); }
+  create(tenantId: string, actorId: string, dto: CreateMeetingDto) { return this.repo.create(tenantId, actorId, dto); }
 
-    return this.meetingsRepository.list(context);
+  async get(tenantId: string, id: string) {
+    const item = await this.repo.getById(tenantId, id);
+    if (!item) throw new NotFoundException('Meeting not found');
+    return item;
   }
 
-  createMeeting(context: TenantContext, actor: ActorContext | undefined, dto: CreateMeetingDto) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const meeting = this.meetingsRepository.create(context, actor, dto);
-    return {
-      meeting,
-      auditEvent: this.recordAudit(context, actor, meeting),
-    };
+  async update(tenantId: string, id: string, dto: Partial<CreateMeetingDto> & { status?: MeetingStatus }) {
+    await this.get(tenantId, id);
+    return this.repo.update(tenantId, id, dto);
   }
 
-  private recordAudit(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    meeting: MeetingRecord,
-  ) {
-    return this.auditService.createAuditEventPlaceholder({
-      action: 'meeting.created',
-      actorId: actor?.actorId,
-      actorRole: actor?.role,
-      deviceId: actor?.deviceId,
-      outcome: AuditOutcome.SUCCESS,
-      permissionResult: AuditPermissionResult.ALLOWED,
-      resourceId: meeting.id,
-      resourceType: 'meeting',
-      sessionId: actor?.sessionId,
-      tenantId: context.tenantId,
-      payload: { meeting },
-    });
+  async delete(tenantId: string, id: string) {
+    await this.get(tenantId, id);
+    return this.repo.delete(tenantId, id);
   }
 }

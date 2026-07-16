@@ -14,16 +14,16 @@ export function FileList({ files }: { files: FileListItem[] }) {
     return (
       <EmptyState
         title="No files yet"
-        description="Sprint 6 reserves file metadata and versioning foundations."
+        description="Files and versions will appear after metadata persistence and storage integration are connected."
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="File list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="File list">
       {files.map((file) => (
         <li key={file.id}>
-          <Link className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/files/${file.id}`}>
+          <Link className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/files/${file.id}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-ink">{file.name}</h3>

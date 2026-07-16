@@ -1,38 +1,26 @@
-import { Controller, Get, Headers, UseGuards } from '@nestjs/common';
-import {
-  actorContextFromHeaders,
-  RequestHeaders,
-  tenantContextFromHeaders,
-} from '../../common/http/request-context';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { DashboardsService } from './dashboards.service';
 
 @Controller('dashboards')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class DashboardsController {
   constructor(private readonly dashboardsService: DashboardsService) {}
 
   @Get('workspace-summary')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD })
-  getWorkspaceSummary(@Headers() headers: RequestHeaders) {
-    return this.dashboardsService.getWorkspaceSummary(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-    );
+  getWorkspaceSummary(@CurrentUser() user: JwtPayload) {
+    return this.dashboardsService.getWorkspaceSummary(user.tenantId, user.sub);
   }
 
   @Get('client-summary')
-  @RequirePermission({
-    action: PermissionAction.READ,
-    resource: PermissionResource.DASHBOARD,
-    scope: 'client-portal',
-  })
-  getClientSummary(@Headers() headers: RequestHeaders) {
-    return this.dashboardsService.getClientSummary(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-    );
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD, scope: 'client-portal' })
+  getClientSummary(@CurrentUser() user: JwtPayload) {
+    return this.dashboardsService.getClientSummary(user.tenantId, user.sub);
   }
 }

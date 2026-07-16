@@ -14,16 +14,16 @@ export function LeadList({ leads }: { leads: LeadListItem[] }) {
     return (
       <EmptyState
         title="No leads yet"
-        description="Lead capture starts with the Sprint 5 CRM backend skeleton."
+        description="New leads will appear after the live CRM API is connected."
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Lead list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Lead list">
       {leads.map((lead) => (
         <li key={lead.id}>
-          <Link className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/crm/leads/${lead.id}`}>
+          <Link className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/crm/leads/${lead.id}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-ink">{lead.name}</h3>

@@ -1,0 +1,438 @@
+/* Neural Hub Preview — Isolated CSS Module */
+/* These styles are scoped to neural-hub components only and cannot leak */
+
+/* ── Root container ─────────────────────────────────────────────────────────── */
+.root {
+  direction: rtl;
+  font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+  background: #03040f;
+  color: #c8e6ff;
+  min-height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cyber grid background */
+.root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 200, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 200, 255, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Prototype banner ────────────────────────────────────────────────────────── */
+.prototypeBanner {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(90deg, #2a1500, #3d2200, #2a1500);
+  border-bottom: 1px solid #ff9900;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #ffbb44;
+  letter-spacing: 0.08em;
+}
+
+.prototypeBanner::before {
+  content: '⚠';
+  font-size: 14px;
+}
+
+/* ── Page header ─────────────────────────────────────────────────────────────── */
+.header {
+  position: relative;
+  z-index: 2;
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid rgba(0, 200, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #00e5ff;
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.headerSub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(0, 229, 255, 0.5);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.headerDot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #00ff88;
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 255, 136, 0.35);
+  border-radius: 20px;
+  background: rgba(0, 255, 136, 0.05);
+}
+
+.headerDot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 8px #00ff88;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Main grid ───────────────────────────────────────────────────────────────── */
+.grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  padding: 20px 28px;
+}
+
+/* ── Globe panel ─────────────────────────────────────────────────────────────── */
+.globePanel {
+  grid-row: 1 / 2;
+  grid-column: 1 / 2;
+  background: rgba(0, 10, 30, 0.7);
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.globeLabel {
+  padding: 14px 18px 0;
+  font-size: 11px;
+  color: rgba(0, 200, 255, 0.6);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.globeCanvas {
+  flex: 1;
+  width: 100%;
+  height: 280px;
+  display: block;
+}
+
+.globeScanLine {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00ccff, transparent);
+  animation: scanLine 3s linear infinite;
+}
+
+/* ── Right column ────────────────────────────────────────────────────────────── */
+.rightCol {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Stat card ───────────────────────────────────────────────────────────────── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.statCard {
+  background: rgba(0, 10, 30, 0.7);
+  border: 1px solid rgba(0, 200, 255, 0.18);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.statValue {
+  font-size: 26px;
+  font-weight: 800;
+  color: #00e5ff;
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+  line-height: 1;
+}
+
+.statValue.green {
+  color: #00ff88;
+  text-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
+}
+
+.statLabel {
+  font-size: 11px;
+  color: rgba(200, 230, 255, 0.5);
+  margin-top: 4px;
+}
+
+/* ── Clients card ────────────────────────────────────────────────────────────── */
+.clientsCard {
+  background: rgba(0, 10, 30, 0.7);
+  border: 1px solid rgba(0, 200, 255, 0.18);
+  border-radius: 12px;
+  padding: 16px;
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #00ccff;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardTitle::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: #00ccff;
+  border-radius: 2px;
+}
+
+.clientRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 200, 255, 0.08);
+}
+
+.clientRow:last-child {
+  border-bottom: none;
+}
+
+.clientName {
+  font-size: 13px;
+  color: #c8e6ff;
+}
+
+.clientBadge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.clientBadge.active {
+  background: rgba(0, 255, 136, 0.12);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.clientBadge.review {
+  background: rgba(255, 153, 0, 0.12);
+  color: #ff9900;
+  border: 1px solid rgba(255, 153, 0, 0.3);
+}
+
+/* ── Bottom row ──────────────────────────────────────────────────────────────── */
+.bottomRow {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 0 28px 20px;
+}
+
+/* ── Emotion meter ───────────────────────────────────────────────────────────── */
+.emotionPanel {
+  background: rgba(0, 10, 30, 0.7);
+  border: 1px solid rgba(0, 200, 255, 0.18);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.meterWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.meterArc {
+  position: relative;
+  width: 160px;
+  height: 84px;
+  overflow: hidden;
+}
+
+.meterArc svg {
+  width: 160px;
+  height: 84px;
+}
+
+.meterValue {
+  font-size: 28px;
+  font-weight: 800;
+  color: #00ff88;
+  text-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
+}
+
+.meterLabel {
+  font-size: 11px;
+  color: rgba(200, 230, 255, 0.5);
+  letter-spacing: 0.08em;
+}
+
+/* ── Campaigns list ──────────────────────────────────────────────────────────── */
+.campaignPanel {
+  background: rgba(0, 10, 30, 0.7);
+  border: 1px solid rgba(0, 200, 255, 0.18);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.campaignRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(0, 200, 255, 0.08);
+  gap: 10px;
+}
+
+.campaignRow:last-child {
+  border-bottom: none;
+}
+
+.campaignName {
+  font-size: 12px;
+  color: #c8e6ff;
+  flex: 1;
+}
+
+.campaignReach {
+  font-size: 11px;
+  color: #00ccff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.campaignStatus {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.campaignStatus.live {
+  background: rgba(0, 255, 136, 0.12);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.campaignStatus.scheduled {
+  background: rgba(150, 100, 255, 0.12);
+  color: #aa88ff;
+  border: 1px solid rgba(150, 100, 255, 0.3);
+}
+
+/* ── Voice command bar ───────────────────────────────────────────────────────── */
+.voiceBar {
+  position: relative;
+  z-index: 2;
+  margin: 0 28px 24px;
+  background: rgba(0, 10, 30, 0.8);
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  border-radius: 12px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.voiceIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.voiceText {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(200, 230, 255, 0.75);
+  font-style: italic;
+}
+
+.voiceText strong {
+  color: #00e5ff;
+  font-style: normal;
+}
+
+.voiceWave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.voiceBar__bar {
+  width: 3px;
+  background: #00ccff;
+  border-radius: 2px;
+  animation: wave 1.2s ease-in-out infinite;
+}
+
+.voiceBar__bar:nth-child(1) { animation-delay: 0.0s; height: 8px; }
+.voiceBar__bar:nth-child(2) { animation-delay: 0.1s; height: 16px; }
+.voiceBar__bar:nth-child(3) { animation-delay: 0.2s; height: 22px; }
+.voiceBar__bar:nth-child(4) { animation-delay: 0.15s; height: 14px; }
+.voiceBar__bar:nth-child(5) { animation-delay: 0.25s; height: 20px; }
+.voiceBar__bar:nth-child(6) { animation-delay: 0.05s; height: 10px; }
+.voiceBar__bar:nth-child(7) { animation-delay: 0.3s; height: 18px; }
+.voiceBar__bar:nth-child(8) { animation-delay: 0.1s; height: 12px; }
+
+/* ── Keyframe animations ─────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@keyframes scanLine {
+  0% { transform: translateY(0); opacity: 0.7; }
+  100% { transform: translateY(-280px); opacity: 0; }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); opacity: 0.6; }
+  50% { transform: scaleY(1); opacity: 1; }
+}

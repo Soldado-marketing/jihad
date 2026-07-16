@@ -14,16 +14,16 @@ export function OpportunityList({ opportunities }: { opportunities: OpportunityL
     return (
       <EmptyState
         title="No opportunities yet"
-        description="Opportunity tracking starts with the Sprint 5 CRM backend skeleton."
+        description="Qualified opportunities will appear after the live CRM API is connected."
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Opportunity list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Opportunity list">
       {opportunities.map((opportunity) => (
         <li key={opportunity.id}>
-          <Link className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/crm/opportunities/${opportunity.id}`}>
+          <Link className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/crm/opportunities/${opportunity.id}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-ink">{opportunity.title}</h3>

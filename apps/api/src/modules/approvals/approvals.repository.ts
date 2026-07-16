@@ -1,111 +1,92 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
+import { ApprovalStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateApprovalDecisionDto } from './dto/create-approval-decision.dto';
 import { CreateApprovalRequestDto } from './dto/create-approval-request.dto';
 
-export type ApprovalStatusValue =
-  | 'DRAFT'
-  | 'REQUESTED'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'CHANGES_REQUESTED'
-  | 'CANCELED';
+type DecisionKey = CreateApprovalDecisionDto['decision'];
 
-export type ApprovalRequestRecord = {
-  id: string;
-  tenantId: string;
-  fileAssetId?: string;
-  fileVersionId?: string;
-  title: string;
-  status: ApprovalStatusValue;
-  requestedByUserId?: string;
-  clientVisible: boolean;
-  clientScopeKey?: string;
-  dueAt?: string;
-  sourceType: 'sprint-6-placeholder';
-};
-
-export type ApprovalDecisionRecord = {
-  id: string;
-  tenantId: string;
-  approvalRequestId: string;
-  decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'CANCEL';
-  note?: string;
-  decidedByUserId?: string;
-  sourceType: 'sprint-6-placeholder';
+const DECISION_TO_STATUS: Record<DecisionKey, ApprovalStatus> = {
+  APPROVE: ApprovalStatus.APPROVED,
+  REJECT: ApprovalStatus.REJECTED,
+  REQUEST_CHANGES: ApprovalStatus.CHANGES_REQUESTED,
+  CANCEL: ApprovalStatus.CANCELED,
 };
 
 @Injectable()
-export class ApprovalsRepository extends TenantAwareRepository {
-  list(context: TenantContext): ApprovalRequestRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class ApprovalsRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [this.placeholderApproval(tenant.tenantId)];
+  list(tenantId: string) {
+    return this.prisma.approvalRequest.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, title: true, status: true, dueAt: true, createdAt: true, updatedAt: true,
+        requestedByUserId: true,
+        fileAsset: { select: { id: true, name: true } },
+        decisions: { select: { id: true, decision: true, createdAt: true } },
+      },
+    });
   }
 
-  create(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    dto: CreateApprovalRequestDto,
-  ): ApprovalRequestRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      clientScopeKey: dto.clientScopeKey,
-      clientVisible: Boolean(dto.clientScopeKey),
-      dueAt: dto.dueAt,
-      fileAssetId: dto.fileAssetId,
-      fileVersionId: dto.fileVersionId,
-      id: randomUUID(),
-      requestedByUserId: actor?.actorId,
-      sourceType: 'sprint-6-placeholder',
-      status: 'REQUESTED',
-      tenantId: tenant.tenantId,
-      title: dto.title,
-    };
+  create(tenantId: string, actorId: string, dto: CreateApprovalRequestDto) {
+    return this.prisma.approvalRequest.create({
+      data: {
+        tenantId,
+        title: dto.title,
+        requestedByUserId: actorId,
+        fileAssetId: dto.fileAssetId,
+        fileVersionId: dto.fileVersionId,
+        clientScopeKey: dto.clientScopeKey,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
+      },
+    });
   }
 
-  getById(context: TenantContext, id: string): ApprovalRequestRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      ...this.placeholderApproval(tenant.tenantId),
-      id,
-    };
+  getById(tenantId: string, id: string) {
+    return this.prisma.approvalRequest.findFirst({
+      where: { id, tenantId },
+      include: {
+        fileAsset: { select: { id: true, name: true } },
+        decisions: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
   }
 
   createDecision(
-    context: TenantContext,
-    actor: ActorContext | undefined,
+    tenantId: string,
+    actorId: string,
     approvalRequestId: string,
     dto: CreateApprovalDecisionDto,
-  ): ApprovalDecisionRecord {
-    const tenant = this.requireTenantContext(context);
+  ) {
+    const newStatus = DECISION_TO_STATUS[dto.decision];
+    return this.prisma.$transaction(async (tx) => {
+      const decision = await tx.approvalDecision.create({
+        data: {
+          tenantId,
+          approvalRequestId,
+          decision: dto.decision,
+          note: dto.note,
+          decidedByUserId: actorId,
+        },
+      });
 
-    return {
-      approvalRequestId,
-      decidedByUserId: actor?.actorId,
-      decision: dto.decision,
-      id: randomUUID(),
-      note: dto.note,
-      sourceType: 'sprint-6-placeholder',
-      tenantId: tenant.tenantId,
-    };
+      await tx.approvalRequest.update({
+        where: { id: approvalRequestId, tenantId },
+        data: { status: newStatus },
+      });
+
+      return decision;
+    });
   }
 
-  private placeholderApproval(tenantId: string): ApprovalRequestRecord {
-    return {
-      clientVisible: false,
-      fileAssetId: 'sprint-6-file-placeholder',
-      fileVersionId: 'sprint-6-file-version-placeholder',
-      id: 'sprint-6-approval-placeholder',
-      sourceType: 'sprint-6-placeholder',
-      status: 'REQUESTED',
-      tenantId,
-      title: 'Sprint 6 Approval Placeholder',
-    };
+  updateStatus(tenantId: string, id: string, status: ApprovalStatus) {
+    return this.prisma.approvalRequest.update({
+      where: { id, tenantId },
+      data: { status },
+    });
   }
 }

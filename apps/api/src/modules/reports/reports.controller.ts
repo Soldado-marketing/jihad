@@ -1,56 +1,32 @@
-import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
-import {
-  actorContextFromHeaders,
-  RequestHeaders,
-  tenantContextFromHeaders,
-} from '../../common/http/request-context';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
-import { CreateReportDefinitionDto } from './dto/create-report-definition.dto';
 import { ReportsService } from './reports.service';
 
 @Controller('reports')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(private readonly svc: ReportsService) {}
 
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.REPORT })
-  listReports(@Headers() headers: RequestHeaders) {
-    return this.reportsService.listReports(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-    );
-  }
+  list(@CurrentUser() user: JwtPayload) { return this.svc.list(user.tenantId); }
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.REPORT })
-  createReport(@Headers() headers: RequestHeaders, @Body() dto: CreateReportDefinitionDto) {
-    return this.reportsService.createReport(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      dto,
-    );
+  create(@CurrentUser() user: JwtPayload, @Body() dto: { name: string }) {
+    return this.svc.create(user.tenantId, user.sub, dto.name);
   }
 
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.REPORT })
-  getReport(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.reportsService.getReport(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-    );
-  }
+  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.get(user.tenantId, id); }
 
   @Post(':id/run')
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.REPORT_RUN })
-  runReport(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.reportsService.runReport(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-    );
-  }
+  run(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.run(user.tenantId, id, user.sub); }
 }

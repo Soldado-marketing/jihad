@@ -15,7 +15,11 @@ enum TenantStatus {
 
 enum UserStatus {
   INVITED
+  PENDING_APPROVAL
+  APPROVED
   ACTIVE
+  REJECTED
+  SUSPENDED
   DISABLED
   ARCHIVED
 }
@@ -24,6 +28,7 @@ enum MembershipRole {
   OWNER
   MANAGER
   EMPLOYEE
+  CONTRACTOR
   CLIENT
 }
 
@@ -218,6 +223,20 @@ enum ReportVisibility {
   CLIENT_SAFE
 }
 
+enum VisibilityScope {
+  TENANT_WIDE
+  WORKSPACE_LEVEL
+  PROJECT_LEVEL
+  CLIENT_LEVEL
+  ASSIGNED_ITEMS_ONLY
+}
+
+enum RegistrationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Tenant {
   id          String             @id @default(cuid())
   name        String
@@ -261,6 +280,9 @@ model Tenant {
   reportDefinitions ReportDefinition[]
   reportRuns ReportRun[]
   dashboardWidgets DashboardWidget[]
+  registrationRequests RegistrationRequest[]
+  labels               Label[]
+  taskLabels           TaskLabel[]
 
   @@index([status])
 }
@@ -269,6 +291,7 @@ model User {
   id             String             @id @default(cuid())
   email          String             @unique
   displayName    String?
+  passwordHash   String?
   status         UserStatus          @default(INVITED)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -290,20 +313,25 @@ model User {
   notifications Notification[]      @relation("NotificationRecipient")
   voiceNotes VoiceNote[]            @relation("VoiceNoteCreator")
   voiceToTaskDrafts VoiceToTaskDraft[] @relation("VoiceToTaskDraftCreator")
+  createdFileAssets FileAsset[]       @relation("FileAssetCreator")
+  registrationRequests RegistrationRequest[]
+  reviewedRegistrations RegistrationRequest[] @relation("RegistrationReviewer")
 
   @@index([status])
 }
 
 model TenantMembership {
-  id        String           @id @default(cuid())
-  tenantId  String
-  userId    String
-  role      MembershipRole
-  status    MembershipStatus @default(ACTIVE)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  tenantId        String
+  userId          String
+  role            MembershipRole
+  status          MembershipStatus @default(ACTIVE)
+  visibilityScope VisibilityScope  @default(TENANT_WIDE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions     MembershipPermission[]
 
   @@unique([tenantId, userId])
   @@index([tenantId, role])
@@ -441,6 +469,9 @@ model Project {
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   members     ProjectMember[]
   tasks       Task[]
+  fileAssets  FileAsset[]    @relation("FileAssetProject")
+  voiceNotes  VoiceNote[]    @relation("VoiceNoteProject")
+  invoices    Invoice[]      @relation("InvoiceProject")
 
   @@index([tenantId, status])
   @@index([tenantId, clientVisible])
@@ -473,6 +504,7 @@ model Task {
   description      String?
   status           TaskStatus   @default(TODO)
   priority         TaskPriority @default(MEDIUM)
+  sortOrder        Float?
   assignedToUserId String?
   clientVisible    Boolean      @default(false)
   clientScopeKey   String?
@@ -483,6 +515,9 @@ model Task {
   project          Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignedTo       User?        @relation("AssignedTasks", fields: [assignedToUserId], references: [id])
   subtasks         Subtask[]
+  fileAssets       FileAsset[]  @relation("FileAssetTask")
+  voiceNotes       VoiceNote[]  @relation("VoiceNoteTask")
+  labels           TaskLabel[]
 
   @@index([tenantId, status])
   @@index([tenantId, priority])
@@ -490,6 +525,7 @@ model Task {
   @@index([tenantId, assignedToUserId])
   @@index([tenantId, clientVisible])
   @@index([tenantId, clientScopeKey])
+  @@index([tenantId, sortOrder])
 }
 
 model Subtask {
@@ -498,6 +534,7 @@ model Subtask {
   taskId           String
   title            String
   status           TaskStatus @default(TODO)
+  sortOrder        Float?
   assignedToUserId String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -653,6 +690,9 @@ model FileAsset {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project       Project?       @relation("FileAssetProject", fields: [projectId], references: [id], onDelete: SetNull)
+  task          Task?          @relation("FileAssetTask", fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("FileAssetCreator", fields: [createdByUserId], references: [id])
   versions      FileVersion[]
   shares        FileShare[]
   approvalRequests ApprovalRequest[]
@@ -846,6 +886,8 @@ model VoiceNote {
   updatedAt       DateTime        @updatedAt
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy       User?           @relation("VoiceNoteCreator", fields: [createdByUserId], references: [id])
+  project         Project?        @relation("VoiceNoteProject", fields: [projectId], references: [id], onDelete: SetNull)
+  task            Task?           @relation("VoiceNoteTask", fields: [taskId], references: [id], onDelete: SetNull)
   transcripts     VoiceTranscript[]
   taskDrafts      VoiceToTaskDraft[]
 
@@ -962,6 +1004,7 @@ model Invoice {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project         Project?      @relation("InvoiceProject", fields: [projectId], references: [id], onDelete: SetNull)
   lines           InvoiceLine[]
   payments        Payment[]
 
@@ -1062,4 +1105,68 @@ model DashboardWidget {
 
   @@unique([tenantId, widgetKey])
   @@index([tenantId, visibility])
+}
+
+model MembershipPermission {
+  id           String           @id @default(cuid())
+  membershipId String
+  action       String
+  resource     String
+  granted      Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, action, resource])
+  @@index([membershipId])
+}
+
+model RegistrationRequest {
+  id                String                    @id @default(cuid())
+  userId            String
+  tenantId          String
+  fullName          String
+  phone             String?
+  companyName       String?
+  requestedRole     String
+  status            RegistrationRequestStatus @default(PENDING)
+  adminNote         String?
+  rejectionReason   String?
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviewedBy        User?                     @relation("RegistrationReviewer", fields: [reviewedByUserId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Label {
+  id        String      @id @default(cuid())
+  tenantId  String
+  name      String
+  color     String      @default("#94a3b8")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tasks     TaskLabel[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model TaskLabel {
+  taskId    String
+  labelId   String
+  tenantId  String
+  task      Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label     Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, labelId])
+  @@index([tenantId, taskId])
+  @@index([tenantId, labelId])
 }

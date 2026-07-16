@@ -1,78 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
-
-export type NotificationStatusValue = 'UNREAD' | 'READ' | 'ARCHIVED';
-
-export type NotificationRecord = {
-  id: string;
-  tenantId: string;
-  recipientUserId?: string;
-  title: string;
-  body?: string;
-  status: NotificationStatusValue;
-  resourceType?: string;
-  resourceId?: string;
-  readAt?: string;
-  sourceType: 'sprint-7-placeholder';
-};
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class NotificationsRepository extends TenantAwareRepository {
-  list(context: TenantContext, actor: ActorContext | undefined): NotificationRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class NotificationsRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [
-      {
-        body: 'Sprint 7 notification placeholder',
-        id: 'sprint-7-notification-placeholder',
-        recipientUserId: actor?.actorId,
-        resourceId: 'sprint-7-chat-message-placeholder',
-        resourceType: 'chat-message',
-        sourceType: 'sprint-7-placeholder',
-        status: 'UNREAD',
-        tenantId: tenant.tenantId,
-        title: 'New internal message',
+  list(tenantId: string, userId: string) {
+    return this.prisma.notification.findMany({
+      where: { tenantId, recipientUserId: userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true, title: true, body: true, status: true,
+        resourceType: true, resourceId: true, createdAt: true, readAt: true,
       },
-    ];
+    });
   }
 
-  createPlaceholder(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    input: { title: string; resourceType?: string; resourceId?: string },
-  ): NotificationRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      id: randomUUID(),
-      recipientUserId: actor?.actorId,
-      resourceId: input.resourceId,
-      resourceType: input.resourceType,
-      sourceType: 'sprint-7-placeholder',
-      status: 'UNREAD',
-      tenantId: tenant.tenantId,
-      title: input.title,
-    };
+  markRead(tenantId: string, userId: string, id: string) {
+    return this.prisma.notification.updateMany({
+      where: { id, tenantId, recipientUserId: userId },
+      data: { status: 'READ', readAt: new Date() },
+    });
   }
 
-  markRead(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-  ): NotificationRecord {
-    const tenant = this.requireTenantContext(context);
+  markAllRead(tenantId: string, userId: string) {
+    return this.prisma.notification.updateMany({
+      where: { tenantId, recipientUserId: userId, status: 'UNREAD' },
+      data: { status: 'READ', readAt: new Date() },
+    });
+  }
 
-    return {
-      id,
-      readAt: new Date().toISOString(),
-      recipientUserId: actor?.actorId,
-      sourceType: 'sprint-7-placeholder',
-      status: 'READ',
-      tenantId: tenant.tenantId,
-      title: 'New internal message',
-    };
+  countUnread(tenantId: string, userId: string) {
+    return this.prisma.notification.count({
+      where: { tenantId, recipientUserId: userId, status: 'UNREAD' },
+    });
   }
 }

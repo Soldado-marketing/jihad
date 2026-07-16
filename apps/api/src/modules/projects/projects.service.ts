@@ -1,85 +1,33 @@
-import { Injectable } from '@nestjs/common';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
-import { AuditService } from '../audit/audit.service';
-import { ResourceScopeService } from '../permissions/resource-scope.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsRepository } from './projects.repository';
 
 @Injectable()
 export class ProjectsService {
-  constructor(
-    private readonly projectsRepository: ProjectsRepository,
-    private readonly resourceScopeService: ResourceScopeService,
-    private readonly auditService: AuditService,
-  ) {}
+  constructor(private readonly projectsRepository: ProjectsRepository) {}
 
-  listProjects(context: TenantContext) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
-
-    return this.projectsRepository.list(context);
+  listProjects(tenantId: string) {
+    return this.projectsRepository.list(tenantId);
   }
 
-  createProject(context: TenantContext, actor: ActorContext | undefined, dto: CreateProjectDto) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const project = this.projectsRepository.create(context, actor, dto);
-    const auditEvent = this.auditService.createAuditEventPlaceholder({
-      action: 'project.created',
-      actorId: actor?.actorId,
-      actorRole: actor?.role,
-      deviceId: actor?.deviceId,
-      outcome: AuditOutcome.SUCCESS,
-      permissionResult: AuditPermissionResult.ALLOWED,
-      resourceId: project.id,
-      resourceType: 'project',
-      sessionId: actor?.sessionId,
-      tenantId: context.tenantId,
-      payload: { project },
-    });
-
-    return { project, auditEvent };
+  createProject(tenantId: string, actorId: string, dto: CreateProjectDto) {
+    return this.projectsRepository.create(tenantId, actorId, dto);
   }
 
-  getProject(context: TenantContext, id: string) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
-
-    return this.projectsRepository.getById(context, id);
+  async getProject(tenantId: string, id: string) {
+    const project = await this.projectsRepository.getById(tenantId, id);
+    if (!project) throw new NotFoundException('Project not found');
+    return project;
   }
 
-  updateProject(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-    dto: UpdateProjectDto,
-  ) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
+  async updateProject(tenantId: string, _actorId: string, id: string, dto: UpdateProjectDto) {
+    await this.getProject(tenantId, id);
+    return this.projectsRepository.update(tenantId, id, dto);
+  }
 
-    const project = this.projectsRepository.update(context, actor, id, dto);
-    const auditEvent = this.auditService.createAuditEventPlaceholder({
-      action: 'project.updated',
-      actorId: actor?.actorId,
-      actorRole: actor?.role,
-      deviceId: actor?.deviceId,
-      outcome: AuditOutcome.SUCCESS,
-      permissionResult: AuditPermissionResult.ALLOWED,
-      resourceId: project.id,
-      resourceType: 'project',
-      sessionId: actor?.sessionId,
-      tenantId: context.tenantId,
-      payload: { project },
-    });
-
-    return { project, auditEvent };
+  async deleteProject(tenantId: string, id: string) {
+    await this.getProject(tenantId, id);
+    return this.projectsRepository.delete(tenantId, id);
   }
 }

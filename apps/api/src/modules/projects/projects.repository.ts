@@ -1,83 +1,64 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
-export type ProjectRecord = {
-  id: string;
-  tenantId: string;
-  name: string;
-  description?: string;
-  status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
-  actorId?: string;
-  source: 'sprint-3-placeholder';
-};
-
 @Injectable()
-export class ProjectsRepository extends TenantAwareRepository {
-  list(context: TenantContext): ProjectRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class ProjectsRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [
-      {
-        id: 'sprint-3-project-placeholder',
-        name: 'Sprint 3 Project Placeholder',
-        source: 'sprint-3-placeholder',
-        status: 'ACTIVE',
-        tenantId: tenant.tenantId,
+  list(tenantId: string) {
+    return this.prisma.project.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { tasks: true } },
       },
-    ];
+    });
   }
 
-  create(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    dto: CreateProjectDto,
-  ): ProjectRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      description: dto.description,
-      id: randomUUID(),
-      name: dto.name,
-      source: 'sprint-3-placeholder',
-      status: 'ACTIVE',
-      tenantId: tenant.tenantId,
-      actorId: actor?.actorId,
-    };
+  create(tenantId: string, actorId: string, dto: CreateProjectDto) {
+    return this.prisma.project.create({
+      data: {
+        tenantId,
+        name: dto.name,
+        description: dto.description,
+      },
+    });
   }
 
-  getById(context: TenantContext, id: string): ProjectRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      id,
-      name: 'Sprint 3 Project Placeholder',
-      source: 'sprint-3-placeholder',
-      status: 'ACTIVE',
-      tenantId: tenant.tenantId,
-    };
+  getById(tenantId: string, id: string) {
+    return this.prisma.project.findFirst({
+      where: { id, tenantId },
+      include: {
+        tasks: {
+          select: { id: true, title: true, status: true, priority: true, dueAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        _count: { select: { tasks: true } },
+      },
+    });
   }
 
-  update(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-    dto: UpdateProjectDto,
-  ): ProjectRecord {
-    const tenant = this.requireTenantContext(context);
+  update(tenantId: string, id: string, dto: UpdateProjectDto) {
+    return this.prisma.project.update({
+      where: { id, tenantId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.status !== undefined && { status: dto.status }),
+      },
+    });
+  }
 
-    return {
-      description: dto.description,
-      id,
-      name: dto.name ?? 'Sprint 3 Project Placeholder',
-      source: 'sprint-3-placeholder',
-      status: dto.status ?? 'ACTIVE',
-      tenantId: tenant.tenantId,
-      actorId: actor?.actorId,
-    };
+  delete(tenantId: string, id: string) {
+    return this.prisma.project.delete({ where: { id, tenantId } });
   }
 }

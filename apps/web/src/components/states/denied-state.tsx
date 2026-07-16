@@ -10,7 +10,7 @@ export function DeniedState({
   return (
     <section
       aria-labelledby="denied-state-title"
-      className="rounded-md border border-line bg-panel p-6 shadow-shell"
+      className="rounded-2xl border border-line bg-panel p-6 shadow-card"
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-danger">
         Permission required

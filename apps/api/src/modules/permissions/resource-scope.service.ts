@@ -46,9 +46,10 @@ export class ResourceScopeService {
       [MembershipRole.OWNER]: 'owner_baseline_allow',
       [MembershipRole.MANAGER]: 'manager_assigned_scope_not_implemented',
       [MembershipRole.EMPLOYEE]: 'employee_own_assigned_scope_not_implemented',
+      [MembershipRole.CONTRACTOR]: 'contractor_assigned_scope_not_implemented',
       [MembershipRole.CLIENT]: 'client_own_scope_not_implemented',
     };
 
-    return reasons[role];
+    return reasons[role] ?? 'unknown_role_scope_not_implemented';
   }
 }

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AiProviderModule } from './modules/ai-provider/ai-provider.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -33,9 +34,14 @@ import { UsersModule } from './modules/users/users.module';
 import { TranscriptionModule } from './modules/transcription/transcription.module';
 import { VoiceNotesModule } from './modules/voice-notes/voice-notes.module';
 import { VoiceToTaskModule } from './modules/voice-to-task/voice-to-task.module';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { LabelsModule } from './modules/labels/labels.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    MailModule,
     PrismaModule,
     TenantContextModule,
     TenantsModule,
@@ -69,6 +75,8 @@ import { VoiceToTaskModule } from './modules/voice-to-task/voice-to-task.module'
     PaymentsModule,
     DashboardsModule,
     ReportsModule,
+    AdminUsersModule,
+    LabelsModule,
   ],
   controllers: [HealthController],
 })

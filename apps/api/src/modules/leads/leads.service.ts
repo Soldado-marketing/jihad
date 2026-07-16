@@ -1,84 +1,33 @@
-import { Injectable } from '@nestjs/common';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { AuditService } from '../audit/audit.service';
-import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
-import { ResourceScopeService } from '../permissions/resource-scope.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { CrmPipelineStatus } from '@prisma/client';
 import { CreateLeadDto } from './dto/create-lead.dto';
-import { UpdateLeadDto } from './dto/update-lead.dto';
-import { LeadRecord, LeadsRepository } from './leads.repository';
+import { LeadsRepository } from './leads.repository';
 
 @Injectable()
 export class LeadsService {
-  constructor(
-    private readonly leadsRepository: LeadsRepository,
-    private readonly resourceScopeService: ResourceScopeService,
-    private readonly auditService: AuditService,
-  ) {}
+  constructor(private readonly leadsRepository: LeadsRepository) {}
 
-  listLeads(context: TenantContext) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
-
-    return this.leadsRepository.list(context);
+  listLeads(tenantId: string) {
+    return this.leadsRepository.list(tenantId);
   }
 
-  createLead(context: TenantContext, actor: ActorContext | undefined, dto: CreateLeadDto) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const lead = this.leadsRepository.create(context, actor, dto);
-    return {
-      lead,
-      auditEvent: this.recordAudit(context, actor, lead, 'lead.created'),
-    };
+  createLead(tenantId: string, actorId: string, dto: CreateLeadDto) {
+    return this.leadsRepository.create(tenantId, actorId, dto);
   }
 
-  getLead(context: TenantContext, id: string) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
-
-    return this.leadsRepository.getById(context, id);
+  async getLead(tenantId: string, id: string) {
+    const lead = await this.leadsRepository.getById(tenantId, id);
+    if (!lead) throw new NotFoundException('Lead not found');
+    return lead;
   }
 
-  updateLead(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-    dto: UpdateLeadDto,
-  ) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const lead = this.leadsRepository.update(context, actor, id, dto);
-    return {
-      lead,
-      auditEvent: this.recordAudit(context, actor, lead, 'lead.updated'),
-    };
+  async updateLead(tenantId: string, id: string, dto: Partial<CreateLeadDto> & { status?: CrmPipelineStatus }) {
+    await this.getLead(tenantId, id);
+    return this.leadsRepository.update(tenantId, id, dto);
   }
 
-  private recordAudit(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    lead: LeadRecord,
-    action: 'lead.created' | 'lead.updated',
-  ) {
-    return this.auditService.createAuditEventPlaceholder({
-      action,
-      actorId: actor?.actorId,
-      actorRole: actor?.role,
-      deviceId: actor?.deviceId,
-      outcome: AuditOutcome.SUCCESS,
-      permissionResult: AuditPermissionResult.ALLOWED,
-      resourceId: lead.id,
-      resourceType: 'lead',
-      sessionId: actor?.sessionId,
-      tenantId: context.tenantId,
-      payload: { lead },
-    });
+  async deleteLead(tenantId: string, id: string) {
+    await this.getLead(tenantId, id);
+    return this.leadsRepository.delete(tenantId, id);
   }
 }

@@ -1,26 +1,46 @@
-import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
-import { ClientPaymentList, type ClientPaymentListItem } from '@/components/finance/client-payment-list';
+'use client';
 
-const clientPayments: ClientPaymentListItem[] = [
-  {
-    amount: '€1,250.00',
-    id: 'sprint-9-payment-placeholder',
-    invoiceNumber: 'INV-S9-001',
-    status: 'PARTIAL',
-  },
-];
+import { useEffect, useState } from 'react';
+import { ClientPaymentList, type ClientPaymentListItem } from '@/components/finance/client-payment-list';
+import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
+import { PageHeader } from '@/components/ui/page-header';
+import { apiFetch } from '@/lib/fetch';
+
+type RawPayment = { id: string; amountCents: number; status: string; invoice?: { invoiceNumber: string } };
+
+function toListItem(r: RawPayment): ClientPaymentListItem {
+  return {
+    id: r.id,
+    invoiceNumber: r.invoice?.invoiceNumber ?? '—',
+    amount: `€${(r.amountCents / 100).toFixed(2)}`,
+    status: r.status as ClientPaymentListItem['status'],
+  };
+}
 
 export default function ClientPaymentsPage() {
+  const [payments, setPayments] = useState<ClientPaymentListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<RawPayment[]>('/client/payments')
+      .then((data) => setPayments(data.map(toListItem)))
+      .catch(() => setPayments([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="grid gap-6">
-      <section aria-labelledby="client-payments-title">
-        <p className="text-sm font-medium text-slate-600">Sprint 9</p>
-        <h2 id="client-payments-title" className="mt-2 text-3xl font-semibold text-ink">
-          Payments
-        </h2>
-      </section>
+      <PageHeader
+        eyebrow="Client finance view"
+        title="Payments"
+        description="Payment summaries for invoices linked to your account."
+      />
       <ClientSafeNotice />
-      <ClientPaymentList payments={clientPayments} />
+      {loading ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : (
+        <ClientPaymentList payments={payments} />
+      )}
     </div>
   );
 }

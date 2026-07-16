@@ -1,88 +1,28 @@
-import { Injectable } from '@nestjs/common';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { AuditService } from '../audit/audit.service';
-import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
-import { ResourceScopeService } from '../permissions/resource-scope.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { CrmPipelineStatus } from '@prisma/client';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
-import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
-import { OpportunitiesRepository, OpportunityRecord } from './opportunities.repository';
+import { OpportunitiesRepository } from './opportunities.repository';
 
 @Injectable()
 export class OpportunitiesService {
-  constructor(
-    private readonly opportunitiesRepository: OpportunitiesRepository,
-    private readonly resourceScopeService: ResourceScopeService,
-    private readonly auditService: AuditService,
-  ) {}
+  constructor(private readonly repo: OpportunitiesRepository) {}
 
-  listOpportunities(context: TenantContext) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
+  list(tenantId: string) { return this.repo.list(tenantId); }
+  create(tenantId: string, actorId: string, dto: CreateOpportunityDto) { return this.repo.create(tenantId, actorId, dto); }
 
-    return this.opportunitiesRepository.list(context);
+  async get(tenantId: string, id: string) {
+    const item = await this.repo.getById(tenantId, id);
+    if (!item) throw new NotFoundException('Opportunity not found');
+    return item;
   }
 
-  createOpportunity(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    dto: CreateOpportunityDto,
-  ) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const opportunity = this.opportunitiesRepository.create(context, actor, dto);
-    return {
-      opportunity,
-      auditEvent: this.recordAudit(context, actor, opportunity, 'opportunity.created'),
-    };
+  async update(tenantId: string, id: string, dto: Partial<CreateOpportunityDto> & { status?: CrmPipelineStatus }) {
+    await this.get(tenantId, id);
+    return this.repo.update(tenantId, id, dto);
   }
 
-  getOpportunity(context: TenantContext, id: string) {
-    this.resourceScopeService.validateTenantOwnership(context, {
-      resourceTenantId: context.tenantId,
-    });
-
-    return this.opportunitiesRepository.getById(context, id);
-  }
-
-  updateOpportunity(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-    dto: UpdateOpportunityDto,
-  ) {
-    if (actor) {
-      this.resourceScopeService.validateActorScope(actor, { resourceTenantId: context.tenantId });
-    }
-
-    const opportunity = this.opportunitiesRepository.update(context, actor, id, dto);
-    return {
-      opportunity,
-      auditEvent: this.recordAudit(context, actor, opportunity, 'opportunity.updated'),
-    };
-  }
-
-  private recordAudit(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    opportunity: OpportunityRecord,
-    action: 'opportunity.created' | 'opportunity.updated',
-  ) {
-    return this.auditService.createAuditEventPlaceholder({
-      action,
-      actorId: actor?.actorId,
-      actorRole: actor?.role,
-      deviceId: actor?.deviceId,
-      outcome: AuditOutcome.SUCCESS,
-      permissionResult: AuditPermissionResult.ALLOWED,
-      resourceId: opportunity.id,
-      resourceType: 'opportunity',
-      sessionId: actor?.sessionId,
-      tenantId: context.tenantId,
-      payload: { opportunity },
-    });
+  async delete(tenantId: string, id: string) {
+    await this.get(tenantId, id);
+    return this.repo.delete(tenantId, id);
   }
 }

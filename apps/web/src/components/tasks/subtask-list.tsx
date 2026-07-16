@@ -16,15 +16,15 @@ export function SubtaskList({ subtasks }: SubtaskListProps) {
     return (
       <EmptyState
         title="No subtasks yet"
-        description="Subtask CRUD skeletons exist in the API baseline and can be connected in later UI work."
+        description="Break work into smaller checklist items after live task persistence is connected."
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Subtask list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Subtask list">
       {subtasks.map((subtask) => (
-        <li key={subtask.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <li key={subtask.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
           <span className="text-sm font-medium text-ink">{subtask.title}</span>
           <StatusBadge status={subtask.status} />
         </li>

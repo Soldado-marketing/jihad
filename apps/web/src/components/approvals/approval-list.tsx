@@ -13,16 +13,16 @@ export function ApprovalList({ approvals }: { approvals: ApprovalListItem[] }) {
     return (
       <EmptyState
         title="No approval requests yet"
-        description="Sprint 6 reserves the approval request and decision foundation."
+        description="Create approval requests once the live API and database are connected."
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Approval list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Approval list">
       {approvals.map((approval) => (
         <li key={approval.id}>
-          <Link className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/approvals/${approval.id}`}>
+          <Link className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50" href={`/approvals/${approval.id}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="font-semibold text-ink">{approval.title}</span>
               <ApprovalStatusBadge status={approval.status} />

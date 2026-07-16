@@ -11,15 +11,15 @@ export function FollowUpList({ followUps }: { followUps: FollowUpListItem[] }) {
     return (
       <EmptyState
         title="No follow-ups yet"
-        description="Follow-up tracking starts as a Sprint 5 CRM foundation."
+        description="Follow-ups will appear after live CRM persistence is connected."
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Follow-up list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Follow-up list">
       {followUps.map((followUp) => (
-        <li key={followUp.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <li key={followUp.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
           <span className="font-semibold text-ink">{followUp.title}</span>
           <span className="text-sm text-slate-600">{followUp.status}</span>
         </li>

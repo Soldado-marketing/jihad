@@ -45,15 +45,15 @@ export function ClientFileRecordPanel({ files }: ClientFileRecordPanelProps) {
 
   return (
     <section aria-labelledby="client-file-record-title" className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-      <div className="rounded-md border border-line bg-panel p-5 shadow-card">
-        <p className="text-sm font-semibold uppercase tracking-wide text-accent">
+      <div className="rounded-2xl border border-line bg-panel p-5 shadow-card">
+        <p className="text-sm font-bold uppercase tracking-wide text-accent">
           Client file record
         </p>
         <h3 id="client-file-record-title" className="mt-2 text-xl font-semibold tracking-tight text-ink">
           Create a client-visible file
         </h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          This creates a preview record only. Real binary storage and signed URLs start
+          This creates a browser-only preview record. Real binary storage and signed URLs start
           after staging storage is connected.
         </p>
 
@@ -61,7 +61,7 @@ export function ClientFileRecordPanel({ files }: ClientFileRecordPanelProps) {
           <label className="block">
             <span className="text-sm font-semibold text-ink">File name</span>
             <input
-              className="mt-2 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-focus"
+              className="mt-2 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-focus"
               onChange={(event) => setName(event.target.value)}
               placeholder="Client campaign brief"
               type="text"
@@ -72,7 +72,7 @@ export function ClientFileRecordPanel({ files }: ClientFileRecordPanelProps) {
           <label className="block">
             <span className="text-sm font-semibold text-ink">Visibility</span>
             <select
-              className="mt-2 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-focus"
+              className="mt-2 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink shadow-sm focus:border-focus"
               onChange={(event) => setVisibility(event.target.value as FileVisibility)}
               value={visibility}
             >
@@ -82,7 +82,7 @@ export function ClientFileRecordPanel({ files }: ClientFileRecordPanelProps) {
           </label>
 
           <button
-            className="w-full rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:bg-slate-800"
+            className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-white shadow-lift hover:bg-slate-800 focus-visible:bg-slate-800"
             onClick={createRecord}
             type="button"
           >
@@ -91,7 +91,7 @@ export function ClientFileRecordPanel({ files }: ClientFileRecordPanelProps) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-md border border-line bg-panel shadow-card">
+      <div className="overflow-hidden rounded-2xl border border-line bg-panel shadow-card">
         <div className="border-b border-line px-4 py-3">
           <h3 className="font-semibold text-ink">File records</h3>
           <p className="mt-1 text-sm text-slate-600">

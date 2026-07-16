@@ -1,71 +1,26 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import {
-  actorContextFromHeaders,
-  RequestHeaders,
-  tenantContextFromHeaders,
-} from '../../common/http/request-context';
-import { RequirePermission } from '../permissions/permission.decorator';
-import { PermissionGuard } from '../permissions/permission.guard';
-import { PermissionAction, PermissionResource } from '../permissions/permission.types';
-import { CreateVoiceNoteDto } from './dto/create-voice-note.dto';
-import { UpdateVoiceNoteDto } from './dto/update-voice-note.dto';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { JwtPayload } from '../auth/auth.service';
 import { VoiceNotesService } from './voice-notes.service';
 
 @Controller('voice-notes')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard)
 export class VoiceNotesController {
-  constructor(private readonly voiceNotesService: VoiceNotesService) {}
+  constructor(private readonly svc: VoiceNotesService) {}
 
   @Get()
-  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.VOICE_NOTE })
-  listVoiceNotes(@Headers() headers: RequestHeaders) {
-    return this.voiceNotesService.listVoiceNotes(tenantContextFromHeaders(headers));
-  }
+  list(@CurrentUser() user: JwtPayload) { return this.svc.list(user.tenantId); }
 
   @Post()
-  @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.VOICE_NOTE })
-  createVoiceNote(@Headers() headers: RequestHeaders, @Body() dto: CreateVoiceNoteDto) {
-    return this.voiceNotesService.createVoiceNote(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      dto,
-    );
+  create(@CurrentUser() user: JwtPayload, @Body() dto: { title: string; projectId?: string; taskId?: string }) {
+    return this.svc.create(user.tenantId, user.sub, dto.title, dto.projectId, dto.taskId);
   }
 
   @Get(':id')
-  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.VOICE_NOTE })
-  getVoiceNote(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.voiceNotesService.getVoiceNote(tenantContextFromHeaders(headers), id);
-  }
+  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.get(user.tenantId, id); }
 
-  @Patch(':id')
-  @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.VOICE_NOTE })
-  updateVoiceNote(
-    @Headers() headers: RequestHeaders,
-    @Param('id') id: string,
-    @Body() dto: UpdateVoiceNoteDto,
-  ) {
-    return this.voiceNotesService.updateVoiceNote(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-      dto,
-    );
-  }
-
-  @Post(':id/transcribe')
-  @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.VOICE_TRANSCRIPT })
-  requestTranscription(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.voiceNotesService.requestTranscription(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-    );
-  }
-
-  @Get(':id/transcript')
-  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.VOICE_TRANSCRIPT })
-  getTranscript(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.voiceNotesService.getTranscript(tenantContextFromHeaders(headers), id);
-  }
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.delete(user.tenantId, id); }
 }

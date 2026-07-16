@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'MAOS MVP Workspace',
-  description: 'Sprint 2 workspace shell and navigation foundation for MAOS.',
+  title: 'Soldado Platform',
+  description: 'Soldado Marketing and Operations Platform',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -11,15 +11,15 @@ export type ClientInvoiceListItem = {
 
 export function ClientInvoiceList({ invoices }: { invoices: ClientInvoiceListItem[] }) {
   if (invoices.length === 0) {
-    return <EmptyState title="No invoices" description="Client-visible invoices appear here." />;
+    return <EmptyState title="No invoices yet" description="Client-visible invoices will appear after finance persistence is connected." />;
   }
 
   return (
-    <ul className="divide-y divide-line rounded-md border border-line bg-panel" aria-label="Client invoice list">
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-lift" aria-label="Client invoice list">
       {invoices.map((invoice) => (
         <li key={invoice.id}>
           <Link
-            className="block p-4 hover:bg-slate-50 focus-visible:bg-slate-50"
+            className="block p-5 hover:bg-slate-50 focus-visible:bg-slate-50"
             href={`/client/invoices/${invoice.id}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,76 +1,53 @@
-import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import { ActorContext } from '../../common/auth/actor-context';
-import { TenantAwareRepository } from '../../common/repositories/tenant-aware.repository';
-import { TenantContext } from '../../common/tenant/tenant-context';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubtaskDto } from './dto/create-subtask.dto';
 import { UpdateSubtaskDto } from './dto/update-subtask.dto';
 
-export type SubtaskRecord = {
-  id: string;
-  tenantId: string;
-  taskId: string;
-  title: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED' | 'ARCHIVED';
-  assignedToUserId?: string;
-  actorId?: string;
-  source: 'sprint-3-placeholder';
-};
-
 @Injectable()
-export class SubtasksRepository extends TenantAwareRepository {
-  listForTask(context: TenantContext, taskId: string): SubtaskRecord[] {
-    const tenant = this.requireTenantContext(context);
+export class SubtasksRepository {
+  constructor(private readonly prisma: PrismaService) {}
 
-    return [
-      {
-        id: 'sprint-3-subtask-placeholder',
-        source: 'sprint-3-placeholder',
-        status: 'TODO',
+  listForTask(tenantId: string, taskId: string) {
+    return this.prisma.subtask.findMany({
+      where: { task: { tenantId }, taskId },
+      orderBy: [
+        { sortOrder: { sort: 'asc', nulls: 'last' } },
+        { createdAt: 'asc' },
+      ],
+    });
+  }
+
+  createForTask(tenantId: string, actorId: string, taskId: string, dto: CreateSubtaskDto) {
+    return this.prisma.subtask.create({
+      data: {
+        tenantId,
         taskId,
-        tenantId: tenant.tenantId,
-        title: 'Sprint 3 Subtask Placeholder',
+        title: dto.title,
+        assignedToUserId: dto.assignedToUserId,
+        status: 'TODO',
       },
-    ];
+    });
   }
 
-  createForTask(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    taskId: string,
-    dto: CreateSubtaskDto,
-  ): SubtaskRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      assignedToUserId: dto.assignedToUserId,
-      id: randomUUID(),
-      source: 'sprint-3-placeholder',
-      status: 'TODO',
-      taskId,
-      tenantId: tenant.tenantId,
-      title: dto.title,
-      actorId: actor?.actorId,
-    };
+  async update(tenantId: string, id: string, dto: UpdateSubtaskDto) {
+    const existing = await this.prisma.subtask.findFirst({ where: { id, task: { tenantId } } });
+    if (!existing) throw new NotFoundException('Subtask not found');
+    return this.prisma.subtask.update({
+      where: { id },
+      data: {
+        ...(dto.title && { title: dto.title }),
+        ...(dto.status && { status: dto.status }),
+        ...(dto.assignedToUserId !== undefined && { assignedToUserId: dto.assignedToUserId }),
+      },
+    });
   }
 
-  update(
-    context: TenantContext,
-    actor: ActorContext | undefined,
-    id: string,
-    dto: UpdateSubtaskDto,
-  ): SubtaskRecord {
-    const tenant = this.requireTenantContext(context);
-
-    return {
-      assignedToUserId: dto.assignedToUserId,
-      id,
-      source: 'sprint-3-placeholder',
-      status: dto.status ?? 'TODO',
-      taskId: 'sprint-3-task-placeholder',
-      tenantId: tenant.tenantId,
-      title: dto.title ?? 'Sprint 3 Subtask Placeholder',
-      actorId: actor?.actorId,
-    };
+  async delete(tenantId: string, id: string) {
+    // Verify the subtask belongs to a task that belongs to this tenant
+    const existing = await this.prisma.subtask.findFirst({
+      where: { id, task: { tenantId } },
+    });
+    if (!existing) throw new NotFoundException('Subtask not found');
+    return this.prisma.subtask.delete({ where: { id } });
   }
 }

@@ -12,7 +12,7 @@ type TaskDetailProps = {
 export function TaskDetail({ id, title, status, priority, subtasks }: TaskDetailProps) {
   return (
     <div className="space-y-6">
-      <section aria-labelledby="task-detail-title" className="rounded-md border border-line bg-panel p-6 shadow-shell">
+      <section aria-labelledby="task-detail-title" className="rounded-2xl border border-line bg-white p-6 shadow-lift">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">Task</p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h2 id="task-detail-title" className="text-3xl font-semibold text-ink">

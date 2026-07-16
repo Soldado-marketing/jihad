@@ -1,26 +1,46 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import { ClientInvoiceList, type ClientInvoiceListItem } from '@/components/finance/client-invoice-list';
 import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
+import { PageHeader } from '@/components/ui/page-header';
+import { apiFetch } from '@/lib/fetch';
 
-const clientInvoices: ClientInvoiceListItem[] = [
-  {
-    amount: '€2,500.00',
-    id: 'sprint-9-invoice-placeholder',
-    number: 'INV-S9-001',
-    status: 'PARTIALLY_PAID',
-  },
-];
+type RawInvoice = { id: string; invoiceNumber: string; totalCents: number; status: string };
+
+function toListItem(r: RawInvoice): ClientInvoiceListItem {
+  return {
+    id: r.id,
+    number: r.invoiceNumber,
+    amount: `€${(r.totalCents / 100).toFixed(2)}`,
+    status: r.status as ClientInvoiceListItem['status'],
+  };
+}
 
 export default function ClientInvoicesPage() {
+  const [invoices, setInvoices] = useState<ClientInvoiceListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<RawInvoice[]>('/client/invoices')
+      .then((data) => setInvoices(data.map(toListItem)))
+      .catch(() => setInvoices([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="grid gap-6">
-      <section aria-labelledby="client-invoices-title">
-        <p className="text-sm font-medium text-slate-600">Sprint 9</p>
-        <h2 id="client-invoices-title" className="mt-2 text-3xl font-semibold text-ink">
-          Invoices
-        </h2>
-      </section>
+      <PageHeader
+        eyebrow="Client finance view"
+        title="Invoices"
+        description="Your invoice records. Margin and restricted finance details remain hidden."
+      />
       <ClientSafeNotice />
-      <ClientInvoiceList invoices={clientInvoices} />
+      {loading ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : (
+        <ClientInvoiceList invoices={invoices} />
+      )}
     </div>
   );
 }

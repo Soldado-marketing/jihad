@@ -1,29 +1,35 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import {
   VoiceToTaskDraftList,
   type VoiceToTaskDraftListItem,
 } from '@/components/voice/voice-to-task-draft-list';
-
-const sprint8Drafts: VoiceToTaskDraftListItem[] = [
-  {
-    id: 'sprint-8-draft',
-    status: 'NEEDS_REVIEW',
-    title: 'Review campaign delivery task',
-  },
-];
+import { apiFetch } from '@/lib/fetch';
+import { PageHeader } from '@/components/ui/page-header';
 
 export default function VoiceTaskDraftsPage() {
+  const [drafts, setDrafts] = useState<VoiceToTaskDraftListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch<VoiceToTaskDraftListItem[]>('/voice-to-task-drafts')
+      .then(setDrafts)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
-    <div className="grid gap-6">
-      <section aria-labelledby="drafts-title">
-        <p className="text-sm font-medium text-slate-600">Sprint 8</p>
-        <h2 id="drafts-title" className="mt-2 text-3xl font-semibold text-ink">
-          Voice-To-Task Drafts
-        </h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Drafts remain review-only and cannot create tasks without human confirmation.
-        </p>
-      </section>
-      <VoiceToTaskDraftList drafts={sprint8Drafts} />
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Voice"
+        title="Voice-To-Task Drafts"
+        description="Drafts created from voice note transcripts await human review before becoming tasks."
+      />
+      {loading && <p className="text-sm text-slate-500">Loading…</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      {!loading && !error && <VoiceToTaskDraftList drafts={drafts} />}
     </div>
   );
 }

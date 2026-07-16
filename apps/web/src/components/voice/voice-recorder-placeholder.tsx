@@ -1,9 +1,9 @@
 export function VoiceRecorderPlaceholder() {
   return (
-    <section className="rounded-md border border-line bg-panel p-4" aria-label="Voice recorder placeholder">
-      <h2 className="text-sm font-semibold text-ink">Recorder placeholder</h2>
+    <section className="rounded-2xl border border-line bg-white p-5 shadow-lift" aria-label="Voice recorder">
+      <h2 className="text-sm font-semibold text-ink">Voice recorder</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        Voice note metadata can be prepared here. Production audio capture and external upload remain outside this sprint.
+        Voice note recording and transcription is available when the API and database are connected.
       </p>
     </section>
   );

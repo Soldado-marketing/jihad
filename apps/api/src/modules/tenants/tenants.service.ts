@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { TenantContext } from '../../common/tenant/tenant-context';
 import { TenantsRepository } from './tenants.repository';
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly tenantsRepository: TenantsRepository) {}
+  constructor(private readonly repo: TenantsRepository) {}
 
-  getCurrentTenant(context: TenantContext) {
-    return this.tenantsRepository.findCurrentTenant(context);
+  getCurrentTenant(tenantId: string) {
+    return this.repo.findCurrentTenant(tenantId);
   }
 }

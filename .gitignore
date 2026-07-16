@@ -25,3 +25,10 @@ data
 storage
 local-secrets
 secrets
+
+# Database backups
+backup_before_tasks_phase1_*.sql
+
+# Safe environment templates
+!apps/api/.env.example
+!apps/api/.env.production.example

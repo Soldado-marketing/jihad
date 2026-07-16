@@ -5,19 +5,14 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ActorContext } from '../../common/auth/actor-context';
-import { MembershipRole } from '../../common/identity/membership-role';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import {
-  PERMISSION_REQUIREMENT_KEY,
-} from './permission.decorator';
+import { PERMISSION_REQUIREMENT_KEY } from './permission.decorator';
 import { PermissionService } from './permission.service';
 import { PermissionRequirement } from './permission.types';
+import { JwtPayload } from '../auth/auth.service';
 
-type HeaderValue = string | string[] | undefined;
-type GuardRequest = {
-  headers: Record<string, HeaderValue>;
-};
+interface AuthenticatedRequest {
+  user?: JwtPayload;
+}
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
@@ -26,67 +21,38 @@ export class PermissionGuard implements CanActivate {
     private readonly permissionService: PermissionService,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const requirement = this.reflector.getAllAndOverride<PermissionRequirement>(
       PERMISSION_REQUIREMENT_KEY,
       [context.getHandler(), context.getClass()],
     );
-    const request = context.switchToHttp().getRequest<GuardRequest>();
-    const tenantContext = this.extractTenantContext(request.headers);
-    const actor = this.extractActorContext(request.headers, tenantContext);
-    const decision = this.permissionService.decide(requirement, actor, tenantContext);
+
+    // No @RequirePermission decorator — pass through (let JwtAuthGuard handle auth)
+    if (!requirement) return true;
+
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
+
+    // Must be authenticated (JwtAuthGuard should run before PermissionGuard).
+    // Context is sourced from the verified JWT payload (user.sub, user.tenantId, user.role).
+    // Sprint 1B used raw x-tenant-id and x-actor-role headers; Sprint 13 replaced those with
+    // JWT-sourced values so that stale or forged header values cannot bypass authorization.
+    if (!user?.sub || !user.tenantId) {
+      throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'actor_context_missing' });
+    }
+
+    // DB-backed decision — does NOT rely solely on JWT role
+    const decision = await this.permissionService.decide(
+      requirement,
+      user.sub,
+      user.tenantId,
+      user.role,
+    );
 
     if (!decision.allowed) {
-      throw new ForbiddenException({
-        code: 'FORBIDDEN',
-        reason: decision.reason,
-      });
+      throw new ForbiddenException({ code: 'FORBIDDEN', reason: decision.reason });
     }
 
     return true;
-  }
-
-  private extractTenantContext(headers: Record<string, HeaderValue>): TenantContext | null {
-    const tenantId = this.first(headers['x-tenant-id']);
-
-    if (!tenantId) {
-      return null;
-    }
-
-    return {
-      actorId: this.first(headers['x-actor-id']),
-      membershipId: this.first(headers['x-membership-id']),
-      source: 'request-header',
-      tenantId,
-    };
-  }
-
-  private extractActorContext(
-    headers: Record<string, HeaderValue>,
-    tenantContext: TenantContext | null,
-  ): ActorContext | null {
-    const actorId = this.first(headers['x-actor-id']);
-    const role = this.first(headers['x-actor-role']) as MembershipRole | undefined;
-
-    if (!actorId || !role || !tenantContext?.tenantId) {
-      return null;
-    }
-
-    return {
-      actorId,
-      deviceId: this.first(headers['x-device-id']),
-      membershipId: this.first(headers['x-membership-id']),
-      role,
-      sessionId: this.first(headers['x-session-id']),
-      tenantId: tenantContext.tenantId,
-    };
-  }
-
-  private first(value: HeaderValue): string | undefined {
-    if (Array.isArray(value)) {
-      return value[0];
-    }
-
-    return value;
   }
 }

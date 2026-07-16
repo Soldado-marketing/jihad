@@ -9,20 +9,34 @@ export type NavigationItem = {
   clientSafe: boolean;
 };
 
+/**
+ * Workspace navigation — all active modules shown based on role.
+ */
 export const workspaceNavigation: NavigationItem[] = [
+  // ── Core ────────────────────────────────────────────────────────────────
   {
     id: 'dashboard',
     label: 'Dashboard',
     href: '/dashboard',
-    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
     sprint2Status: 'active',
     clientSafe: false,
   },
+  // ── Admin (Owner only) ───────────────────────────────────────────────────
+  {
+    id: 'admin-users',
+    label: 'User Requests',
+    href: '/dashboard/admin/users/requests',
+    allowedRoles: ['OWNER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  // ── Delivery ────────────────────────────────────────────────────────────
   {
     id: 'projects',
     label: 'Projects',
     href: '/projects',
-    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
     sprint2Status: 'active',
     clientSafe: false,
   },
@@ -30,10 +44,11 @@ export const workspaceNavigation: NavigationItem[] = [
     id: 'tasks',
     label: 'Tasks',
     href: '/tasks',
-    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
     sprint2Status: 'active',
     clientSafe: false,
   },
+  // ── Sales ───────────────────────────────────────────────────────────────
   {
     id: 'crm',
     label: 'CRM',
@@ -42,6 +57,16 @@ export const workspaceNavigation: NavigationItem[] = [
     sprint2Status: 'active',
     clientSafe: false,
   },
+  // ── Account ─────────────────────────────────────────────────────────────
+  {
+    id: 'settings',
+    label: 'Settings',
+    href: '/settings',
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  // ── Team ────────────────────────────────────────────────────────────────
   {
     id: 'collaboration',
     label: 'Collaboration',
@@ -66,6 +91,7 @@ export const workspaceNavigation: NavigationItem[] = [
     sprint2Status: 'active',
     clientSafe: false,
   },
+  // ── Operations ────────────────────────────────────────────────────────────
   {
     id: 'voice',
     label: 'Voice Notes',
@@ -104,14 +130,6 @@ export const workspaceNavigation: NavigationItem[] = [
     href: '/approvals',
     allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
     sprint2Status: 'active',
-    clientSafe: false,
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    href: '/settings',
-    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
-    sprint2Status: 'placeholder',
     clientSafe: false,
   },
   {

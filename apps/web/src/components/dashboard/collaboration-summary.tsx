@@ -3,9 +3,9 @@ import { SummaryCard } from './summary-card';
 export function CollaborationSummary() {
   return (
     <SummaryCard
-      detail="Internal notes, chat, and notification foundation totals."
+      detail="Internal notes, team chat, and notifications."
       label="Collaboration"
-      value="4 / 3"
+      value="—"
     />
   );
 }

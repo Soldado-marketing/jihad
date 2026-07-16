@@ -1,29 +1,20 @@
-import { Controller, Get, Headers, UseGuards } from '@nestjs/common';
-import {
-  actorContextFromHeaders,
-  RequestHeaders,
-  tenantContextFromHeaders,
-} from '../../common/http/request-context';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { PaymentsService } from './payments.service';
 
 @Controller('client/payments')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class ClientPaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Get()
-  @RequirePermission({
-    action: PermissionAction.READ,
-    resource: PermissionResource.PAYMENT,
-    scope: 'client-portal',
-  })
-  listClientPayments(@Headers() headers: RequestHeaders) {
-    return this.paymentsService.listClientPayments(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-    );
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PAYMENT, scope: 'client-portal' })
+  listClientPayments(@CurrentUser() user: JwtPayload) {
+    return this.paymentsService.list(user.tenantId);
   }
 }

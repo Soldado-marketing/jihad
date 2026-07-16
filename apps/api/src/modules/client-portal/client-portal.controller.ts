@@ -1,70 +1,38 @@
-import { Controller, Get, Headers, Param, UseGuards } from '@nestjs/common';
-import {
-  actorContextFromHeaders,
-  RequestHeaders,
-  tenantContextFromHeaders,
-} from '../../common/http/request-context';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { ClientPortalService } from './client-portal.service';
 
 @Controller('client')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class ClientPortalController {
   constructor(private readonly clientPortalService: ClientPortalService) {}
 
   @Get('projects')
-  @RequirePermission({
-    action: PermissionAction.READ,
-    resource: PermissionResource.PROJECT,
-    scope: 'client-portal',
-  })
-  listProjects(@Headers() headers: RequestHeaders) {
-    return this.clientPortalService.listProjects(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-    );
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT, scope: 'client-portal' })
+  listProjects(@CurrentUser() user: JwtPayload) {
+    return this.clientPortalService.listProjects(user.tenantId, user.sub);
   }
 
   @Get('projects/:id')
-  @RequirePermission({
-    action: PermissionAction.READ,
-    resource: PermissionResource.PROJECT,
-    scope: 'client-portal',
-  })
-  getProject(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.clientPortalService.getProject(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-    );
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT, scope: 'client-portal' })
+  getProject(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.clientPortalService.getProject(user.tenantId, user.sub, id);
   }
 
   @Get('tasks')
-  @RequirePermission({
-    action: PermissionAction.READ,
-    resource: PermissionResource.TASK,
-    scope: 'client-portal',
-  })
-  listTasks(@Headers() headers: RequestHeaders) {
-    return this.clientPortalService.listTasks(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-    );
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.TASK, scope: 'client-portal' })
+  listTasks(@CurrentUser() user: JwtPayload) {
+    return this.clientPortalService.listTasks(user.tenantId, user.sub);
   }
 
   @Get('tasks/:id')
-  @RequirePermission({
-    action: PermissionAction.READ,
-    resource: PermissionResource.TASK,
-    scope: 'client-portal',
-  })
-  getTask(@Headers() headers: RequestHeaders, @Param('id') id: string) {
-    return this.clientPortalService.getTask(
-      tenantContextFromHeaders(headers),
-      actorContextFromHeaders(headers),
-      id,
-    );
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.TASK, scope: 'client-portal' })
+  getTask(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.clientPortalService.getTask(user.tenantId, user.sub, id);
   }
 }
