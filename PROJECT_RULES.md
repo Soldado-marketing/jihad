@@ -2,44 +2,52 @@
 
 ## Project Identity
 
-- Project name: codex marketing platform
-- Project path: `/Users/jihadhilal/Documents/codex marketing platform`
+- Project name: MAOS — Soldado Marketing Platform
+- Project root: `/Users/jihadhilal/Documents/claude`
 - Main active architecture: `apps/web` for the frontend and `apps/api` for the backend API.
 
 ## Active Project Boundary
 
-- All future Codex work must stay inside the existing project folder:
-  `/Users/jihadhilal/Documents/codex marketing platform`
+- All MAOS work must stay inside the existing project folder:
+  `/Users/jihadhilal/Documents/claude`
 - Do not create a new project folder.
 - Do not rename the project folder.
 - Do not save generated files, temporary files, downloads, exports, or task files outside this project path.
 
-## Existing Root App Protection
+## Active Project Areas
 
-- The existing old root Next.js app folders must not be moved, deleted, renamed, or modified unless explicitly approved:
-  - `app`
-  - `components`
-  - `lib`
-  - `styles`
-- The active MAOS implementation remains under:
-  - `apps/web`
-  - `apps/api`
+| Area | Path |
+|---|---|
+| Backend | `apps/api` |
+| Frontend | `apps/web` |
+| Prisma schema and migrations | `apps/api/prisma` |
+| Migrations | `apps/api/prisma/migrations` |
+| Documentation | `docs` |
+| Shared code | `packages` |
 
-## Duplicate Folder Prevention
+The `packages` directory must never become a parallel application or runnable service. It may only contain explicitly shared code (config, shared utilities, types).
 
-- Do not create duplicate project folders or renamed copies such as:
-  - `final`
-  - `copy`
-  - `backup`
-  - `v2`
-  - `updated`
-  - `fixed`
-  - `new project`
-  - `codex marketing platform final`
-  - `codex marketing platform copy`
-  - `codex marketing platform backup`
-  - `codex marketing platform v2`
-  - `codex marketing platform updated`
+## Root Legacy Application Directories
+
+The root-level directories `app/`, `components/`, `lib/`, and `styles/` are not part of active MAOS and do not currently exist in the repository.
+
+- Do not recreate these directories.
+- Application code belongs under `apps/api` or `apps/web` only.
+
+## Duplicate Project Prevention
+
+- The only valid project root is `/Users/jihadhilal/Documents/claude`.
+- Do not create any parallel, copied, final, backup, or replacement MAOS project directory outside this root.
+- Do not create any folder that duplicates or replaces the project, regardless of its name.
+
+## Approved External Backup
+
+One owner-approved external safety backup exists at:
+`/Users/jihadhilal/Documents/MAOS_BEFORE_CLEANUP_BACKUP_20260715`
+
+- This is not an active project root.
+- Claude must not modify, delete, rename, move, or work inside it.
+- No new external backup directory may be created without explicit owner approval.
 
 ## File Placement Rules
 
@@ -55,18 +63,19 @@
 
 ## Root Directory Rules
 
-- The root directory must not receive random files.
-- Root-level files are allowed only when they are standard project-level files, such as:
-  - `README.md`
-  - `package.json`
-  - `package-lock.json`
-  - `tsconfig.json`
-  - `next.config.ts`
-  - `tailwind.config.ts`
-  - `postcss.config.js`
-  - `.gitignore`
-  - `.env.example`
-  - `PROJECT_RULES.md`
+- Existing tracked project-wide configuration, Docker files, documentation, and approved maintenance scripts may remain at root.
+- New application code must go only under `apps/api` or `apps/web`.
+- New documentation must go under `docs`.
+- New Prisma and migration files must go under `apps/api/prisma`.
+- Random or generated files must not be added to root.
+- Do not maintain a hardcoded exhaustive list of root files.
+
+## Environment Files
+
+- **Root `.env`** — local ignored file containing Docker/runtime secrets. Never commit, print, or copy its contents.
+- **`apps/api/.env.example`** — safe development template.
+- **`apps/api/.env.production.example`** — safe production template.
+- Real secrets must never be committed, printed, copied into reports, or exposed in any form.
 
 ## Existing File Update Rule
 
@@ -80,11 +89,34 @@
 - Do not split one feature across unrelated folders unless the existing architecture already separates frontend, backend, tests, and documentation.
 - Do not dump unrelated files into a single folder.
 
+## Database Safety Rules
+
+The following operations are permanently forbidden unless explicitly approved by the project owner after a dedicated review:
+
+- Never run `prisma db push`.
+- Never run `prisma migrate dev`.
+- Never run `prisma migrate reset`.
+- Never delete or recreate the current database.
+- Never modify an existing migration directory or its `migration.sql`.
+- Never create a baseline migration without a separately approved baseline strategy.
+- A baseline migration must not simply be appended after existing migrations — its timestamp and structure must be selected only after a dedicated read-only Prisma migration-history audit.
+- Existing migration history and the current `_prisma_migrations` table state must be inspected before selecting a baseline timestamp or structure.
+- Never run `prisma seed` or any data-mutating script without explicit owner approval.
+- Never use Prisma Studio to create, edit, or delete data without explicit owner approval.
+
+## SQL Backup Files
+
+Local SQL backup files such as `backup_before_tasks_phase1_*.sql` are local safety artifacts:
+
+- They must remain listed in `.gitignore` and must never be committed to the repository.
+- They must not be edited or moved.
+- They must not be used as a source of truth for schema state.
+
 ## Future Task Procedure
 
-Before making changes, Codex must:
+Before making changes, the assistant must:
 
-1. Work only inside `/Users/jihadhilal/Documents/codex marketing platform`.
+1. Work only inside `/Users/jihadhilal/Documents/claude`.
 2. Identify the existing related folders and files.
 3. Prefer updating existing files over creating new ones.
 4. Confirm the correct location before adding any necessary new file.
