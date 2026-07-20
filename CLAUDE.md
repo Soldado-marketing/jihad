@@ -4,8 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Identity
 
-- **Project name:** MAOS — Soldado Marketing Platform
-- **Project root:** `/Users/jihadhilal/Documents/claude`
+- **Project name:** codex marketing platform (MAOS — Marketing & Operations System)
 - **Active frontend:** `apps/web` (Next.js 15)
 - **Active backend:** `apps/api` (NestJS 11)
 - **Full rules:** `PROJECT_RULES.md`
@@ -20,18 +19,11 @@ npm run build            # Compile TypeScript
 npm run typecheck        # Type-check without emitting
 npm test                 # Run tests
 
-npm run prisma:generate  # Regenerate Prisma client after schema changes
-
-# Run only after explicit approval and migration review:
-npm run prisma:migrate   # Apply approved migrations in production
-
-# Modifies database data. Requires explicit owner approval, confirmation of
-# the target database, and review of the seed script before execution:
-npm run prisma:seed      # Seed the database
-
-# Prisma Studio is read-only by default. No data may be created, edited,
-# or deleted without separate explicit approval:
-npm run prisma:studio    # Open Prisma Studio GUI
+npm run prisma:generate       # Regenerate Prisma client after schema changes
+npm run prisma:migrate:dev    # Create + apply a new dev migration
+npm run prisma:migrate        # Apply migrations in production
+npm run prisma:seed           # Seed the database
+npm run prisma:studio         # Open Prisma Studio GUI
 ```
 
 ### Web (`apps/web/`)
@@ -56,6 +48,13 @@ docker compose up -d
 curl http://localhost:3001/api/health
 ```
 
+### Root (legacy project only — do not use for MAOS)
+
+```bash
+npm run lint             # ESLint
+npm run format           # Prettier
+```
+
 ## Architecture
 
 ### Monorepo Layout
@@ -65,7 +64,7 @@ curl http://localhost:3001/api/health
 ├── apps/api/            ← NestJS backend (PostgreSQL via Prisma)
 │   ├── src/
 │   │   ├── common/      ← guards, decorators, interceptors, tenant context
-│   │   └── modules/     ← feature modules (count is dynamic — see apps/api/src/modules/)
+│   │   └── modules/     ← 39 feature modules
 │   └── prisma/          ← schema.prisma + migrations/
 ├── apps/web/            ← Next.js 15 frontend (App Router)
 │   ├── app/             ← routes: (auth)/, (client)/, (workspace)/
@@ -76,10 +75,11 @@ curl http://localhost:3001/api/health
 │       ├── i18n/        ← translations
 │       └── security/    ← security helpers
 ├── docs/                ← all specs and sprint documentation
-└── packages/            ← shared config, utilities, and types only
+├── app/                 ← ⛔ old root Next.js app (protected)
+├── components/          ← ⛔ old root components (protected)
+├── lib/                 ← ⛔ old root lib (protected)
+└── styles/              ← ⛔ old root styles (protected)
 ```
-
-The `packages` directory must never become a parallel application or runnable service.
 
 ### API Module Pattern
 
@@ -90,7 +90,7 @@ Every feature follows the same structure inside `apps/api/src/modules/<feature>/
 - `<feature>.repository.ts` — Prisma data access
 - `dto/` — request/response DTOs with `class-validator` decorators
 
-Active backend modules are discovered directly from `apps/api/src/modules/` — do not maintain a fixed module count in these rules. New modules added to that directory are automatically part of the active backend.
+The 39 modules include: `admin-users`, `ai-provider`, `approvals`, `audit`, `auth`, `chat`, `client-portal`, `collaboration`, `crm`, `dashboards`, `devices`, `file-versions`, `files`, `finance`, `follow-ups`, `health`, `invites`, `invoices`, `leads`, `mail`, `meetings`, `memberships`, `notifications`, `opportunities`, `payments`, `permissions`, `prisma`, `projects`, `realtime`, `reports`, `sessions`, `subtasks`, `tasks`, `tenant-context`, `tenants`, `transcription`, `users`, `voice-notes`, `voice-to-task`.
 
 ### Multi-Tenancy
 
@@ -124,50 +124,17 @@ Next.js App Router with route groups:
 | Prisma schema + migrations | `apps/api/prisma/` |
 | Documentation | `docs/` |
 
-**Root directory:** Existing tracked project-wide configuration, Docker files, documentation, and approved maintenance scripts may remain at root. New application code must go only under `apps/api` or `apps/web`. New documentation must go under `docs`. New Prisma and migration files must go under `apps/api/prisma`. Random or generated files must not be added to root. Do not maintain a hardcoded exhaustive list of root files.
+**Root-level files only:** `CLAUDE.md`, `PROJECT_RULES.md`, `README.md`, `package.json`, `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `.gitignore`, `.env.example`.
 
-**Root legacy directories:** The root-level directories `app/`, `components/`, `lib/`, and `styles/` are **not part of active MAOS and do not exist in the repository**. Do not recreate them. Application code belongs under `apps/api` or `apps/web` only.
+**Never modify:** `app/`, `components/`, `lib/`, `styles/` (protected legacy root Next.js app).
 
 ## Environment
 
-The project uses the following environment file structure:
+Copy `.env.example` to `.env` and fill in at minimum:
+- `DATABASE_URL` — PostgreSQL connection string
+- `JWT_SECRET` and `JWT_REFRESH_SECRET`
 
-- **Root `.env`** — local ignored file containing Docker/runtime secrets. Never commit, print, or copy its contents.
-- **`apps/api/.env.example`** — safe development template; copy to `apps/api/.env` and fill in values locally.
-- **`apps/api/.env.production.example`** — safe production template for VPS deployment.
-- Real secrets must never be committed, printed, copied into reports, or exposed in any form.
-
-## Database Safety Rules
-
-The following operations are permanently forbidden unless explicitly approved by the project owner after a dedicated review:
-
-- Never run `prisma db push`.
-- Never run `prisma migrate dev`.
-- Never run `prisma migrate reset`.
-- Never delete or recreate the current database.
-- Never modify an existing migration directory or its `migration.sql`.
-- Never create a baseline migration without a separately approved baseline strategy.
-- A baseline migration must not simply be appended after existing migrations — its timestamp and structure must be selected only after a dedicated read-only Prisma migration-history audit.
-- Existing migration history and the current `_prisma_migrations` table state must be inspected before selecting a baseline timestamp or structure.
-- Never run `prisma seed` or any data-mutating script without explicit owner approval.
-- Never use Prisma Studio to create, edit, or delete data without explicit owner approval.
-
-## SQL Backup Files
-
-Local SQL backup files such as `backup_before_tasks_phase1_*.sql` are local safety artifacts:
-
-- They must remain listed in `.gitignore` and must never be committed to the repository.
-- They must not be edited or moved.
-- They must not be used as a source of truth for schema state.
-
-## Approved External Backup
-
-One owner-approved external safety backup exists at:
-`/Users/jihadhilal/Documents/MAOS_BEFORE_CLEANUP_BACKUP_20260715`
-
-- This is not an active project root.
-- Claude must not modify, delete, rename, move, or work inside it.
-- No new external backup directory may be created without explicit owner approval.
+Docker Compose dev defaults: `postgresql://maos:maos_password@localhost:5432/maos_db`
 
 ## Task Protocol
 
