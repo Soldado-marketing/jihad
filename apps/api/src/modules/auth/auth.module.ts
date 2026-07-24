@@ -6,6 +6,7 @@ import { AuditModule } from '../audit/audit.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from '../../common/auth/jwt.strategy';
+import { validateJwtSecret } from '../../common/config/jwt-secret';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { JwtStrategy } from '../../common/auth/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'changeme'),
+        secret: validateJwtSecret(config.get<string>('JWT_SECRET')),
         signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '15m') },
       }),
     }),
