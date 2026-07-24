@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AiProviderModule } from './modules/ai-provider/ai-provider.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -41,6 +43,9 @@ import { MailModule } from './modules/mail/mail.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // S-03: Global rate limiting. Permissive dev-safe default (600 req / 60s per IP).
+    // Stricter per-route limits are applied on auth endpoints via @Throttle.
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 600 }]),
     MailModule,
     PrismaModule,
     TenantContextModule,
@@ -79,5 +84,9 @@ import { MailModule } from './modules/mail/mail.module';
     LabelsModule,
   ],
   controllers: [HealthController],
+  providers: [
+    // S-03: Apply the throttler globally as an APP_GUARD.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
