@@ -37,6 +37,16 @@ export function setAuthSession(params: {
   localStorage.setItem(KEYS.TENANT, JSON.stringify(params.tenant));
 }
 
+/**
+ * Update only the access + refresh tokens after a successful refresh rotation.
+ * User and tenant records are left untouched (the refresh endpoint returns
+ * tokens only). Used by the centralized 401 refresh flow (S-02).
+ */
+export function updateAuthTokens(accessToken: string, refreshToken: string): void {
+  localStorage.setItem(KEYS.ACCESS_TOKEN, accessToken);
+  localStorage.setItem(KEYS.REFRESH_TOKEN, refreshToken);
+}
+
 /** Remove all auth data (logout). */
 export function clearAuthSession(): void {
   (Object.values(KEYS) as string[]).forEach((key) => localStorage.removeItem(key));
