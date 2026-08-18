@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
+import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -33,17 +34,20 @@ async function bootstrap() {
 
   // S-05: Environment-based CORS allow-list (no wildcard with credentials).
   const allowedOrigins = resolveCorsOrigins();
-  app.enableCors({
+  const corsOptions: CorsOptions = {
     origin: (origin, callback) => {
       // Allow requests with no Origin header (server-to-server, curl, health checks).
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'), false);
+      // Deny unapproved origins without throwing (avoids a 500; the browser
+      // simply receives a response without CORS-allow headers).
+      return callback(null, false);
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
-  });
+  };
+  app.enableCors(corsOptions);
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
