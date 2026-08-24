@@ -4,6 +4,9 @@ import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.int
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { validateEnv } from './common/config/env-validation';
+import { AllExceptionsFilter } from './common/http/all-exceptions.filter';
+import { logStructured } from './common/logging/structured-logger';
 
 /**
  * S-05: Resolve allowed CORS origins from the environment.
@@ -19,7 +22,16 @@ function resolveCorsOrigins(): string[] {
 }
 
 async function bootstrap() {
+  // Phase 2: fail fast on missing/invalid configuration (values never logged).
+  const env = validateEnv();
+  for (const warning of env.warnings) {
+    logStructured('warn', 'env_warning', { detail: warning });
+  }
+
   const app = await NestFactory.create(AppModule);
+
+  // Phase 2: consistent, non-leaking error responses + structured error logs.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // S-04: HTTP security headers.
   // CSP is disabled because this service returns JSON only (CSP belongs to the
@@ -60,6 +72,7 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
+  logStructured('info', 'api_started', { port, corsOrigins: allowedOrigins.length });
 }
 
 void bootstrap();
