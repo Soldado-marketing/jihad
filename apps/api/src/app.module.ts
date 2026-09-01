@@ -93,6 +93,10 @@ import { MailModule } from './modules/mail/mail.module';
 export class AppModule implements NestModule {
   // Phase 2: attach a correlation id to every request/response.
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    // '*path' is the path-to-regexp v8 form Nest 11 expects. The old '*'
+    // still works only via LegacyRouteConverter, which logs a warning on
+    // every boot and is slated for removal. Coverage is identical: every
+    // route still gets a correlation id.
+    consumer.apply(RequestIdMiddleware).forRoutes('*path');
   }
 }

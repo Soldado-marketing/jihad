@@ -47,14 +47,13 @@ jobs:
           cache: npm
           cache-dependency-path: apps/api/package-lock.json
 
-      # --legacy-peer-deps is REQUIRED, not cosmetic: @nestjs/jwt@10 declares a
-      # peer range of @nestjs/common ^8||^9||^10 while this project runs
-      # @nestjs/common@11, so a plain `npm ci` aborts with ERESOLVE.
-      # The real fix is to move @nestjs/jwt to ^11; drop this flag once that
-      # lands. See docs/DEPLOY.md.
+      # No --legacy-peer-deps: @nestjs/jwt and @nestjs/passport were moved to
+      # their NestJS 11 lines, so peer resolution is clean. If this step ever
+      # fails with ERESOLVE again, fix the offending package rather than
+      # reinstating the flag.
       - name: Install dependencies
         working-directory: apps/api
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Generate Prisma client
         working-directory: apps/api
@@ -119,7 +118,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: apps/web
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Typecheck
         working-directory: apps/web

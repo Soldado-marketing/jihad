@@ -242,18 +242,29 @@ hypothesis, not a backup.
 | `web` | yes | Typecheck and build |
 | `audit` | no | `npm audit --audit-level=high`, reporting only |
 
-### Known issue: `npm ci` needs `--legacy-peer-deps`
+### Resolved in Phase 7: `npm ci` no longer needs `--legacy-peer-deps`
 
-A plain `npm ci` **fails on a clean checkout**:
+A plain `npm ci` used to fail on a clean checkout because `@nestjs/jwt@10` and
+`@nestjs/passport@10` both declared a peer range of
+`@nestjs/common ^8 || ^9 || ^10` while the project runs `@nestjs/common@11`.
 
-```
-Conflicting peer dependency: @nestjs/common@10.4.22
-peer @nestjs/common@"^8.0.0 || ^9.0.0 || ^10.0.0" from @nestjs/jwt@10.2.0
-```
+Both were moved onto their NestJS 11 lines — `@nestjs/jwt@^11.0.2` and
+`@nestjs/passport@^11.0.5` — and `bcrypt` was moved to `^6.0.0`, which ships
+N-API prebuilds and therefore needs no local compilation on Node 24. The
+workaround flag is gone from CI and must not be reinstated; if ERESOLVE returns,
+fix the offending package instead.
 
-`@nestjs/jwt@^10.2.0` predates NestJS 11, which the rest of the project uses.
-CI passes `--legacy-peer-deps` to work around it. The proper fix is to move
-`@nestjs/jwt` to `^11`; after that, remove the flag from the workflow.
+One upgrade note: `@nestjs/jwt@11` types `signOptions.expiresIn` as the `ms`
+`StringValue` template-literal union rather than a plain `string`. Since the
+value comes from `JWT_EXPIRES_IN`, `apps/api/src/modules/auth/auth.module.ts`
+casts that one field to `JwtSignOptions['expiresIn']`.
+
+### A note on `NODE_ENV`
+
+If `NODE_ENV=production` is exported in your shell, npm silently omits
+`devDependencies` — the install appears to succeed but TypeScript type packages
+are missing and the build fails with `Could not find a declaration file`. Run
+installs with `NODE_ENV` unset or set to `development`.
 
 ### Why the typecheck step is scoped
 

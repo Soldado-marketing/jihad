@@ -21,10 +21,11 @@ pnpm-debug.log*
 tsconfig.tsbuildinfo
 tsconfig.build.tsbuildinfo
 
-data
-# Anchored to the repository root on purpose. An unanchored 'storage'
-# rule matches ANY directory of that name at any depth, which silently
-# excluded apps/api/src/modules/storage/ from every commit.
+# Both anchored to the repository root on purpose. Unanchored, these match
+# ANY directory of that name at any depth: the bare 'storage' rule silently
+# excluded apps/api/src/modules/storage/ from every commit, and a bare 'data'
+# rule would do the same to any future src/modules/data/.
+/data
 /storage
 local-secrets
 secrets

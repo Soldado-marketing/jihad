@@ -78,7 +78,10 @@ describe('Phase 2 — request correlation', () => {
 
   it('is registered globally in AppModule', () => {
     const src = read('src/app.module.ts');
-    assert.match(src, /consumer\.apply\(RequestIdMiddleware\)\.forRoutes\('\*'\)/);
+    // '*path' is the path-to-regexp v8 form Nest 11 requires; the bare '*'
+    // only survives via LegacyRouteConverter and warns on every boot. Either
+    // spelling registers the middleware on every route.
+    assert.match(src, /consumer\.apply\(RequestIdMiddleware\)\.forRoutes\('\*path'\)/);
   });
 });
 

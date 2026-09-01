@@ -77,10 +77,12 @@ describe('Phase 5 - CI workflow', () => {
     assert.match(src, /continue-on-error: true/);
   });
 
-  it('explains why the install needs --legacy-peer-deps', () => {
+  it('installs without --legacy-peer-deps', () => {
     const src = read(path);
-    assert.match(src, /npm ci --legacy-peer-deps/);
-    assert.match(src, /@nestjs\/jwt/);
+    assert.match(src, /npm ci --no-audit --no-fund/);
+    // Phase 7 moved @nestjs/jwt and @nestjs/passport onto their NestJS 11
+    // lines, so peer resolution is clean and the flag must not come back.
+    assert.doesNotMatch(stripHashComments(src), /--legacy-peer-deps/);
   });
 });
 
@@ -201,9 +203,9 @@ describe('Phase 5 - deployment guide', () => {
     assert.match(src, /never drops or overwrites an existing database/);
   });
 
-  it('records the npm ci peer-dependency issue', () => {
-    assert.match(src, /--legacy-peer-deps/);
+  it('records that the peer-dependency workaround was removed', () => {
     assert.match(src, /@nestjs\/jwt/);
+    assert.match(src, /Phase 7/);
   });
 });
 
