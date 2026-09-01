@@ -4,15 +4,16 @@ import { useEffect, useState } from 'react';
 import { ClientInvoiceList, type ClientInvoiceListItem } from '@/components/finance/client-invoice-list';
 import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
 import { PageHeader } from '@/components/ui/page-header';
+import { formatCents } from '@/components/finance/invoice-line-editor';
 import { apiFetch } from '@/lib/fetch';
 
-type RawInvoice = { id: string; invoiceNumber: string; totalCents: number; status: string };
+type RawInvoice = { id: string; invoiceNumber: string; totalCents: number; currency?: string; status: string };
 
 function toListItem(r: RawInvoice): ClientInvoiceListItem {
   return {
     id: r.id,
     number: r.invoiceNumber,
-    amount: `€${(r.totalCents / 100).toFixed(2)}`,
+    amount: formatCents(r.totalCents, r.currency ?? 'EUR'),
     status: r.status as ClientInvoiceListItem['status'],
   };
 }

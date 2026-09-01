@@ -1,11 +1,22 @@
+/**
+ * Explains how file access actually works now that object storage is live.
+ *
+ * Phase 3 replaced the pre-signed-URL placeholder with server-side streaming:
+ * the API authorises the request and pipes the bytes, so the browser never
+ * receives a storage key, a bucket name or a pre-signed link. This notice
+ * exists so the UI states that accurately rather than implying a capability
+ * that is not there.
+ */
 export function SignedUrlNotice() {
-  // Test marker: signed URL placeholders must remain permission-checked placeholder behavior until storage is integrated.
   return (
     <section
-      aria-label="Signed URL notice"
-      className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900 shadow-lift"
+      aria-label="File access notice"
+      className="rounded-2xl border border-line bg-slate-50 p-5 text-sm leading-6 text-slate-700"
     >
-      Signed URL generation is permission-checked and short-lived by design. External object storage integration is deferred.
+      Downloads and previews are permission-checked on every request and streamed
+      through the API. Storage keys and bucket details are never exposed to the
+      browser. Client access additionally requires the file to be client-visible
+      and approved.
     </section>
   );
 }
