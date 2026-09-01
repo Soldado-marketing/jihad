@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { FileVersionsModule } from '../file-versions/file-versions.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { FilesController } from './files.controller';
 import { FilesRepository } from './files.repository';
@@ -8,7 +9,7 @@ import { SignedUrlService } from './signed-url.service';
 
 @Module({
   controllers: [FilesController],
-  imports: [AuditModule, PermissionsModule],
+  imports: [AuditModule, FileVersionsModule, PermissionsModule],
   providers: [FilesRepository, FilesService, SignedUrlService],
   exports: [FilesService, SignedUrlService],
 })
