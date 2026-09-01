@@ -102,4 +102,51 @@ export class MailService {
 
     this.send(params.to, 'Your account request was not approved', text);
   }
+
+  /**
+   * Phase 4 - awaitable send with an optional attachment.
+   *
+   * Unlike the fire-and-forget send() used for notifications, an invoice send
+   * is a business action the caller must be able to report on truthfully, so
+   * this resolves with whether the message was actually handed to SMTP.
+   * Returns false when mail is not configured; throws only on a real SMTP
+   * failure, which the caller surfaces rather than swallowing.
+   */
+  async sendDocument(params: {
+    to: string[];
+    subject: string;
+    text: string;
+    attachment?: { filename: string; content: Buffer; contentType: string };
+  }): Promise<boolean> {
+    if (!this.transporter) {
+      this.logger.warn('sendDocument skipped - SMTP is not configured.');
+      return false;
+    }
+
+    const recipients = params.to.filter((address) => typeof address === 'string' && address.includes('@'));
+    if (recipients.length === 0) {
+      this.logger.warn('sendDocument skipped - no valid recipient.');
+      return false;
+    }
+
+    await this.transporter.sendMail({
+      from: this.from,
+      to: recipients.join(', '),
+      subject: params.subject,
+      text: params.text,
+      attachments: params.attachment
+        ? [
+            {
+              filename: params.attachment.filename,
+              content: params.attachment.content,
+              contentType: params.attachment.contentType,
+            },
+          ]
+        : undefined,
+    });
+
+    // Recipient addresses are not logged: they are personal data.
+    this.logger.log(`document_email_sent recipients=${recipients.length}`);
+    return true;
+  }
 }
