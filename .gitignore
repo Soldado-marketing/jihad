@@ -22,7 +22,10 @@ tsconfig.tsbuildinfo
 tsconfig.build.tsbuildinfo
 
 data
-storage
+# Anchored to the repository root on purpose. An unanchored 'storage'
+# rule matches ANY directory of that name at any depth, which silently
+# excluded apps/api/src/modules/storage/ from every commit.
+/storage
 local-secrets
 secrets
 
