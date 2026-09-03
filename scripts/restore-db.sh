@@ -50,14 +50,45 @@ for tool in psql pg_restore; do
   fi
 done
 
+# Same reason as in backup-db.sh: Prisma's connection string carries parameters
+# libpq rejects ('schema' above all), and psql would refuse the whole URI.
+strip_prisma_params() {
+  local url="$1" base query kept=""
+  base="${url%%\?*}"
+  [[ "$url" == *\?* ]] || { printf '%s' "$url"; return; }
+  query="${url#*\?}"
+
+  local IFS='&' param
+  for param in $query; do
+    case "${param%%=*}" in
+      schema|connection_limit|pool_timeout|connect_timeout_ms|pgbouncer|sslaccept|socket_timeout) ;;
+      '') ;;
+      *) kept="${kept:+${kept}&}${param}" ;;
+    esac
+  done
+
+  printf '%s' "${base}${kept:+?${kept}}"
+}
+
+ADMIN_URL="$(strip_prisma_params "$ADMIN_DATABASE_URL")"
+
 # Verify the checksum first: restoring a corrupted dump is worse than not
 # restoring at all.
 if [[ -f "${DUMP_FILE}.sha256" ]]; then
   echo "Verifying checksum ..."
+  # Compared by hand rather than with --check, because the long options are a
+  # GNU coreutils feature and busybox's sha256sum (Alpine, many slim images)
+  # rejects them outright.
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum --check --status "${DUMP_FILE}.sha256"
+    ACTUAL_SUM="$(sha256sum "$DUMP_FILE")"
   else
-    shasum -a 256 --check --status "${DUMP_FILE}.sha256"
+    ACTUAL_SUM="$(shasum -a 256 "$DUMP_FILE")"
+  fi
+  EXPECTED_SUM="$(cat "${DUMP_FILE}.sha256")"
+
+  if [[ "${ACTUAL_SUM%% *}" != "${EXPECTED_SUM%% *}" ]]; then
+    echo "ERROR: checksum mismatch - the dump is corrupt. Refusing to restore." >&2
+    exit 1
   fi
   echo "Checksum OK."
 else
@@ -66,7 +97,7 @@ fi
 
 # Fail if the target already exists. This is the guard that makes the script
 # non-destructive: an existing database is never touched.
-EXISTS="$(psql "$ADMIN_DATABASE_URL" -tAc \
+EXISTS="$(psql "$ADMIN_URL" -tAc \
   "SELECT 1 FROM pg_database WHERE datname = '${TARGET_DB}'")"
 
 if [[ "$EXISTS" == "1" ]]; then
@@ -76,11 +107,11 @@ if [[ "$EXISTS" == "1" ]]; then
 fi
 
 echo "Creating database '${TARGET_DB}' ..."
-psql "$ADMIN_DATABASE_URL" -q -c "CREATE DATABASE \"${TARGET_DB}\""
+psql "$ADMIN_URL" -q -c "CREATE DATABASE \"${TARGET_DB}\""
 
 # Build the target connection string by swapping the database segment of the
 # admin URL, so credentials are not re-entered.
-TARGET_URL="${ADMIN_DATABASE_URL%/*}/${TARGET_DB}"
+TARGET_URL="${ADMIN_URL%/*}/${TARGET_DB}"
 
 echo "Restoring ${DUMP_FILE} into '${TARGET_DB}' ..."
 pg_restore \
