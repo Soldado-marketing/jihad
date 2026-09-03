@@ -47,5 +47,7 @@ USER maos
 
 EXPOSE 3001
 
-# Run migrations then start — migrations are idempotent so safe to run on every deploy
+# Start only. Migrations are NOT run here: this stage installs with --omit=dev,
+# so the Prisma CLI is absent, and migrating from every replica on boot would
+# race. Run `prisma migrate deploy` as a deliberate deploy step (docs/DEPLOY.md).
 CMD ["node", "dist/main.js"]

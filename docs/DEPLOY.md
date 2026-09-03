@@ -38,13 +38,31 @@ openssl rand -base64 48   # Use output as JWT_REFRESH_SECRET
 docker compose up -d --build
 ```
 
-### 4. Check health
+### 4. Apply database migrations
+
+The API image runs `node dist/main.js` only. It does **not** migrate on
+startup, and its production stage installs with `--omit=dev`, so the Prisma CLI
+is not inside the container — migrations cannot be run from there. Run them
+from a checkout that has devDependencies, pointed at the production database:
+
+```bash
+cd apps/api
+npm ci
+DATABASE_URL='<your production DATABASE_URL>' npx prisma migrate deploy
+```
+
+`migrate deploy` is the only migration command permitted against a deployed
+database (see "Database migrations" below). It is idempotent, so re-running it
+is safe. On a brand-new database it applies `00000000000000_init_baseline`
+first, which creates the full schema.
+
+### 5. Check health
 
 ```bash
 curl http://localhost:3001/api/health
 ```
 
-### 5. Bootstrap the first Owner account
+### 6. Bootstrap the first Owner account
 
 ```bash
 curl -X POST http://localhost:3001/api/auth/bootstrap \
@@ -71,7 +89,11 @@ Save the returned token — this is the Owner account.
 3. Add a new service → Deploy from GitHub → select `apps/api`
 4. Set environment variables (copy from `.env.production.example`)
 5. Set `DATABASE_URL` to Railway's auto-generated Postgres URL
-6. Railway runs `prisma migrate deploy` automatically on startup via the Dockerfile CMD
+6. Run `npx prisma migrate deploy` against the Railway database **before the
+   first boot and after every deploy that adds a migration** — the image's CMD
+   is `node dist/main.js` and does not migrate, and the Prisma CLI is not in the
+   production image. Run it from a local checkout with Railway's `DATABASE_URL`,
+   or as a Railway one-off command on a service built from the builder stage.
 
 ### Web service
 
@@ -107,7 +129,15 @@ git pull
 docker compose up -d --build
 ```
 
-Migrations run automatically on every deploy. They are idempotent — safe to run on an already-migrated database.
+Migrations do **not** run automatically. Apply them yourself whenever a deploy
+adds one, before or right after the containers come up:
+
+```bash
+cd apps/api && npm ci
+DATABASE_URL='<your production DATABASE_URL>' npx prisma migrate deploy
+```
+
+`migrate deploy` is idempotent — safe to run on an already-migrated database.
 
 ---
 
