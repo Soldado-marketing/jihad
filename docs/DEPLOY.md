@@ -259,12 +259,56 @@ One upgrade note: `@nestjs/jwt@11` types `signOptions.expiresIn` as the `ms`
 value comes from `JWT_EXPIRES_IN`, `apps/api/src/modules/auth/auth.module.ts`
 casts that one field to `JwtSignOptions['expiresIn']`.
 
+### Starting the web app in production
+
+`apps/web` builds with `output: 'standalone'`. `next start` does not support
+that output mode — it prints
+
+```
+"next start" does not work with "output: standalone" configuration.
+```
+
+and, outside Docker, the standalone bundle also ships without `.next/static`
+and `public` (the Dockerfile copies those in as separate layers). `npm start`
+therefore runs `scripts/start-standalone.mjs`, which mirrors those two copy
+steps and then executes the same entrypoint the image executes:
+
+```
+node .next/standalone/server.js
+```
+
+The Docker image is unchanged — it still runs `node server.js` from the
+standalone root. Local development is unchanged too: `npm run dev` still runs
+`next dev`.
+
+### Optional same-origin API proxy
+
+`API_PROXY_TARGET` makes the web server forward `/api/*` to the API, so the
+browser talks to a single origin and CORS drops out of the picture. It is unset
+by default, so the ordinary cross-origin setup
+(`NEXT_PUBLIC_API_URL=http://localhost:3001`) keeps working untouched.
+
+```bash
+API_PROXY_TARGET=http://127.0.0.1:3001 \
+NEXT_PUBLIC_API_URL=http://localhost:3000/api \
+npm run build && npm start
+```
+
+`API_PROXY_TARGET` is read at **build** time — Next bakes the rewrite
+destination into `routes-manifest.json` — so changing it requires a rebuild, and
+in Docker it has to be a build argument, not a runtime environment variable.
+
 ### A note on `NODE_ENV`
 
 If `NODE_ENV=production` is exported in your shell, npm silently omits
 `devDependencies` — the install appears to succeed but TypeScript type packages
 are missing and the build fails with `Could not find a declaration file`. Run
 installs with `NODE_ENV` unset or set to `development`.
+
+The same variable matters at build time in the other direction: running
+`next build` with `NODE_ENV=development` fails the export of `/404` with
+`<Html> should not be imported outside of pages/_document`. Let `next build`
+set `NODE_ENV` itself.
 
 ### Why the typecheck step is scoped
 
