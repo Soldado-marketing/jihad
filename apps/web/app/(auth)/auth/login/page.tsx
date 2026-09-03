@@ -97,8 +97,11 @@ export default function LoginPage() {
         },
       });
 
-      // All roles land on /dashboard for now; workspace layout handles role gating
-      router.push('/dashboard');
+      // A CLIENT has no internal workspace: /dashboard calls owner-only endpoints
+      // and renders "Could not load workspace summary." for them. The client
+      // portal is their home. Every other role keeps landing on /dashboard,
+      // where the workspace layout handles role gating.
+      router.push(data.user.role === 'CLIENT' ? '/client' : '/dashboard');
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'An unexpected error occurred.',

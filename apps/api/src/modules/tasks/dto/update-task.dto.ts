@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -33,4 +33,9 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   projectId?: string;
+
+  /** Whether the client portal may see this task. See UpdateProjectDto. */
+  @IsOptional()
+  @IsBoolean()
+  clientVisible?: boolean;
 }
