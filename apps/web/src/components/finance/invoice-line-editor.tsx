@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { formatCents, toCents } from '@/lib/money';
 
 export interface InvoiceLineDraft {
   description: string;
@@ -11,31 +12,10 @@ export interface InvoiceLineDraft {
 
 export const EMPTY_LINE: InvoiceLineDraft = { description: '', quantity: '1', unitAmount: '' };
 
-/**
- * Converts a major-unit string to integer cents.
- *
- * The API stores and computes everything in integer cents, so the conversion
- * has to be exact. Parsing the two halves separately avoids the rounding error
- * that Math.round(parseFloat(x) * 100) introduces for values like "1.005".
- * Returns null when the input is not a valid amount.
- */
-export function toCents(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed === '') return null;
-  if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) return null;
-
-  const [whole, fraction = ''] = trimmed.split('.');
-  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
-  return Number.isSafeInteger(cents) ? cents : null;
-}
-
-/** Renders integer cents without ever touching a float. */
-export function formatCents(cents: number, currency = 'EUR'): string {
-  const negative = cents < 0;
-  const abs = Math.abs(cents);
-  const body = `${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
-  return `${negative ? '-' : ''}${body} ${currency}`;
-}
+// toCents and formatCents live in lib/money so the CRM and client-portal pages
+// can share the same integer-cent conversion without importing a finance
+// component. Re-exported here because this module's callers already use them.
+export { formatCents, toCents };
 
 export interface LineTotals {
   lineTotals: number[];

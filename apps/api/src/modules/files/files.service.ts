@@ -9,6 +9,9 @@ export class FilesService {
 
   list(tenantId: string) { return this.repo.list(tenantId); }
 
+  /** Client-portal list: client-visible and approved only. */
+  listForClient(tenantId: string) { return this.repo.listForClient(tenantId); }
+
   create(tenantId: string, actorId: string, dto: CreateFileDto) {
     return this.repo.create(tenantId, actorId, dto);
   }

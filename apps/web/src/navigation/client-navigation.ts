@@ -21,6 +21,11 @@ export const clientNavigation: ClientNavigationItem[] = [
     href: '/client/tasks',
   },
   {
+    id: 'client-files',
+    label: 'Files',
+    href: '/client/files',
+  },
+  {
     id: 'client-invoices',
     label: 'Invoices',
     href: '/client/invoices',

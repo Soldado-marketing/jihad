@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import {
@@ -126,7 +127,13 @@ export default function InvoicesPage() {
           <tbody className="divide-y divide-line">
             {invoices.map(i => (
               <tr key={i.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 text-sm font-medium text-ink">{i.invoiceNumber}</td>
+                <td className="px-4 py-3 text-sm font-medium">
+                  {/* The detail page is where the PDF, delivery and payments live,
+                      so the number has to be the way in. */}
+                  <Link href={`/finance/invoices/${i.id}`} className="text-brand hover:underline">
+                    {i.invoiceNumber}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-sm text-muted">{i.project?.name || '—'}</td>
                 <td className="px-4 py-3 text-sm text-ink">{fmt(i.totalCents, i.currency)}</td>
                 <td className="px-4 py-3 text-sm text-muted">{i.dueAt ? new Date(i.dueAt).toLocaleDateString() : '—'}</td>

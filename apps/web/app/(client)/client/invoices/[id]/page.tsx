@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
 import { ClientInvoiceDetail, type ClientInvoiceDetailData } from '@/components/finance/client-invoice-detail';
-import { formatCents } from '@/components/finance/invoice-line-editor';
+import { formatCents } from '@/lib/money';
 import { PageHeader } from '@/components/ui/page-header';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 

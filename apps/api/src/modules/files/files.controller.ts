@@ -33,7 +33,11 @@ import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { DownloadFileVersionDto } from '../file-versions/dto/download-file-version.dto';
-import { ActorInput, FileVersionsService } from '../file-versions/file-versions.service';
+import {
+  ActorInput,
+  DownloadResult,
+  FileVersionsService,
+} from '../file-versions/file-versions.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
@@ -69,7 +73,7 @@ const UPLOAD_OPTIONS = {
   },
 };
 
-function toActor(user: JwtPayload): ActorInput {
+export function toActor(user: JwtPayload): ActorInput {
   return {
     actorId: user.sub,
     role: user.role,
@@ -163,20 +167,31 @@ export class FilesController {
       query.disposition ?? 'attachment',
     );
 
-    res.setHeader('Content-Type', result.contentType);
-    res.setHeader('Content-Disposition', `${result.disposition}; filename="${result.filename}"`);
-    // Stops a browser from guessing a different (possibly executable) type.
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Cache-Control', 'private, no-store');
-    if (result.contentLength !== undefined) {
-      res.setHeader('Content-Length', String(result.contentLength));
-    }
-
-    result.stream.on('error', () => {
-      if (!res.headersSent) res.status(HttpStatus.BAD_GATEWAY);
-      res.end();
-    });
-
-    result.stream.pipe(res);
+    writeDownloadResponse(res, result);
   }
+}
+
+/**
+ * Streams a DownloadResult to the client.
+ *
+ * Exported because the client-portal file route writes the identical response;
+ * duplicating the headers there would be the obvious place for the two to drift
+ * apart.
+ */
+export function writeDownloadResponse(res: Response, result: DownloadResult): void {
+  res.setHeader('Content-Type', result.contentType);
+  res.setHeader('Content-Disposition', `${result.disposition}; filename="${result.filename}"`);
+  // Stops a browser from guessing a different (possibly executable) type.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (result.contentLength !== undefined) {
+    res.setHeader('Content-Length', String(result.contentLength));
+  }
+
+  result.stream.on('error', () => {
+    if (!res.headersSent) res.status(HttpStatus.BAD_GATEWAY);
+    res.end();
+  });
+
+  result.stream.pipe(res);
 }

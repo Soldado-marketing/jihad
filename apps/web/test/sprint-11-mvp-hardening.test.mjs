@@ -53,7 +53,12 @@ describe('Sprint 11 MVP frontend hardening regression', () => {
     assert.match(clientNavigation, /href: '\/client\/tasks'/);
     assert.match(clientNavigation, /href: '\/client\/invoices'/);
     assert.match(clientNavigation, /href: '\/client\/payments'/);
-    assert.doesNotMatch(clientNavigation, /\/finance|\/crm|\/chat|\/voice|\/reports|\/files|\/approvals|\/collaboration/);
+    // /client/files is a client-portal route added in Phase 6, so the check is
+    // on internal routes: none of them may be reachable from the client nav.
+    assert.doesNotMatch(
+      clientNavigation,
+      /href: '\/(finance|crm|chat|voice|reports|files|approvals|collaboration)/,
+    );
   });
 
   it('keeps client dashboard and client finance views free of internal finance data', () => {

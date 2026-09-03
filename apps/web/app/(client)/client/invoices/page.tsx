@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ClientInvoiceList, type ClientInvoiceListItem } from '@/components/finance/client-invoice-list';
 import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
 import { PageHeader } from '@/components/ui/page-header';
-import { formatCents } from '@/components/finance/invoice-line-editor';
+import { formatCents } from '@/lib/money';
 import { apiFetch } from '@/lib/fetch';
 
 type RawInvoice = { id: string; invoiceNumber: string; totalCents: number; currency?: string; status: string };

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FileVisibility, Prisma } from '@prisma/client';
+import { ApprovalStatus, FileVersionStatus, FileVisibility, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFileDto } from './dto/create-file.dto';
 import { UpdateFileDto } from './dto/update-file.dto';
@@ -35,6 +35,48 @@ export class FilesRepository {
         clientVisible: true, versionCount: true, createdAt: true, updatedAt: true, taskId: true,
         project: { select: { id: true, name: true } },
         createdBy: { select: { id: true, displayName: true } },
+      },
+    });
+  }
+
+  /**
+   * The client-portal view of the same table.
+   *
+   * Two gates, both server-side: the asset must be client-visible, and it must
+   * carry an APPROVED approval — either for the asset as a whole or for one of
+   * its versions. Only the versions covered by that approval are returned, and
+   * storageKey is never selected.
+   */
+  listForClient(tenantId: string) {
+    return this.prisma.fileAsset.findMany({
+      where: {
+        tenantId,
+        clientVisible: true,
+        approvalRequests: { some: { tenantId, status: ApprovalStatus.APPROVED } },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, name: true, mimeType: true, versionCount: true, createdAt: true,
+        project: { select: { id: true, name: true } },
+        versions: {
+          where: {
+            status: FileVersionStatus.ACTIVE,
+            OR: [
+              { approvalRequests: { some: { tenantId, status: ApprovalStatus.APPROVED } } },
+              {
+                fileAsset: {
+                  approvalRequests: {
+                    some: { tenantId, status: ApprovalStatus.APPROVED, fileVersionId: null },
+                  },
+                },
+              },
+            ],
+          },
+          orderBy: { versionNumber: 'desc' },
+          select: {
+            id: true, versionNumber: true, originalName: true, sizeBytes: true, createdAt: true,
+          },
+        },
       },
     });
   }

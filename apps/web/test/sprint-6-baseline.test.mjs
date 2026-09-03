@@ -67,7 +67,15 @@ describe('Sprint 6 files, file versioning, and approvals frontend baseline', () 
     assert.match(workspaceNavigation, /id: 'approvals'/);
     assert.match(workspaceNavigation, /href: '\/approvals'/);
     assert.match(workspaceNavigation, /allowedRoles: \['OWNER', 'MANAGER', 'EMPLOYEE'\]/);
-    assert.doesNotMatch(clientNavigation, /files/i);
+    // Phase 6 gives clients access to approved, client-visible files through the
+    // client-portal route. The invariant is no longer "no files in the client
+    // nav" but "no INTERNAL route in the client nav": every client entry must
+    // sit under /client, and the internal /files and /approvals routes must not
+    // appear at all.
+    for (const href of clientNavigation.matchAll(/href: '([^']+)'/g)) {
+      assert.match(href[1], /^\/client(\/|$)/, `client nav entry ${href[1]} is not a /client route`);
+    }
+    assert.doesNotMatch(clientNavigation, /href: '\/files'/);
     assert.doesNotMatch(clientNavigation, /approvals/i);
   });
 
@@ -77,10 +85,15 @@ describe('Sprint 6 files, file versioning, and approvals frontend baseline', () 
       .map((file) => readWeb(file))
       .join('\n');
 
-    assert.doesNotMatch(clientFiles, /\/files/);
+    // The client portal may call its own /client/files route (Phase 6: a client
+    // can open an approved, client-visible file). It must never call the
+    // internal file or approval routes, or reuse the internal components.
+    assert.doesNotMatch(clientFiles, /(?<!\/client)\/files/);
     assert.doesNotMatch(clientFiles, /\/approvals/);
     assert.doesNotMatch(clientFiles, /FileList/);
     assert.doesNotMatch(clientFiles, /ApprovalList/);
+    // Storage internals stay server-side on this route as well.
+    assert.doesNotMatch(clientFiles, /storageKey|getSignedUrl|presign|s3\.amazonaws/i);
   });
 
   it('keeps deferred non-Sprint-6 features absent from new workspace source', () => {
