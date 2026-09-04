@@ -1,3 +1,12 @@
+/**
+ * Client-portal payment routes.
+ *
+ * Scoped to payments on client-visible, non-draft invoices. Reusing the
+ * internal list here (as an earlier revision did) would have exposed every
+ * payment in the tenant, including internal bookkeeping entries with no
+ * invoice, to any CLIENT user.
+ */
+
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
@@ -15,6 +24,6 @@ export class ClientPaymentsController {
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PAYMENT, scope: 'client-portal' })
   listClientPayments(@CurrentUser() user: JwtPayload) {
-    return this.paymentsService.list(user.tenantId);
+    return this.paymentsService.listForClient(user.tenantId);
   }
 }

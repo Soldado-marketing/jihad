@@ -16,6 +16,7 @@ export class ProjectsRepository {
         name: true,
         description: true,
         status: true,
+        clientVisible: true,
         createdAt: true,
         updatedAt: true,
         _count: { select: { tasks: true } },
@@ -38,7 +39,7 @@ export class ProjectsRepository {
       where: { id, tenantId },
       include: {
         tasks: {
-          select: { id: true, title: true, status: true, priority: true, dueAt: true },
+          select: { id: true, title: true, status: true, priority: true, dueAt: true, clientVisible: true },
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
@@ -54,6 +55,7 @@ export class ProjectsRepository {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.clientVisible !== undefined && { clientVisible: dto.clientVisible }),
       },
     });
   }

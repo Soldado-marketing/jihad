@@ -126,6 +126,7 @@ export class TasksRepository {
         ...(dto.assignedToUserId !== undefined && { assignedToUserId: dto.assignedToUserId }),
         ...(dto.dueAt !== undefined && { dueAt: dto.dueAt ? new Date(dto.dueAt) : null }),
         ...(dto.projectId !== undefined && { projectId: dto.projectId }),
+        ...(dto.clientVisible !== undefined && { clientVisible: dto.clientVisible }),
       },
       include: taskFullInclude(),
     });

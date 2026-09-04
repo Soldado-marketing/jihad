@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  api:
+    name: API - typecheck, build, tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: maos
+          POSTGRES_PASSWORD: maos_password
+          POSTGRES_DB: maos_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maos -d maos_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://maos:maos_password@localhost:5432/maos_db?schema=public
+      # CI-only values, long enough to satisfy the S-01 startup validator.
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-0123456789abcdef0123456789abcdef
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      # No --legacy-peer-deps: @nestjs/jwt and @nestjs/passport were moved to
+      # their NestJS 11 lines, so peer resolution is clean. If this step ever
+      # fails with ERESOLVE again, fix the offending package rather than
+      # reinstating the flag.
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: npx prisma generate
+
+      # migrate deploy only. `migrate dev` and `db push` are forbidden in this
+      # project: they can rewrite or drop migration history.
+      - name: Apply migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+
+      # Production sources only. The repository still contains legacy *.spec.ts
+      # files written for a test runner that is not installed;
+      # tsconfig.build.json excludes them, so this gate is meaningful and green.
+      - name: Typecheck (production sources)
+        working-directory: apps/api
+        run: npx tsc --noEmit -p tsconfig.build.json
+
+      - name: Build
+        working-directory: apps/api
+        run: npm run build
+
+      # Blocking gate: the suites that are fully green today (162 tests).
+      - name: Unit and contract tests
+        working-directory: apps/api
+        run: |
+          node --test \
+            test/security-mvp.test.mjs \
+            test/runtime-hardening.test.mjs \
+            test/sprint-1a-baseline.test.mjs \
+            test/sprint-13-auth-login-flow.test.mjs \
+            test/phase-3-file-storage.test.mjs \
+            test/phase-4-invoicing.test.mjs
+
+      # HTTP integration tests: boots the real app against the PostgreSQL
+      # service above and drives it over HTTP. Green (34/34), so it blocks.
+      - name: Integration tests
+        working-directory: apps/api
+        env:
+          MAOS_INTEGRATION: '1'
+        run: node --test test/integration-api.test.mjs
+
+      # Informational: the sprint-*-baseline suites describe features that were
+      # specified but never built. They carry 43 known failures. Reported so the
+      # number stays visible, without blocking the pipeline.
+      - name: Full suite (informational - 43 known failures)
+        working-directory: apps/api
+        continue-on-error: true
+        run: npm test
+
+  web:
+    name: Web - typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: apps/web
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      # Informational: 3 known failures.
+      - name: Web tests (informational - 3 known failures)
+        working-directory: apps/web
+        continue-on-error: true
+        run: npm test
+
+  audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # Reporting only. `npm audit fix --force` is forbidden in this project:
+      # it silently performs major-version upgrades.
+      - name: Audit API dependencies
+        working-directory: apps/api
+        continue-on-error: true
+        run: npm audit --audit-level=high

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuditModule } from '../audit/audit.module';
 import { AuthController } from './auth.controller';
@@ -17,7 +17,17 @@ import { validateJwtSecret } from '../../common/config/jwt-secret';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: validateJwtSecret(config.get<string>('JWT_SECRET')),
-        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '15m') },
+        // @nestjs/jwt 11 types expiresIn as ms's StringValue template-literal
+        // union ('15m', '7d', ...) rather than a plain string. The value comes
+        // from the environment, so its literal type is unknowable at compile
+        // time; the cast is narrowed to exactly this field and the format is
+        // still validated by jsonwebtoken at signing time.
+        signOptions: {
+          expiresIn: config.get<string>(
+            'JWT_EXPIRES_IN',
+            '15m',
+          ) as JwtSignOptions['expiresIn'],
+        },
       }),
     }),
   ],

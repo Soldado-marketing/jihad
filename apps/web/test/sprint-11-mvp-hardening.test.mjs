@@ -53,7 +53,12 @@ describe('Sprint 11 MVP frontend hardening regression', () => {
     assert.match(clientNavigation, /href: '\/client\/tasks'/);
     assert.match(clientNavigation, /href: '\/client\/invoices'/);
     assert.match(clientNavigation, /href: '\/client\/payments'/);
-    assert.doesNotMatch(clientNavigation, /\/finance|\/crm|\/chat|\/voice|\/reports|\/files|\/approvals|\/collaboration/);
+    // /client/files is a client-portal route added in Phase 6, so the check is
+    // on internal routes: none of them may be reachable from the client nav.
+    assert.doesNotMatch(
+      clientNavigation,
+      /href: '\/(finance|crm|chat|voice|reports|files|approvals|collaboration)/,
+    );
   });
 
   it('keeps client dashboard and client finance views free of internal finance data', () => {
@@ -109,20 +114,43 @@ describe('Sprint 11 MVP frontend hardening regression', () => {
     assert.doesNotMatch(voiceFiles, /automatic task creation|production audio processing|mobile recording|real transcription/i);
   });
 
-  it('keeps file and approval views limited to guarded placeholders', () => {
+  // Phase 6 superseded the original form of this test. It asserted that object
+  // storage was still deferred and that no file input existed anywhere; both
+  // became false once uploads were implemented against the Phase 3 API. The
+  // protective intent is kept: file access must stay permission-checked, the
+  // browser must never see storage internals, and no capability may be claimed
+  // that does not exist.
+  it('keeps file and approval views permission-checked without exposing storage internals', () => {
     const fileAndApprovalFiles = readMany([
       'app/(workspace)/files/page.tsx',
       'app/(workspace)/files/[id]/page.tsx',
       'app/(workspace)/approvals/page.tsx',
       'app/(workspace)/approvals/[id]/page.tsx',
       'src/components/files/signed-url-notice.tsx',
+      'src/components/files/file-uploader.tsx',
+      'src/components/files/file-version-list.tsx',
       'src/components/approvals/approval-decision-panel.tsx',
     ]);
 
-    assert.match(fileAndApprovalFiles, /signed URL placeholders|permission-checked placeholder/i);
-    assert.match(fileAndApprovalFiles, /External object storage integration is deferred/);
+    // Access is still described as permission-checked, and now accurately.
+    assert.match(fileAndApprovalFiles, /permission-checked/i);
     assert.match(fileAndApprovalFiles, /Advanced workflows are deferred/);
-    assert.doesNotMatch(fileAndApprovalFiles, /type=["']file|client upload|malware scan implementation|external storage integration is active/i);
+
+    // Uploads and downloads go through the API's own routes only.
+    assert.match(fileAndApprovalFiles, /\/files\/\$\{fileAssetId\}\/versions/);
+    assert.match(fileAndApprovalFiles, /versions\/\$\{versionId\}\/content/);
+
+    // Storage internals must never reach the browser, and no unimplemented
+    // capability may be advertised.
+    // Precise, not word-level: the notice legitimately *mentions* storage keys
+    // and buckets to say they are never exposed. What must not appear is code
+    // that reads one or builds a pre-signed URL.
+    assert.doesNotMatch(fileAndApprovalFiles, /\.storageKey|getSignedUrl|presign|s3\.amazonaws/i);
+    assert.match(
+      fileAndApprovalFiles,
+      /Storage keys and bucket details are never exposed to the\s+browser/,
+    );
+    assert.doesNotMatch(fileAndApprovalFiles, /malware scan implementation/i);
   });
 
   it('confirms MVP frontend routes and key safety components exist', () => {

@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
@@ -50,5 +51,9 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
+  // Required for nested validation. Without @Type the global ValidationPipe
+  // (whitelist + forbidNonWhitelisted) has no metadata for the line objects and
+  // rejects every one of their properties with "should not exist".
+  @Type(() => CreateInvoiceLineDto)
   lines?: CreateInvoiceLineDto[];
 }

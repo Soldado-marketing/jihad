@@ -23,4 +23,8 @@ export class FinanceController {
   @Get('costs')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FINANCE, sensitive: true })
   costs(@CurrentUser() user: JwtPayload) { return this.svc.listCosts(user.tenantId); }
+
+  @Get('profitability')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FINANCE, sensitive: true })
+  profitability(@CurrentUser() user: JwtPayload) { return this.svc.getProfitability(user.tenantId); }
 }

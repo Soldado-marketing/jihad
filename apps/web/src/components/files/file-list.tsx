@@ -14,7 +14,7 @@ export function FileList({ files }: { files: FileListItem[] }) {
     return (
       <EmptyState
         title="No files yet"
-        description="Files and versions will appear after metadata persistence and storage integration are connected."
+        description="Register a file, then open it to upload the first version."
       />
     );
   }

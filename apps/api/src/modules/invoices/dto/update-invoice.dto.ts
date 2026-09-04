@@ -23,3 +23,13 @@ export class UpdateInvoiceDto {
   @IsString()
   clientScopeKey?: string;
 }
+
+/**
+ * Body for PATCH /invoices/:id/status.
+ * A dedicated DTO so the status transition route validates its one field
+ * instead of accepting an untyped object.
+ */
+export class UpdateInvoiceStatusDto {
+  @IsIn(['DRAFT', 'SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'VOID'])
+  status!: 'DRAFT' | 'SENT' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'VOID';
+}

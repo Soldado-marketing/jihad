@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { validateEnv } from './common/config/env-validation';
+import { validateStorageEnv } from './modules/storage/storage.config';
 import { AllExceptionsFilter } from './common/http/all-exceptions.filter';
 import { logStructured } from './common/logging/structured-logger';
 
@@ -26,6 +27,12 @@ async function bootstrap() {
   const env = validateEnv();
   for (const warning of env.warnings) {
     logStructured('warn', 'env_warning', { detail: warning });
+  }
+
+  // Phase 3: object storage may be absent (warning), but never half-configured.
+  const storage = validateStorageEnv();
+  for (const warning of storage.warnings) {
+    logStructured('warn', 'storage_warning', { detail: warning });
   }
 
   const app = await NestFactory.create(AppModule);
