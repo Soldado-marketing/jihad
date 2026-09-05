@@ -22,13 +22,19 @@ COPY . .
 #
 #   docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com apps/web
 #
-# The default keeps the previous behaviour for local builds that pass nothing.
-# Any deployment MUST override it, or the production bundle will call localhost.
+# Deliberately NO default. A default would let a deployment that forgets the
+# build argument succeed, exit 0, pass its health check, and serve a bundle
+# whose every request goes to the visitor's own machine — a silent failure with
+# nothing in the build log to explain it. Failing here instead costs one clear
+# error message and cannot reach production.
 # Not a secret: NEXT_PUBLIC_* values are public by definition and ship to every
 # browser. The ENV lives only in this builder stage, which is discarded — the
 # production stage below inherits nothing from it.
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# -n also rejects an empty string, which would otherwise inline "" and make
+# apiBase() resolve to a bare "/api" — a third behaviour nobody asked for.
+RUN test -n "$NEXT_PUBLIC_API_URL" || { echo "Build failed: NEXT_PUBLIC_API_URL build-arg is required (it is inlined into the browser bundle)."; exit 1; }
 
 # Build Next.js — output: standalone for minimal production image
 ENV NEXT_TELEMETRY_DISABLED=1
