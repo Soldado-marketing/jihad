@@ -14,6 +14,7 @@ import { InvoiceStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { SendInvoiceDto } from './dto/send-invoice.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -41,6 +42,7 @@ export class InvoicesService {
     private readonly pdf: InvoicePdfService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
@@ -177,6 +179,20 @@ export class InvoicesService {
     await this.recordAudit(actor, 'invoice.sent', id, {
       outcome: AuditOutcome.SUCCESS,
       payload: { invoiceNumber: invoice.invoiceNumber, recipientCount: recipients.length },
+    });
+
+    // Staff who may read invoices. No amount and no recipient address in the
+    // body: the notification names the invoice, the invoice holds the money.
+    await this.notifications.notify({
+      tenantId,
+      recipientRoles: [MembershipRole.OWNER, MembershipRole.MANAGER],
+      audience: 'INTERNAL',
+      actorUserId: actor.actorId,
+      dedupeKey: `invoice.sent:${id}`,
+      title: 'Invoice sent',
+      body: `Invoice ${invoice.invoiceNumber} was sent to the client.`,
+      resourceType: 'invoice',
+      resourceId: id,
     });
 
     return { invoice: updated, recipientCount: recipients.length, sent: true };

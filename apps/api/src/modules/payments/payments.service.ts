@@ -7,7 +7,9 @@
  */
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { MembershipRole } from '@prisma/client';
 import { InvoiceActor, InvoicesService } from '../invoices/invoices.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentInput, PaymentsRepository } from './payments.repository';
 
@@ -16,6 +18,7 @@ export class PaymentsService {
   constructor(
     private readonly repo: PaymentsRepository,
     private readonly invoices: InvoicesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
@@ -54,6 +57,21 @@ export class PaymentsService {
     const invoice = dto.invoiceId
       ? await this.invoices.syncAfterPayment(actor, dto.invoiceId)
       : null;
+
+    // OWNER only. Reading a payment is a sensitive permission, so the people
+    // told about one are exactly the people allowed to look at it. The amount
+    // stays out of the body for the same reason.
+    await this.notifications.notify({
+      tenantId,
+      recipientRoles: [MembershipRole.OWNER],
+      audience: 'INTERNAL',
+      actorUserId: actor.actorId,
+      dedupeKey: `payment.received:${payment.id}`,
+      title: 'Payment recorded',
+      body: invoice ? `A payment was recorded against invoice ${invoice.invoiceNumber}.` : 'A payment was recorded.',
+      resourceType: 'payment',
+      resourceId: payment.id,
+    });
 
     return { invoice, payment };
   }

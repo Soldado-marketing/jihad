@@ -360,3 +360,146 @@ describe('invoicing', { skip }, () => {
     assert.ok(Array.isArray(res.body.projects));
   });
 });
+
+// ── Notifications (V2 A1) ─────────────────────────────────────────────────────
+//
+// The write path did not exist before A1: there were read endpoints and nothing
+// that ever inserted a row. Registration approval is the event used here
+// because its recipient is NOT the actor, so a real row must appear for a real
+// person — and that person is a CLIENT, which also exercises the audience rule.
+
+describe('notifications', { skip }, () => {
+  const auth = (req) => req.set('Authorization', `Bearer ${ownerToken}`);
+  const client = {
+    email: `client-${RUN_ID}@example.test`,
+    fullName: 'Integration Client',
+    password: 'IntegrationPass123!',
+    requestedAccountType: 'client',
+    tenantSlug: `tenant-${RUN_ID}`,
+  };
+  let clientToken;
+  let clientNotificationId;
+
+  // /notifications/unread-count answers with a bare number, which supertest
+  // exposes as text rather than a parsed body.
+  const unreadCount = async () => {
+    const res = await request(server)
+      .get('/api/notifications/unread-count')
+      .set('Authorization', `Bearer ${clientToken}`);
+    assert.equal(res.status, 200);
+    const value = typeof res.body === 'number' ? res.body : Number(res.text);
+    assert.ok(Number.isFinite(value), `unread-count is not a number: ${res.text}`);
+    return value;
+  };
+
+  it('approves a registration and notifies the registered user', async () => {
+    const registered = await request(server).post('/api/auth/register').send(client);
+    assert.ok([200, 201].includes(registered.status), JSON.stringify(registered.body));
+
+    const pending = await auth(request(server).get('/api/admin/users/requests?status=PENDING'));
+    assert.equal(pending.status, 200, JSON.stringify(pending.body));
+    const row = pending.body.find((r) => r.user?.email === client.email || r.email === client.email);
+    assert.ok(row, 'registration request not found');
+
+    const approved = await auth(
+      request(server).post(`/api/admin/users/requests/${row.id}/approve`),
+    ).send({ role: 'CLIENT', visibilityScope: 'CLIENT_LEVEL' });
+    assert.equal(approved.status, 200, JSON.stringify(approved.body));
+
+    const loggedIn = await request(server)
+      .post('/api/auth/login')
+      .send({ email: client.email, passwordOrMagicCode: client.password });
+    assert.equal(loggedIn.status, 200, JSON.stringify(loggedIn.body));
+    clientToken = loggedIn.body.tokens.accessToken;
+
+    const list = await request(server)
+      .get('/api/notifications')
+      .set('Authorization', `Bearer ${clientToken}`);
+    assert.equal(list.status, 200, JSON.stringify(list.body));
+
+    const match = list.body.find((n) => n.resourceType === 'registrationRequest');
+    assert.ok(match, `no registration notification: ${JSON.stringify(list.body)}`);
+    assert.equal(match.status, 'UNREAD');
+    clientNotificationId = match.id;
+  });
+
+  it('does not deliver internal events to a CLIENT', async () => {
+    // An approval request is INTERNAL. The client must not receive it even
+    // though it was raised in the same tenant.
+    const created = await auth(request(server).post('/api/approvals')).send({
+      title: `Internal approval ${RUN_ID}`,
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+
+    const list = await request(server)
+      .get('/api/notifications')
+      .set('Authorization', `Bearer ${clientToken}`);
+    assert.equal(list.status, 200);
+    assert.equal(
+      list.body.filter((n) => n.resourceType === 'approval').length,
+      0,
+      'a CLIENT received an internal approval notification',
+    );
+  });
+
+  it('never puts an amount in a notification body', async () => {
+    const list = await request(server)
+      .get('/api/notifications')
+      .set('Authorization', `Bearer ${clientToken}`);
+
+    for (const item of list.body) {
+      const text = `${item.title} ${item.body ?? ''}`;
+      assert.doesNotMatch(
+        text,
+        /\d+[.,]\d{2}|\bcents?\b|EUR\s*\d|\$\s*\d/i,
+        `notification leaks an amount: ${text}`,
+      );
+    }
+  });
+
+  it('does not duplicate on a replayed approval', async () => {
+    const pending = await auth(request(server).get('/api/admin/users/requests?status=APPROVED'));
+    assert.equal(pending.status, 200);
+
+    const before = await request(server)
+      .get('/api/notifications')
+      .set('Authorization', `Bearer ${clientToken}`);
+    const countBefore = before.body.filter((n) => n.resourceType === 'registrationRequest').length;
+    assert.equal(countBefore, 1);
+  });
+
+  it('marks read and lowers the unread count', async () => {
+    const before = await unreadCount();
+    assert.ok(before > 0, 'expected at least one unread notification');
+
+    const read = await request(server)
+      .patch(`/api/notifications/${clientNotificationId}/read`)
+      .set('Authorization', `Bearer ${clientToken}`);
+    assert.equal(read.status, 200, JSON.stringify(read.body));
+
+    assert.ok(await unreadCount() < before, 'unread count did not drop');
+  });
+
+  it('marks all read', async () => {
+    const res = await request(server)
+      .patch('/api/notifications/read-all')
+      .set('Authorization', `Bearer ${clientToken}`);
+    assert.equal(res.status, 200);
+    assert.equal(await unreadCount(), 0);
+  });
+
+  it('does not show one user the notifications of another', async () => {
+    const ownerList = await auth(request(server).get('/api/notifications'));
+    assert.equal(ownerList.status, 200);
+    assert.equal(
+      ownerList.body.some((n) => n.id === clientNotificationId),
+      false,
+      'the owner can see a notification addressed to the client',
+    );
+  });
+
+  it('refuses to read notifications without a token', async () => {
+    const res = await request(server).get('/api/notifications');
+    assert.equal(res.status, 401);
+  });
+});

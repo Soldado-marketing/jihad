@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import {
@@ -24,6 +25,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly mailService: MailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -206,6 +208,19 @@ export class AdminUsersService {
     this.mailService.sendApprovalEmail({
       to: (regRequest.user as { email: string }).email,
       name: regRequest.fullName as string,
+    });
+
+    // In-app version of the same news. DIRECT, because this recipient may well
+    // be a CLIENT and it is their own account event — nothing internal leaks.
+    await this.notifications.notify({
+      tenantId,
+      recipientUserIds: [regRequest.userId],
+      audience: 'DIRECT',
+      dedupeKey: `registration.approved:${requestId}`,
+      title: 'Your access request was approved',
+      body: 'You can now sign in to the workspace.',
+      resourceType: 'registrationRequest',
+      resourceId: requestId,
     });
 
     return { message: 'User approved successfully.' };

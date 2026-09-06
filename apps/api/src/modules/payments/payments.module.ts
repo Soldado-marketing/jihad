@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { ClientPaymentsController } from './client-payments.controller';
 import { PaymentsController } from './payments.controller';
@@ -10,7 +11,7 @@ import { PaymentsService } from './payments.service';
   // ClientPaymentsController was previously written but never registered, so
   // the /api/client/payments route did not exist at runtime.
   controllers: [PaymentsController, ClientPaymentsController],
-  imports: [InvoicesModule, PermissionsModule],
+  imports: [InvoicesModule, NotificationsModule, PermissionsModule],
   providers: [PaymentsRepository, PaymentsService],
   exports: [PaymentsService],
 })
