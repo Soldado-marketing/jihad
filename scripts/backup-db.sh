@@ -12,8 +12,12 @@
 #   DATABASE_URL       required - connection string (never printed)
 #   BACKUP_RETENTION   optional - how many dumps to keep (default 14)
 #
-# The connection string is passed to pg_dump via the environment, so it never
-# appears in the process list or in this script's output.
+# The credentials are passed to pg_dump through libpq's PGUSER/PGPASSWORD
+# environment variables, so neither the password nor an authenticated
+# connection string ever appears in the process list or in this script's
+# output. Host, port, database and the query parameters remain in the --dbname
+# URL: they are not secrets and keeping them there means no connection option
+# can be lost in translation.
 
 set -euo pipefail
 
@@ -60,6 +64,59 @@ strip_prisma_params() {
 
 PGDUMP_URL="$(strip_prisma_params "$DATABASE_URL")"
 
+# libpq percent-decodes the userinfo part of a URI; the environment variables
+# below are taken literally. Only applied when a '%' is actually present, so an
+# ordinary password passes through untouched.
+percent_decode() {
+  local s="$1"
+  case "$s" in
+    *%*) printf '%b' "${s//%/\\x}" ;;
+    *)   printf '%s' "$s" ;;
+  esac
+}
+
+# Move the credentials out of the URL and into libpq's own environment
+# variables.
+#
+# pg_dump takes the connection string as a command-line ARGUMENT, and arguments
+# are readable through `ps` by any process for as long as the dump runs — which
+# on a large database is a long time. This file's header claimed the connection
+# string never reaches the process list; until this change that was not true.
+#
+# Everything that is not a credential — scheme, host, port, database and every
+# query parameter, sslmode above all — stays in the URL untouched, so the
+# connection behaves exactly as before and nothing can be silently dropped.
+# Splitting on the FIRST '@' is what the URI spec requires: a literal '@' inside
+# a password must be percent-encoded.
+PG_STRIPPED_URL="$PGDUMP_URL"
+split_credentials() {
+  local url="$1" scheme rest userinfo
+  case "$url" in
+    *://*) ;;
+    *) return 0 ;;
+  esac
+  scheme="${url%%://*}"
+  rest="${url#*://}"
+  case "$rest" in
+    *@*) ;;
+    *) return 0 ;;
+  esac
+  userinfo="${rest%%@*}"
+  PG_STRIPPED_URL="${scheme}://${rest#*@}"
+  if [[ -n "${userinfo%%:*}" ]]; then
+    PGUSER="$(percent_decode "${userinfo%%:*}")"
+    export PGUSER
+  fi
+  case "$userinfo" in
+    *:*)
+      PGPASSWORD="$(percent_decode "${userinfo#*:}")"
+      export PGPASSWORD
+      ;;
+  esac
+}
+
+split_credentials "$PGDUMP_URL"
+
 mkdir -p "$OUTPUT_DIR"
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -79,7 +136,7 @@ trap cleanup_failed_dump EXIT
 # -Z9  maximum compression
 # --no-owner / --no-privileges keep the dump portable across environments
 pg_dump \
-  --dbname="$PGDUMP_URL" \
+  --dbname="$PG_STRIPPED_URL" \
   --format=custom \
   --compress=9 \
   --no-owner \
