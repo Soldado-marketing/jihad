@@ -132,6 +132,25 @@ export class FilesRepository {
     return this.prisma.fileAsset.update({ where: { id, tenantId }, data });
   }
 
+  /**
+   * INTERNAL ONLY - the storage keys of every version of one asset.
+   *
+   * This is the trusted source of deletion targets: the rows are tenant-scoped,
+   * so a key can only ever describe an object this tenant owns, and no part of
+   * it comes from the caller. The result must never be serialised into a
+   * response - it is the one place outside the download path where a key leaves
+   * the database.
+   */
+  listVersionStorageKeys(
+    tenantId: string,
+    fileAssetId: string,
+  ): Promise<{ id: string; storageKey: string | null }[]> {
+    return this.prisma.fileVersion.findMany({
+      where: { tenantId, fileAssetId },
+      select: { id: true, storageKey: true },
+    });
+  }
+
   delete(tenantId: string, id: string) {
     return this.prisma.fileAsset.delete({ where: { id, tenantId } });
   }

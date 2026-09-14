@@ -76,7 +76,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (162 tests).
+      # Blocking gate: the suites that are fully green today (179 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -86,7 +86,8 @@ jobs:
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
-            test/phase-4-invoicing.test.mjs
+            test/phase-4-invoicing.test.mjs \
+            test/security-gate-file-deletion.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
       # service above and drives it over HTTP. Green (34/34), so it blocks.
