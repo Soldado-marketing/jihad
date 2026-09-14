@@ -104,11 +104,17 @@ echo "OK: ${DUMP_FILE} (${SIZE})"
 
 # Prune by count, newest first. Only files this script's naming scheme created
 # are ever considered, so nothing else in the directory can be removed.
-mapfile -t OLD < <(ls -1t "${OUTPUT_DIR}"/maos-*.dump 2>/dev/null | tail -n +"$((RETENTION + 1))")
-for file in "${OLD[@]:-}"; do
+#
+# Read line by line instead of `mapfile`: mapfile is bash 4+, and macOS still
+# ships bash 3.2, where it fails with "command not found". Under `set -e` that
+# aborted the script AFTER a valid dump and checksum had already been written —
+# a successful backup reported as a failure. `read` is POSIX and behaves the
+# same on both. Process substitution (not a pipe) keeps the loop in this shell,
+# and `IFS=` with `read -r` preserves spaces and backslashes in paths.
+while IFS= read -r file; do
   [[ -n "$file" ]] || continue
   echo "Pruning old backup: ${file}"
   rm -f "$file" "${file}.sha256"
-done
+done < <(ls -1t "${OUTPUT_DIR}"/maos-*.dump 2>/dev/null | tail -n +"$((RETENTION + 1))")
 
 echo "Retention: keeping the newest ${RETENTION} backup(s)."
