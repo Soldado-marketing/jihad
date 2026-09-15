@@ -90,12 +90,18 @@ jobs:
             test/security-gate-file-deletion.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (34/34), so it blocks.
+      # service above and drives it over HTTP. Green (70/70), so it blocks.
+      # security-gate-authz proves the guards are actually wired: a controller
+      # can carry every decorator and still answer 200 if its module never
+      # imported PermissionsModule, which source assertions cannot catch.
       - name: Integration tests
         working-directory: apps/api
         env:
           MAOS_INTEGRATION: '1'
-        run: node --test test/integration-api.test.mjs
+        run: |
+          node --test \
+            test/integration-api.test.mjs \
+            test/security-gate-authz.test.mjs
 
       # Informational: the sprint-*-baseline suites describe features that were
       # specified but never built. They carry 43 known failures. Reported so the
