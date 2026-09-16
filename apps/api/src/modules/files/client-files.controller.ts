@@ -41,7 +41,7 @@ export class ClientFilesController {
     scope: 'client-portal',
   })
   listClientFiles(@CurrentUser() user: JwtPayload) {
-    return this.filesService.listForClient(user.tenantId);
+    return this.filesService.listForClient(user.tenantId, user.sub, user.role);
   }
 
   @Get(':id/versions/:versionId/content')

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ClientScopeService } from '../memberships/client-scope.service';
 import {
   UnsafeObjectKeyError,
   assertKeyBelongsToTenant,
@@ -21,12 +22,16 @@ export class FilesService {
   constructor(
     private readonly repo: FilesRepository,
     private readonly storage: StorageService,
+    private readonly clientScope: ClientScopeService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
 
-  /** Client-portal list: client-visible and approved only. */
-  listForClient(tenantId: string) { return this.repo.listForClient(tenantId); }
+  /** Client-portal list: the caller's client scope, client-visible, approved only. */
+  async listForClient(tenantId: string, actorId: string, role: string) {
+    const scope = await this.clientScope.resolve(tenantId, actorId, role);
+    return this.repo.listForClient(tenantId, scope);
+  }
 
   create(tenantId: string, actorId: string, dto: CreateFileDto) {
     return this.repo.create(tenantId, actorId, dto);

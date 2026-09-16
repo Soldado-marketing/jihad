@@ -7,6 +7,7 @@
  */
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ClientScopeService } from '../memberships/client-scope.service';
 import { InvoiceActor, InvoicesService } from '../invoices/invoices.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentInput, PaymentsRepository } from './payments.repository';
@@ -16,11 +17,15 @@ export class PaymentsService {
   constructor(
     private readonly repo: PaymentsRepository,
     private readonly invoices: InvoicesService,
+    private readonly clientScope: ClientScopeService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
 
-  listForClient(tenantId: string) { return this.repo.listForClient(tenantId); }
+  async listForClient(tenantId: string, actorId: string, role: string) {
+    const scope = await this.clientScope.resolve(tenantId, actorId, role);
+    return this.repo.listForClient(tenantId, scope);
+  }
 
   async get(tenantId: string, id: string) {
     const payment = await this.repo.getById(tenantId, id);

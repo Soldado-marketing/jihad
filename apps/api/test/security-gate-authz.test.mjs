@@ -63,9 +63,9 @@ const as = (who, req) => req.set('Authorization', `Bearer ${token[who]}`);
  * the row is the only way to get a CLIENT session without exercising three
  * unrelated flows inside an authorisation test.
  */
-async function seedMember(role) {
+async function seedMember(role, explicitEmail) {
   const bcrypt = require('bcrypt');
-  const email = `${role.toLowerCase()}-${RUN}@example.test`;
+  const email = explicitEmail ?? `${role.toLowerCase()}-${RUN}@example.test`;
 
   const user = await prisma.user.create({
     data: {
@@ -122,31 +122,23 @@ before(async () => {
   const { PrismaService } = require(join(apiRoot, 'dist/modules/prisma/prisma.service.js'));
   prisma = app.get(PrismaService);
 
+  // The tenant and its owner are seeded directly rather than through
+  // /auth/bootstrap. Bootstrap is one-time across the whole database, so a suite
+  // that depends on it can only ever run first; seeding makes this suite
+  // order-independent and lets it share a database with the other integration
+  // suites.
   const slug = `tenant-${RUN}`;
   const ownerEmail = `owner-${RUN}@example.test`;
 
-  const bootstrap = await request(server).post('/api/auth/bootstrap').send({
-    email: ownerEmail,
-    fullName: 'Gate Owner',
-    password: PASSWORD,
-    tenantName: `Tenant ${RUN}`,
-    tenantSlug: slug,
+  const tenant = await prisma.tenant.create({
+    data: { name: `Tenant ${RUN}`, slug, status: 'ACTIVE' },
+    select: { id: true },
   });
-
-  // 403 means this database already holds an owner. Everything below needs a
-  // tenant this run controls, so say so plainly instead of failing 30 times.
-  assert.ok(
-    [200, 201].includes(bootstrap.status),
-    `bootstrap refused (${bootstrap.status}) - this suite needs an EMPTY database: `
-    + JSON.stringify(bootstrap.body),
-  );
-
-  const tenant = await prisma.tenant.findFirst({ where: { slug }, select: { id: true } });
   tenantId = tenant.id;
 
-  token.owner = await login(ownerEmail, slug);
-  const owner = await prisma.user.findUnique({ where: { email: ownerEmail }, select: { id: true } });
+  const owner = await seedMember('OWNER', ownerEmail);
   userId.owner = owner.id;
+  token.owner = await login(owner.email, slug);
 
   const employee = await seedMember('EMPLOYEE');
   userId.employee = employee.id;

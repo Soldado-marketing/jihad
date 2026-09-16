@@ -327,6 +327,11 @@ model TenantMembership {
   role            MembershipRole
   status          MembershipStatus @default(ACTIVE)
   visibilityScope VisibilityScope  @default(TENANT_WIDE)
+  // Which client this membership speaks for. Meaningful only for CLIENT
+  // memberships, where it is matched against the clientScopeKey carried by
+  // every client-facing resource. NULL means "no client scope": a CLIENT
+  // membership with NULL sees nothing at all, which is the fail-closed side.
+  clientScopeKey  String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -336,6 +341,7 @@ model TenantMembership {
   @@unique([tenantId, userId])
   @@index([tenantId, role])
   @@index([tenantId, status])
+  @@index([tenantId, clientScopeKey])
   @@index([userId])
 }
 

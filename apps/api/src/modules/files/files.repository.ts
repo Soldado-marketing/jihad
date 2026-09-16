@@ -42,16 +42,22 @@ export class FilesRepository {
   /**
    * The client-portal view of the same table.
    *
-   * Two gates, both server-side: the asset must be client-visible, and it must
-   * carry an APPROVED approval — either for the asset as a whole or for one of
-   * its versions. Only the versions covered by that approval are returned, and
-   * storageKey is never selected.
+   * Three gates, all server-side: the asset must belong to the caller's client
+   * scope, it must be client-visible, and it must carry an APPROVED approval —
+   * either for the asset as a whole or for one of its versions. Only the
+   * versions covered by that approval are returned, and storageKey is never
+   * selected.
+   *
+   * clientScopeKey comes from the caller's database membership, never from the
+   * request. A null scope means an internal role, which adds no filter; a CLIENT
+   * never arrives with null.
    */
-  listForClient(tenantId: string) {
+  listForClient(tenantId: string, clientScopeKey: string | null) {
     return this.prisma.fileAsset.findMany({
       where: {
         tenantId,
         clientVisible: true,
+        ...(clientScopeKey === null ? {} : { clientScopeKey }),
         approvalRequests: { some: { tenantId, status: ApprovalStatus.APPROVED } },
       },
       orderBy: { createdAt: 'desc' },

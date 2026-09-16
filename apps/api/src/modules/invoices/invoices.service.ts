@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { InvoiceStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { ClientScopeService } from '../memberships/client-scope.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { MailService } from '../mail/mail.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -32,6 +33,16 @@ export interface RenderedInvoicePdf {
   filename: string;
 }
 
+/**
+ * The client branch carries the caller with it. Written as a union rather than
+ * optional fields so a forClient render cannot compile without an actor: an
+ * actorId that quietly defaulted to '' would resolve to "no client scope" and
+ * skip the ownership check entirely.
+ */
+export type RenderPdfOptions =
+  | { forClient: false }
+  | { forClient: true; actorId: string; role: string };
+
 @Injectable()
 export class InvoicesService {
   private readonly logger = new Logger(InvoicesService.name);
@@ -41,14 +52,19 @@ export class InvoicesService {
     private readonly pdf: InvoicePdfService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly clientScope: ClientScopeService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
 
-  listForClient(tenantId: string) { return this.repo.listForClient(tenantId); }
+  async listForClient(tenantId: string, actorId: string, role: string) {
+    const scope = await this.clientScope.resolve(tenantId, actorId, role);
+    return this.repo.listForClient(tenantId, scope);
+  }
 
-  async getForClient(tenantId: string, id: string) {
-    const invoice = await this.repo.getForClient(tenantId, id);
+  async getForClient(tenantId: string, id: string, actorId: string, role: string) {
+    const scope = await this.clientScope.resolve(tenantId, actorId, role);
+    const invoice = await this.repo.getForClient(tenantId, id, scope);
     // A draft or internal invoice is reported as absent, not forbidden, so the
     // response cannot be used to confirm that it exists.
     if (!invoice) throw new NotFoundException('Invoice not found');
@@ -80,19 +96,28 @@ export class InvoicesService {
   /**
    * Renders the invoice PDF.
    *
-   * forClient=true additionally requires the invoice to be client-visible and
-   * out of DRAFT, so the client PDF route cannot leak an unsent invoice.
+   * forClient=true additionally requires the invoice to be client-visible, out
+   * of DRAFT, and inside the caller's own client scope, so the client PDF route
+   * cannot leak an unsent invoice or another client's invoice. Every refusal is
+   * reported as 404 so the route cannot confirm that an id exists.
    */
   async renderPdf(
     tenantId: string,
     id: string,
-    options: { forClient: boolean } = { forClient: false },
+    options: RenderPdfOptions = { forClient: false },
   ): Promise<RenderedInvoicePdf> {
     const invoice = await this.repo.getForPdf(tenantId, id);
     if (!invoice) throw new NotFoundException('Invoice not found');
 
-    if (options.forClient && (!invoice.clientVisible || invoice.status === InvoiceStatus.DRAFT)) {
-      throw new NotFoundException('Invoice not found');
+    if (options.forClient) {
+      if (!invoice.clientVisible || invoice.status === InvoiceStatus.DRAFT) {
+        throw new NotFoundException('Invoice not found');
+      }
+
+      const scope = await this.clientScope.resolve(tenantId, options.actorId, options.role);
+      if (scope !== null && invoice.clientScopeKey !== scope) {
+        throw new NotFoundException('Invoice not found');
+      }
     }
 
     const buffer = await this.pdf.render({

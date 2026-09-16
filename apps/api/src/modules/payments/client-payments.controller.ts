@@ -24,6 +24,6 @@ export class ClientPaymentsController {
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PAYMENT, scope: 'client-portal' })
   listClientPayments(@CurrentUser() user: JwtPayload) {
-    return this.paymentsService.listForClient(user.tenantId);
+    return this.paymentsService.listForClient(user.tenantId, user.sub, user.role);
   }
 }

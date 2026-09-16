@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { MembershipsModule } from '../memberships/memberships.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { ClientInvoicesController } from './client-invoices.controller';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -11,7 +12,7 @@ import { InvoicesService } from './invoices.service';
   // ClientInvoicesController was previously written but never registered, so
   // the /api/client/invoices routes did not exist at runtime.
   controllers: [InvoicesController, ClientInvoicesController],
-  imports: [AuditModule, PermissionsModule],
+  imports: [AuditModule, MembershipsModule, PermissionsModule],
   providers: [InvoicePdfService, InvoicesRepository, InvoicesService],
   exports: [InvoicesService],
 })

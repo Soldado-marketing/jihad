@@ -38,6 +38,8 @@ export interface FileAssetForVersioning {
   name: string;
   mimeType: string | null;
   clientVisible: boolean;
+  /** Which client owns this asset. Compared against the caller's membership scope. */
+  clientScopeKey: string | null;
   projectId: string | null;
   taskId: string | null;
 }
@@ -68,6 +70,7 @@ export class FileVersionsRepository {
         name: true,
         mimeType: true,
         clientVisible: true,
+        clientScopeKey: true,
         projectId: true,
         taskId: true,
       },
@@ -122,6 +125,7 @@ export class FileVersionsRepository {
             name: true,
             mimeType: true,
             clientVisible: true,
+            clientScopeKey: true,
             projectId: true,
             taskId: true,
           },
