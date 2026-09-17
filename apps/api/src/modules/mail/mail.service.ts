@@ -15,7 +15,12 @@ export class MailService {
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
     this.from = process.env.SMTP_FROM ?? 'noreply@localhost';
-    this.appUrl = (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+    // Every link in an email is built from this. APP_URL is honoured when set,
+    // but production only ever defines WEB_URL, so without the second fallback
+    // a configured mailer would send real recipients links to localhost. The
+    // chain mirrors the one main.ts already uses for CORS.
+    this.appUrl = (process.env.APP_URL ?? process.env.WEB_URL ?? 'http://localhost:3000')
+      .replace(/\/$/, '');
 
     if (host && user && pass) {
       this.transporter = nodemailer.createTransport({
