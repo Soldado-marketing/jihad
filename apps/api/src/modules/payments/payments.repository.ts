@@ -41,14 +41,24 @@ export class PaymentsRepository {
 
   /**
    * Client portal listing: only payments attached to an invoice the client is
-   * allowed to see. A payment with no invoice is internal bookkeeping and is
-   * never shown.
+   * allowed to see, and only inside the caller's own client scope. A payment
+   * with no invoice is internal bookkeeping and is never shown.
+   *
+   * The scope is applied to the INVOICE, not to the payment row: the invoice is
+   * what the client is entitled to, and a payment inherits that entitlement.
+   * Filtering on the payment's own key would miss payments recorded without one.
    */
-  listForClient(tenantId: string) {
+  listForClient(tenantId: string, clientScopeKey: string | null) {
     return this.prisma.payment.findMany({
       where: {
         tenantId,
-        invoice: { is: { clientVisible: true, status: { not: InvoiceStatus.DRAFT } } },
+        invoice: {
+          is: {
+            clientVisible: true,
+            status: { not: InvoiceStatus.DRAFT },
+            ...(clientScopeKey === null ? {} : { clientScopeKey }),
+          },
+        },
       },
       orderBy: { receivedAt: 'desc' },
       select: CLIENT_PAYMENT_SELECT,

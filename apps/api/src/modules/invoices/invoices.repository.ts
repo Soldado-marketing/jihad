@@ -29,6 +29,17 @@ const CLIENT_VISIBLE_WHERE = {
   status: { not: InvoiceStatus.DRAFT },
 } satisfies Prisma.InvoiceWhereInput;
 
+/**
+ * Narrows a client-portal query to one client.
+ *
+ * The key comes from the caller's database membership, never from the request.
+ * null means an internal role and adds no filter; a CLIENT never arrives with
+ * null, so an invoice whose own clientScopeKey is unset belongs to no client and
+ * is invisible in the portal.
+ */
+const clientScopeWhere = (clientScopeKey: string | null) =>
+  (clientScopeKey === null ? {} : { clientScopeKey }) satisfies Prisma.InvoiceWhereInput;
+
 @Injectable()
 export class InvoicesRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -48,18 +59,18 @@ export class InvoicesRepository {
   }
 
   /** Client portal listing: client-visible, non-draft invoices only. */
-  listForClient(tenantId: string) {
+  listForClient(tenantId: string, clientScopeKey: string | null) {
     return this.prisma.invoice.findMany({
-      where: { tenantId, ...CLIENT_VISIBLE_WHERE },
+      where: { tenantId, ...CLIENT_VISIBLE_WHERE, ...clientScopeWhere(clientScopeKey) },
       orderBy: { issuedAt: 'desc' },
       select: CLIENT_INVOICE_SELECT,
     });
   }
 
   /** Client portal detail. Returns null when the invoice is not client-visible. */
-  getForClient(tenantId: string, id: string) {
+  getForClient(tenantId: string, id: string, clientScopeKey: string | null) {
     return this.prisma.invoice.findFirst({
-      where: { id, tenantId, ...CLIENT_VISIBLE_WHERE },
+      where: { id, tenantId, ...CLIENT_VISIBLE_WHERE, ...clientScopeWhere(clientScopeKey) },
       select: {
         ...CLIENT_INVOICE_SELECT,
         lines: {
@@ -126,7 +137,7 @@ export class InvoicesRepository {
       select: {
         id: true, invoiceNumber: true, status: true, currency: true,
         subtotalCents: true, totalCents: true, paidCents: true,
-        issuedAt: true, dueAt: true, clientVisible: true, projectId: true,
+        issuedAt: true, dueAt: true, clientVisible: true, clientScopeKey: true, projectId: true,
         project: { select: { id: true, name: true } },
         tenant: { select: { name: true } },
         lines: {

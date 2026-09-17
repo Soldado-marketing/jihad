@@ -76,7 +76,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (162 tests).
+      # Blocking gate: the suites that are fully green today (179 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -86,15 +86,27 @@ jobs:
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
-            test/phase-4-invoicing.test.mjs
+            test/phase-4-invoicing.test.mjs \
+            test/security-gate-file-deletion.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (34/34), so it blocks.
+      # service above and drives it over HTTP. Green (101/101), so it blocks.
+      # security-gate-authz proves the guards are actually wired: a controller
+      # can carry every decorator and still answer 200 if its module never
+      # imported PermissionsModule, which source assertions cannot catch.
+      # security-gate-client-isolation proves one client cannot reach another
+      # inside the same tenant, and - just as important - that each client can
+      # still reach its own, which a broken portal would otherwise pass.
+      # All three seed their own tenant, so they share one database safely.
       - name: Integration tests
         working-directory: apps/api
         env:
           MAOS_INTEGRATION: '1'
-        run: node --test test/integration-api.test.mjs
+        run: |
+          node --test \
+            test/integration-api.test.mjs \
+            test/security-gate-authz.test.mjs \
+            test/security-gate-client-isolation.test.mjs
 
       # Informational: the sprint-*-baseline suites describe features that were
       # specified but never built. They carry 43 known failures. Reported so the

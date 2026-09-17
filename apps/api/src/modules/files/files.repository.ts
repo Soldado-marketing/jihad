@@ -42,16 +42,22 @@ export class FilesRepository {
   /**
    * The client-portal view of the same table.
    *
-   * Two gates, both server-side: the asset must be client-visible, and it must
-   * carry an APPROVED approval — either for the asset as a whole or for one of
-   * its versions. Only the versions covered by that approval are returned, and
-   * storageKey is never selected.
+   * Three gates, all server-side: the asset must belong to the caller's client
+   * scope, it must be client-visible, and it must carry an APPROVED approval —
+   * either for the asset as a whole or for one of its versions. Only the
+   * versions covered by that approval are returned, and storageKey is never
+   * selected.
+   *
+   * clientScopeKey comes from the caller's database membership, never from the
+   * request. A null scope means an internal role, which adds no filter; a CLIENT
+   * never arrives with null.
    */
-  listForClient(tenantId: string) {
+  listForClient(tenantId: string, clientScopeKey: string | null) {
     return this.prisma.fileAsset.findMany({
       where: {
         tenantId,
         clientVisible: true,
+        ...(clientScopeKey === null ? {} : { clientScopeKey }),
         approvalRequests: { some: { tenantId, status: ApprovalStatus.APPROVED } },
       },
       orderBy: { createdAt: 'desc' },
@@ -130,6 +136,25 @@ export class FilesRepository {
     };
 
     return this.prisma.fileAsset.update({ where: { id, tenantId }, data });
+  }
+
+  /**
+   * INTERNAL ONLY - the storage keys of every version of one asset.
+   *
+   * This is the trusted source of deletion targets: the rows are tenant-scoped,
+   * so a key can only ever describe an object this tenant owns, and no part of
+   * it comes from the caller. The result must never be serialised into a
+   * response - it is the one place outside the download path where a key leaves
+   * the database.
+   */
+  listVersionStorageKeys(
+    tenantId: string,
+    fileAssetId: string,
+  ): Promise<{ id: string; storageKey: string | null }[]> {
+    return this.prisma.fileVersion.findMany({
+      where: { tenantId, fileAssetId },
+      select: { id: true, storageKey: true },
+    });
   }
 
   delete(tenantId: string, id: string) {

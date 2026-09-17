@@ -10,6 +10,10 @@ import { checkRedis, RedisCheckResult } from './redis-check';
  * GET /api/health/ready  → readiness: real dependency probes (PostgreSQL, Redis).
  *                          Returns 503 when a required dependency is unavailable,
  *                          so orchestrators stop routing traffic to a broken instance.
+ *
+ * Authorisation boundary: PUBLIC, deliberately. A probe has no credentials, so
+ * both routes answer unauthenticated. They return status words only - never a
+ * connection string, a version, a hostname, or a failure reason.
  */
 @Controller('health')
 export class HealthController {

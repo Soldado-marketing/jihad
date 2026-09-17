@@ -300,7 +300,13 @@ describe('Phase 4 - client portal exposure', () => {
   });
 
   it('filters client payments through their invoice', () => {
-    assert.match(paymentRepo, /invoice: \{ is: \{ clientVisible: true/);
+    // Gate 3 added a client-scope filter alongside these two, which broke the
+    // single-line shape this used to pin. The property is unchanged - the
+    // payment list is still reached through the invoice's own visibility - so
+    // the assertion now checks that relation rather than its formatting.
+    assert.match(paymentRepo, /invoice: \{\s*is: \{/);
+    assert.match(paymentRepo, /clientVisible: true/);
+    assert.match(paymentRepo, /status: \{ not: InvoiceStatus\.DRAFT \}/);
   });
 
   it('registers both client controllers so the routes actually exist', () => {

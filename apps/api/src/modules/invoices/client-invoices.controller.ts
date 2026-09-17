@@ -26,13 +26,13 @@ export class ClientInvoicesController {
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INVOICE, scope: 'client-portal' })
   listClientInvoices(@CurrentUser() user: JwtPayload) {
-    return this.invoicesService.listForClient(user.tenantId);
+    return this.invoicesService.listForClient(user.tenantId, user.sub, user.role);
   }
 
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INVOICE, scope: 'client-portal' })
   getClientInvoice(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.invoicesService.getForClient(user.tenantId, id);
+    return this.invoicesService.getForClient(user.tenantId, id, user.sub, user.role);
   }
 
   @Get(':id/pdf')
@@ -43,7 +43,9 @@ export class ClientInvoicesController {
     @Res() res: Response,
   ): Promise<void> {
     const { buffer, filename } = await this.invoicesService.renderPdf(user.tenantId, id, {
+      actorId: user.sub,
       forClient: true,
+      role: user.role,
     });
     writePdfResponse(res, buffer, filename);
   }

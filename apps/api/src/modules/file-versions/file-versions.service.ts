@@ -21,6 +21,7 @@ import {
 import { Prisma, FileVersionStatus, MembershipRole } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { AuditService } from '../audit/audit.service';
+import { ClientScopeService } from '../memberships/client-scope.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import {
   FileTooLargeError,
@@ -77,6 +78,7 @@ export class FileVersionsService {
     private readonly repo: FileVersionsRepository,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly clientScope: ClientScopeService,
   ) {}
 
   /** Per-file upload ceiling, surfaced so the controller can advertise it. */
@@ -303,7 +305,7 @@ export class FileVersionsService {
     }
 
     if (actor.role === MembershipRole.CLIENT) {
-      await this.assertClientMayRead(actor, version.fileAsset.clientVisible, fileAssetId, versionId);
+      await this.assertClientMayRead(actor, version.fileAsset, fileAssetId, versionId);
     }
 
     const object = await this.storage.getObjectStream(version.storageKey);
@@ -328,14 +330,37 @@ export class FileVersionsService {
     };
   }
 
-  /** A client may read only an explicitly client-visible, APPROVED file. */
+  /**
+   * A client may read only a file inside its own client scope that is
+   * explicitly client-visible and APPROVED.
+   *
+   * Scope is checked first and hardest. Before Gate 3 only visibility and
+   * approval were checked, so one client's approval made the file readable by
+   * every client in the tenant - the bytes, not just the metadata.
+   */
   private async assertClientMayRead(
     actor: ActorInput,
-    clientVisible: boolean,
+    fileAsset: { clientVisible: boolean; clientScopeKey: string | null },
     fileAssetId: string,
     versionId: string,
   ): Promise<void> {
-    if (!clientVisible) {
+    const scope = await this.clientScope.resolve(actor.tenantId, actor.actorId, actor.role);
+
+    // resolve() throws for a CLIENT without a scope, so reaching here with null
+    // would mean the role changed under us; refuse rather than skip the check.
+    if (scope === null || fileAsset.clientScopeKey !== scope) {
+      await this.recordAudit(actor, 'file.version.download', fileAssetId, {
+        outcome: AuditOutcome.BLOCKED,
+        permissionResult: AuditPermissionResult.DENIED,
+        payload: { fileVersionId: versionId, reason: 'file_outside_client_scope' },
+      });
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        reason: 'file_outside_client_scope',
+      });
+    }
+
+    if (!fileAsset.clientVisible) {
       await this.recordAudit(actor, 'file.version.download', fileAssetId, {
         outcome: AuditOutcome.BLOCKED,
         permissionResult: AuditPermissionResult.DENIED,

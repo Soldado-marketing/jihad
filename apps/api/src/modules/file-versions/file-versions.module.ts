@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { MembershipsModule } from '../memberships/memberships.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { StorageModule } from '../storage/storage.module';
 import { FileVersionsRepository } from './file-versions.repository';
@@ -17,7 +18,7 @@ import { FileVersionsService } from './file-versions.service';
  * It must NOT import FilesModule - FilesModule imports this one.
  */
 @Module({
-  imports: [AuditModule, PermissionsModule, StorageModule],
+  imports: [AuditModule, MembershipsModule, PermissionsModule, StorageModule],
   providers: [FileVersionsRepository, FileVersionsService],
   exports: [FileVersionsService],
 })

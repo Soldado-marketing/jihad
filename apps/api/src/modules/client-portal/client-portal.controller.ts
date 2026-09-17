@@ -15,24 +15,24 @@ export class ClientPortalController {
   @Get('projects')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT, scope: 'client-portal' })
   listProjects(@CurrentUser() user: JwtPayload) {
-    return this.clientPortalService.listProjects(user.tenantId, user.sub);
+    return this.clientPortalService.listProjects(user.tenantId, user.sub, user.role);
   }
 
   @Get('projects/:id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT, scope: 'client-portal' })
   getProject(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.clientPortalService.getProject(user.tenantId, user.sub, id);
+    return this.clientPortalService.getProject(user.tenantId, user.sub, user.role, id);
   }
 
   @Get('tasks')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.TASK, scope: 'client-portal' })
   listTasks(@CurrentUser() user: JwtPayload) {
-    return this.clientPortalService.listTasks(user.tenantId, user.sub);
+    return this.clientPortalService.listTasks(user.tenantId, user.sub, user.role);
   }
 
   @Get('tasks/:id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.TASK, scope: 'client-portal' })
   getTask(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.clientPortalService.getTask(user.tenantId, user.sub, id);
+    return this.clientPortalService.getTask(user.tenantId, user.sub, user.role, id);
   }
 }
