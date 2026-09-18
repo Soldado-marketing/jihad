@@ -76,7 +76,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (188 tests).
+      # Blocking gate: the suites that are fully green today (194 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
