@@ -170,7 +170,7 @@ export class InvoicesService {
     if (!this.mail.isConfigured) {
       throw new ServiceUnavailableException({
         code: 'MAIL_NOT_CONFIGURED',
-        reason: 'Email is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASS.',
+        reason: 'Email is not configured. Set RESEND_API_KEY.',
       });
     }
 

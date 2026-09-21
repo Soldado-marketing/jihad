@@ -1,40 +1,47 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
-import { promises as dns } from 'node:dns';
 
 /**
- * How long a resolved SMTP address is reused before it is looked up again.
- * Short enough that a provider changing address recovers on its own without a
- * redeploy; long enough that a burst of mail costs one lookup.
+ * The only sender MAOS may use. This is an owner decision, not configuration:
+ * the address is fixed in code so no environment variable can make production
+ * send as someone else. soldado-marketing.de is verified in Resend (DKIM and
+ * the send.* Return-Path), so mail from this address aligns with DMARC.
  */
-const ADDRESS_TTL_MS = 5 * 60 * 1000;
+export const MAIL_FROM = 'no-reply@soldado-marketing.de';
 
-interface SmtpSettings {
-  host: string;
-  port: number;
-  user: string;
-  pass: string;
+/**
+ * Resend's HTTPS endpoint. Railway's Hobby plan blocks outbound SMTP on every
+ * port, so mail leaves over 443 instead of through an SMTP relay.
+ */
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+
+/** Upper bound on one send, so a hung request cannot hold an invoice action open. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
+/** Longest provider error text carried into a log line or an exception. */
+const MAX_ERROR_DETAIL = 200;
+
+interface OutgoingAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
+interface OutgoingMessage {
+  to: string[];
+  subject: string;
+  text: string;
+  attachments?: OutgoingAttachment[];
 }
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly smtp: SmtpSettings | null = null;
+  private readonly apiKey: string | null;
   private readonly appUrl: string;
-  private readonly from: string;
-
-  /** Cached transport, rebuilt when its pinned address goes stale. */
-  private transporter: Transporter | null = null;
-  private transportExpiresAt = 0;
 
   constructor() {
-    const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT ?? 587);
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-    this.from = process.env.SMTP_FROM ?? 'noreply@localhost';
+    const key = process.env.RESEND_API_KEY?.trim();
+    this.apiKey = key ? key : null;
     // Every link in an email is built from this. APP_URL is honoured when set,
     // but production only ever defines WEB_URL, so without the second fallback
     // a configured mailer would send real recipients links to localhost. The
@@ -42,85 +49,90 @@ export class MailService {
     this.appUrl = (process.env.APP_URL ?? process.env.WEB_URL ?? 'http://localhost:3000')
       .replace(/\/$/, '');
 
-    if (host && user && pass) {
-      this.smtp = { host, pass, port, user };
-      this.logger.log(`Mail service ready — SMTP ${host}:${port}`);
+    if (this.apiKey) {
+      this.logger.log('Mail service ready - Resend');
     } else {
-      this.logger.warn(
-        'Mail service not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS to enable email notifications.',
-      );
+      this.logger.warn('Mail service not configured - set RESEND_API_KEY to enable email.');
     }
   }
 
+  /** True only when a Resend API key is present. Without one nothing is sent. */
   get isConfigured(): boolean {
-    return this.smtp !== null;
+    return this.apiKey !== null;
   }
 
   /**
-   * Resolves the SMTP host to an IPv4 address.
+   * Hands one message to Resend and resolves with Resend's message id.
    *
-   * Nodemailer 9 resolves A and AAAA itself, concatenates them, and then picks
-   * one AT RANDOM (lib/shared/index.js, formatDNSValue). On a host with both
-   * records that is a coin flip per connection, and the Railway container has an
-   * IPv6 interface but no route off it, so roughly half of all sends died with
-   * ENETUNREACH before TLS. Handing nodemailer an address makes its resolver
-   * short-circuit, which is the only way to steer the choice: the transport
-   * takes no family option, and --dns-result-order does not apply because
-   * nodemailer calls dns.resolve4/resolve6 rather than dns.lookup.
+   * Throws on a missing key, a network failure, a timeout, or any non-2xx
+   * answer. Error text carries the HTTP status and Resend's own name/message
+   * fields only - never the request headers, so the key cannot leak into a log.
    */
-  private async resolveIpv4(host: string): Promise<string> {
-    const addresses = await dns.resolve4(host);
-    if (addresses.length === 0) {
-      throw new Error('SMTP host has no IPv4 address');
+  private async deliver(message: OutgoingMessage): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('Mail service is not configured');
     }
-    return addresses[0];
-  }
 
-  /**
-   * Returns a transport pinned to a current IPv4 address, building one when the
-   * cached address has expired.
-   *
-   * servername carries the original hostname so TLS still validates the
-   * certificate against the name, not the address — pinning the connection must
-   * not weaken the certificate check.
-   */
-  private async getTransport(): Promise<Transporter | null> {
-    if (!this.smtp) return null;
-    if (this.transporter && Date.now() < this.transportExpiresAt) return this.transporter;
-
-    const address = await this.resolveIpv4(this.smtp.host);
-
-    // servername is set in both places on purpose: SMTPConnection seeds SNI from
-    // options.servername (it cannot infer it once host is an IP literal), and the
-    // tls block is what reaches tls.connect for an implicit-TLS port. The type
-    // does not declare the top-level field, hence the intersection.
-    const options: SMTPTransport.Options & { servername: string } = {
-      auth: { pass: this.smtp.pass, user: this.smtp.user },
-      host: address,
-      port: this.smtp.port,
-      secure: this.smtp.port === 465,
-      servername: this.smtp.host,
-      tls: { servername: this.smtp.host },
+    const body = {
+      from: MAIL_FROM,
+      to: message.to,
+      subject: message.subject,
+      text: message.text,
+      attachments: message.attachments?.map((attachment) => ({
+        filename: attachment.filename,
+        content: attachment.content.toString('base64'),
+        content_type: attachment.contentType,
+      })),
     };
 
-    this.transporter = nodemailer.createTransport(options);
-    this.transportExpiresAt = Date.now() + ADDRESS_TTL_MS;
+    let response: Response;
+    try {
+      response = await fetch(RESEND_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.name : 'UnknownError';
+      throw new Error(`Resend request failed: ${reason}`);
+    }
 
-    // The address is not logged: it is infrastructure detail tied to a credential.
-    this.logger.log('smtp_transport_pinned_ipv4');
-    return this.transporter;
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const payload = (await response.json()) as { name?: unknown; message?: unknown };
+        detail = [payload.name, payload.message]
+          .filter((value): value is string => typeof value === 'string')
+          .join(': ')
+          .slice(0, MAX_ERROR_DETAIL);
+      } catch {
+        // A non-JSON error body adds nothing the status code does not already say.
+      }
+      throw new Error(`Resend rejected the message (HTTP ${response.status})${detail ? ` ${detail}` : ''}`);
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as { id?: unknown };
+    return typeof payload.id === 'string' ? payload.id : '';
   }
 
   /**
    * Fire-and-forget: queues the email and returns immediately.
    * Errors are caught and logged; they never propagate to the caller.
+   * Recipient addresses are not logged: they are personal data.
    */
   private send(to: string, subject: string, text: string): void {
-    if (!this.smtp) return;
-    void this.getTransport()
-      .then((transport) => transport?.sendMail({ from: this.from, to, subject, text }))
+    if (!this.apiKey) {
+      this.logger.warn('notification_email_skipped reason=not_configured');
+      return;
+    }
+    void this.deliver({ subject, text, to: [to] })
+      .then((id) => this.logger.log(`notification_email_sent id=${id}`))
       .catch((err: unknown) => {
-        this.logger.error(`Failed to send email to ${to}: ${String(err)}`);
+        this.logger.error(`notification_email_failed ${err instanceof Error ? err.message : 'unknown error'}`);
       });
   }
 
@@ -183,8 +195,8 @@ export class MailService {
    *
    * Unlike the fire-and-forget send() used for notifications, an invoice send
    * is a business action the caller must be able to report on truthfully, so
-   * this resolves with whether the message was actually handed to SMTP.
-   * Returns false when mail is not configured; throws only on a real SMTP
+   * this resolves with whether the message was actually accepted by Resend.
+   * Returns false when mail is not configured; throws only on a real delivery
    * failure, which the caller surfaces rather than swallowing.
    */
   async sendDocument(params: {
@@ -193,8 +205,8 @@ export class MailService {
     text: string;
     attachment?: { filename: string; content: Buffer; contentType: string };
   }): Promise<boolean> {
-    if (!this.smtp) {
-      this.logger.warn('sendDocument skipped - SMTP is not configured.');
+    if (!this.apiKey) {
+      this.logger.warn('sendDocument skipped - RESEND_API_KEY is not configured.');
       return false;
     }
 
@@ -204,14 +216,10 @@ export class MailService {
       return false;
     }
 
-    const transport = await this.getTransport();
-    if (!transport) return false;
-
-    await transport.sendMail({
-      from: this.from,
-      to: recipients.join(', '),
+    const id = await this.deliver({
       subject: params.subject,
       text: params.text,
+      to: recipients,
       attachments: params.attachment
         ? [
             {
@@ -224,7 +232,7 @@ export class MailService {
     });
 
     // Recipient addresses are not logged: they are personal data.
-    this.logger.log(`document_email_sent recipients=${recipients.length}`);
+    this.logger.log(`document_email_sent recipients=${recipients.length} id=${id}`);
     return true;
   }
 }

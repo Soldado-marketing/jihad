@@ -1,23 +1,24 @@
 /**
- * SMTP readiness - how MailService reads its configuration and opens a socket.
+ * Resend transport - how MailService reads its configuration and hands mail to
+ * Resend over HTTPS.
  *
- * Two things are load-bearing here and both were found the hard way in
- * production:
+ * Load-bearing properties, each found or decided the hard way:
  *
- *   1. The link base. Production defines WEB_URL and never APP_URL, so without
+ *   1. Fail closed. With no RESEND_API_KEY nothing is sent and the invoice path
+ *      is told so (sendDocument resolves false). The old SMTP_* variables must
+ *      not switch anything back on.
+ *   2. One sender. The From address is fixed to no-reply@soldado-marketing.de
+ *      (owner decision) and no environment variable can change it.
+ *   3. The key never leaves the Authorization header - not into an error, not
+ *      into a log line.
+ *   4. Invoice PDFs survive the trip: base64 on the wire, identical bytes back.
+ *   5. The link base. Production defines WEB_URL and never APP_URL, so without
  *      the fallback a configured mailer sends real recipients links to
  *      http://localhost:3000.
- *   2. The address family. Nodemailer 9 resolves A and AAAA itself and picks one
- *      AT RANDOM, and the Railway container has an IPv6 interface with no route
- *      off it, so roughly half of all sends died with ENETUNREACH before TLS.
- *      The transport must therefore be pinned to IPv4 - while still presenting
- *      the hostname as the TLS servername, or certificate validation would be
- *      checking the wrong name.
  *
  * MailService reads process.env in its constructor and carries Nest decorators,
  * so it is required from dist/ (Node's type stripping cannot load decorators).
- * nodemailer.createTransport and dns.resolve4 are patched on the shared module
- * objects, which is what the service calls at runtime - no network, no DNS.
+ * globalThis.fetch is replaced per test - no network.
  *
  * Run: node --test test/mail-config.test.mjs
  */
@@ -25,8 +26,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, statSync } from 'node:fs';
-import { isIPv4 } from 'node:net';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -45,221 +45,297 @@ function ensureBuilt() {
 }
 
 ensureBuilt();
-const { MailService } = require(join(apiRoot, COMPILED));
-const nodemailer = require('nodemailer');
-const dnsPromises = require('node:dns').promises;
+const { MailService, MAIL_FROM } = require(join(apiRoot, COMPILED));
 
-const SMTP_KEYS = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'APP_URL', 'WEB_URL'];
-const saved = Object.fromEntries(SMTP_KEYS.map((k) => [k, process.env[k]]));
+const APPROVED_FROM = 'no-reply@soldado-marketing.de';
+const RESEND_URL = 'https://api.resend.com/emails';
+const FAKE_KEY = 're_test_0123456789abcdefSECRET';
+const MAIL_ENV = [
+  'RESEND_API_KEY',
+  'APP_URL',
+  'WEB_URL',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_FROM',
+  'MAIL_FROM',
+];
 
-const realCreateTransport = nodemailer.createTransport;
-const realResolve4 = dnsPromises.resolve4;
+const realFetch = globalThis.fetch;
+let savedEnv;
+/** Every request handed to fetch. */
+let calls;
+/** How the fake Resend answers the next request. */
+let respond;
 
-/** Every options object handed to nodemailer, and every message sent. */
-let created = [];
-let sent = [];
-let resolve4Calls = [];
-let resolve4Impl = async () => ['203.0.113.25'];
+function ok(id = 'msg_test_1') {
+  return new Response(JSON.stringify({ id }), {
+    headers: { 'content-type': 'application/json' },
+    status: 200,
+  });
+}
 
 beforeEach(() => {
-  created = []; sent = []; resolve4Calls = [];
-  resolve4Impl = async () => ['203.0.113.25'];
-
-  nodemailer.createTransport = (options) => {
-    created.push(options);
-    return { sendMail: async (message) => { sent.push(message); return { messageId: 'test' }; } };
+  savedEnv = Object.fromEntries(MAIL_ENV.map((k) => [k, process.env[k]]));
+  for (const k of MAIL_ENV) delete process.env[k];
+  calls = [];
+  respond = () => ok();
+  globalThis.fetch = async (url, init) => {
+    calls.push({ init, url: String(url) });
+    return respond(url, init);
   };
-  dnsPromises.resolve4 = async (host) => { resolve4Calls.push(host); return resolve4Impl(host); };
 });
 
 afterEach(() => {
-  nodemailer.createTransport = realCreateTransport;
-  dnsPromises.resolve4 = realResolve4;
-  for (const k of SMTP_KEYS) {
-    if (saved[k] === undefined) delete process.env[k];
-    else process.env[k] = saved[k];
+  globalThis.fetch = realFetch;
+  for (const k of MAIL_ENV) {
+    if (savedEnv[k] === undefined) delete process.env[k];
+    else process.env[k] = savedEnv[k];
   }
 });
 
-function serviceWith(env) {
-  for (const k of SMTP_KEYS) delete process.env[k];
-  Object.assign(process.env, { SMTP_HOST: 'smtp.example.test', SMTP_USER: 'u', SMTP_PASS: 'p' }, env);
-  return new MailService();
+function makeService(env = {}) {
+  Object.assign(process.env, env);
+  const service = new MailService();
+  const logs = [];
+  // Capture what the service would write to the log, to prove what never reaches it.
+  service.logger = {
+    error: (m) => logs.push(['error', String(m)]),
+    log: (m) => logs.push(['log', String(m)]),
+    warn: (m) => logs.push(['warn', String(m)]),
+  };
+  return { logs, service };
 }
 
-const flush = async () => { for (let i = 0; i < 5; i += 1) await new Promise((r) => setImmediate(r)); };
+const configured = (extra = {}) => makeService({ RESEND_API_KEY: FAKE_KEY, ...extra });
+const body = (call) => JSON.parse(call.init.body);
+/** Let fire-and-forget sends settle. */
+const settle = async () => {
+  for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r));
+};
 
-// ── Address family: the production failure ───────────────────────────────────
-
-describe('SMTP readiness - IPv4 pinning', () => {
-  it('connects to a resolved IPv4 address, never the hostname', async () => {
-    const service = serviceWith({});
-    await service.sendDocument({ to: ['someone@example.test'], subject: 's', text: 't' });
-
-    assert.equal(created.length, 1);
-    assert.ok(isIPv4(created[0].host), `host must be an IPv4 literal, got ${created[0].host}`);
-    assert.equal(created[0].host, '203.0.113.25');
-    assert.deepEqual(resolve4Calls, ['smtp.example.test'], 'the A record must be the thing looked up');
+describe('fail closed without RESEND_API_KEY', () => {
+  it('is not configured when the key is absent', () => {
+    assert.equal(makeService().service.isConfigured, false);
   });
 
-  it('keeps the hostname as the TLS servername so the certificate still matches', async () => {
-    const service = serviceWith({});
-    await service.sendDocument({ to: ['someone@example.test'], subject: 's', text: 't' });
-
-    assert.equal(created[0].servername, 'smtp.example.test');
-    assert.equal(created[0].tls?.servername, 'smtp.example.test');
+  it('is not configured when the key is only whitespace', () => {
+    assert.equal(makeService({ RESEND_API_KEY: '   ' }).service.isConfigured, false);
   });
 
-  it('reuses one pinned transport instead of resolving per message', async () => {
-    const service = serviceWith({});
-    await service.sendDocument({ to: ['a@example.test'], subject: 's', text: 't' });
-    await service.sendDocument({ to: ['b@example.test'], subject: 's', text: 't' });
-
-    assert.equal(created.length, 1, 'second send should reuse the pinned transport');
-    assert.equal(resolve4Calls.length, 1);
-    assert.equal(sent.length, 2);
+  it('is configured once the key is present', () => {
+    assert.equal(configured().service.isConfigured, true);
   });
 
-  it('surfaces a DNS failure instead of silently reporting success', async () => {
-    const service = serviceWith({});
-    resolve4Impl = async () => { throw new Error('ENOTFOUND'); };
-
-    await assert.rejects(
-      () => service.sendDocument({ to: ['someone@example.test'], subject: 's', text: 't' }),
-      /ENOTFOUND/,
-    );
-    assert.equal(sent.length, 0);
+  it('is not switched on by the old SMTP_* variables', () => {
+    const { service } = makeService({
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_PASS: 'x',
+      SMTP_PORT: '465',
+      SMTP_USER: 'u',
+    });
+    assert.equal(service.isConfigured, false);
   });
 
-  it('refuses a host with no IPv4 address rather than falling back to IPv6', async () => {
-    const service = serviceWith({});
-    resolve4Impl = async () => [];
-
-    await assert.rejects(
-      () => service.sendDocument({ to: ['someone@example.test'], subject: 's', text: 't' }),
-      /no IPv4 address/,
-    );
+  it('sends no notification and makes no request', async () => {
+    const { service } = makeService();
+    service.sendApprovalEmail({ name: 'N', to: 'a@example.com' });
+    service.sendRejectionEmail({ name: 'N', to: 'a@example.com' });
+    service.notifyOwnerNewRequest({
+      ownerEmail: 'o@example.com',
+      requestedRole: 'CLIENT',
+      requesterEmail: 'r@example.com',
+      requesterName: 'R',
+      tenantSlug: 't',
+    });
+    await settle();
+    assert.equal(calls.length, 0);
   });
 
-  it('uses implicit TLS on 465 and STARTTLS otherwise', async () => {
-    const implicit = serviceWith({ SMTP_PORT: '465' });
-    await implicit.sendDocument({ to: ['a@example.test'], subject: 's', text: 't' });
-    assert.equal(created[0].secure, true);
-    assert.equal(created[0].port, 465);
-
-    created = [];
-    const starttls = serviceWith({ SMTP_PORT: '587' });
-    await starttls.sendDocument({ to: ['a@example.test'], subject: 's', text: 't' });
-    assert.equal(created[0].secure, false);
-    assert.equal(created[0].port, 587);
+  it('reports an invoice send as not sent, without a request', async () => {
+    const { service } = makeService();
+    const sent = await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    assert.equal(sent, false);
+    assert.equal(calls.length, 0);
   });
 });
 
-// ── The link base ────────────────────────────────────────────────────────────
+describe('request to Resend', () => {
+  it('posts JSON to the Resend endpoint with the key as a Bearer token', async () => {
+    const { service } = configured();
+    await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, RESEND_URL);
+    assert.equal(calls[0].init.method, 'POST');
+    assert.equal(calls[0].init.headers.Authorization, `Bearer ${FAKE_KEY}`);
+    assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
+  });
 
-describe('SMTP readiness - email link base', () => {
-  it('uses WEB_URL when APP_URL is unset, which is the production shape', async () => {
-    const service = serviceWith({ WEB_URL: 'https://app.example.test' });
-    service.sendApprovalEmail({ to: 'someone@example.test', name: 'Someone' });
-    await flush();
+  it('bounds every request with a timeout signal', async () => {
+    const { service } = configured();
+    await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    assert.ok(calls[0].init.signal instanceof AbortSignal);
+  });
 
-    assert.equal(sent.length, 1);
-    assert.match(sent[0].text, /https:\/\/app\.example\.test\/auth\/login/);
-    assert.doesNotMatch(sent[0].text, /localhost/);
+  it('exports the approved sender', () => {
+    assert.equal(MAIL_FROM, APPROVED_FROM);
+  });
+
+  it('always sends from the approved address, whatever the environment says', async () => {
+    const { service } = configured({ MAIL_FROM: 'evil@example.com', SMTP_FROM: 'info@soldado-marketing.de' });
+    await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    service.sendApprovalEmail({ name: 'N', to: 'b@example.com' });
+    await settle();
+    assert.equal(calls.length, 2);
+    for (const call of calls) assert.equal(body(call).from, APPROVED_FROM);
+  });
+
+  it('passes subject, text and every valid recipient; drops invalid ones', async () => {
+    const { service } = configured();
+    const sent = await service.sendDocument({
+      subject: 'Invoice INV-1',
+      text: 'Hello',
+      to: ['a@example.com', 'not-an-address', 'b@example.com'],
+    });
+    assert.equal(sent, true);
+    const b = body(calls[0]);
+    assert.deepEqual(b.to, ['a@example.com', 'b@example.com']);
+    assert.equal(b.subject, 'Invoice INV-1');
+    assert.equal(b.text, 'Hello');
+  });
+
+  it('makes no request when no recipient is valid', async () => {
+    const { service } = configured();
+    const sent = await service.sendDocument({ subject: 's', text: 't', to: ['nope'] });
+    assert.equal(sent, false);
+    assert.equal(calls.length, 0);
+  });
+
+  it('carries an invoice PDF as base64 that decodes to the original bytes', async () => {
+    const { service } = configured();
+    const pdf = Buffer.from('%PDF-1.7\n\u0000ÿ binary tail', 'latin1');
+    await service.sendDocument({
+      attachment: { content: pdf, contentType: 'application/pdf', filename: 'INV-1.pdf' },
+      subject: 's',
+      text: 't',
+      to: ['a@example.com'],
+    });
+    const [att] = body(calls[0]).attachments;
+    assert.equal(att.filename, 'INV-1.pdf');
+    assert.equal(att.content_type, 'application/pdf');
+    assert.ok(Buffer.from(att.content, 'base64').equals(pdf));
+  });
+
+  it('sends a notification as a single-recipient message', async () => {
+    const { service } = configured();
+    service.sendRejectionEmail({ name: 'N', to: 'x@example.com' });
+    await settle();
+    assert.equal(calls.length, 1);
+    assert.deepEqual(body(calls[0]).to, ['x@example.com']);
+    assert.equal(body(calls[0]).subject, 'Your account request was not approved');
+  });
+});
+
+describe('failures', () => {
+  it('rejects an invoice send on a Resend error, with the status and reason', async () => {
+    respond = () =>
+      new Response(JSON.stringify({ message: 'The domain is not verified', name: 'validation_error' }), {
+        headers: { 'content-type': 'application/json' },
+        status: 403,
+      });
+    const { service } = configured();
+    await assert.rejects(
+      service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] }),
+      (err) => {
+        assert.match(err.message, /HTTP 403/);
+        assert.match(err.message, /not verified/);
+        assert.ok(!err.message.includes(FAKE_KEY));
+        return true;
+      },
+    );
+  });
+
+  it('rejects on a network failure without leaking the key', async () => {
+    respond = () => {
+      throw new TypeError(`fetch failed while sending Bearer ${FAKE_KEY}`);
+    };
+    const { service } = configured();
+    await assert.rejects(
+      service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] }),
+      (err) => {
+        assert.match(err.message, /Resend request failed/);
+        assert.ok(!err.message.includes(FAKE_KEY));
+        return true;
+      },
+    );
+  });
+
+  it('swallows a failed notification and logs it without the key or the recipient', async () => {
+    respond = () => new Response('{}', { status: 500 });
+    const { service, logs } = configured();
+    assert.doesNotThrow(() => service.sendApprovalEmail({ name: 'N', to: 'person@example.com' }));
+    await settle();
+    const errors = logs.filter(([level]) => level === 'error');
+    assert.equal(errors.length, 1);
+    assert.match(errors[0][1], /HTTP 500/);
+    for (const [, line] of logs) {
+      assert.ok(!line.includes(FAKE_KEY), 'key must never be logged');
+      assert.ok(!line.includes('person@example.com'), 'recipient must never be logged');
+    }
+  });
+
+  it('never logs the key on a successful send', async () => {
+    const { service, logs } = configured();
+    await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    service.sendApprovalEmail({ name: 'N', to: 'b@example.com' });
+    await settle();
+    assert.ok(logs.length > 0);
+    for (const [, line] of logs) assert.ok(!line.includes(FAKE_KEY));
+  });
+});
+
+describe('link base', () => {
+  const linkIn = (call) => body(call).text;
+
+  it('uses WEB_URL when APP_URL is absent, without a trailing slash', async () => {
+    const { service } = configured({ WEB_URL: 'https://app.example.com/' });
+    service.sendApprovalEmail({ name: 'N', to: 'a@example.com' });
+    await settle();
+    assert.match(linkIn(calls[0]), /https:\/\/app\.example\.com\/auth\/login/);
+    assert.doesNotMatch(linkIn(calls[0]), /localhost/);
   });
 
   it('prefers APP_URL when both are set', async () => {
-    const service = serviceWith({
-      APP_URL: 'https://mail.example.test', WEB_URL: 'https://app.example.test',
-    });
+    const { service } = configured({ APP_URL: 'https://a.example.com', WEB_URL: 'https://w.example.com' });
     service.notifyOwnerNewRequest({
-      ownerEmail: 'owner@example.test', requesterName: 'A', requesterEmail: 'a@example.test',
-      requestedRole: 'EMPLOYEE', tenantSlug: 'acme',
+      ownerEmail: 'o@example.com',
+      requestedRole: 'CLIENT',
+      requesterEmail: 'r@example.com',
+      requesterName: 'R',
+      tenantSlug: 't',
     });
-    await flush();
-
-    assert.match(sent[0].text, /https:\/\/mail\.example\.test\/dashboard/);
-    assert.doesNotMatch(sent[0].text, /app\.example\.test/);
-  });
-
-  it('strips a trailing slash so links never double up', async () => {
-    const service = serviceWith({ WEB_URL: 'https://app.example.test/' });
-    service.sendApprovalEmail({ to: 'someone@example.test', name: 'Someone' });
-    await flush();
-
-    assert.doesNotMatch(sent[0].text, /example\.test\/\/auth/);
-  });
-
-  it('falls back to localhost only when neither is set', async () => {
-    const service = serviceWith({});
-    service.sendApprovalEmail({ to: 'someone@example.test', name: 'Someone' });
-    await flush();
-
-    assert.match(sent[0].text, /http:\/\/localhost:3000\/auth\/login/);
+    await settle();
+    assert.match(linkIn(calls[0]), /https:\/\/a\.example\.com\/dashboard\/admin\/users\/requests/);
   });
 });
 
-// ── Configuration gate ───────────────────────────────────────────────────────
+describe('source hygiene', () => {
+  const src = readFileSync(join(apiRoot, SOURCE), 'utf8');
+  const pkg = JSON.parse(readFileSync(join(apiRoot, 'package.json'), 'utf8'));
 
-describe('SMTP readiness - configuration gate', () => {
-  it('reports unconfigured until host, user and pass are all present', () => {
-    for (const k of SMTP_KEYS) delete process.env[k];
-    assert.equal(new MailService().isConfigured, false, 'nothing set');
-
-    process.env.SMTP_HOST = 'smtp.example.test';
-    assert.equal(new MailService().isConfigured, false, 'host only');
-
-    process.env.SMTP_USER = 'u';
-    assert.equal(new MailService().isConfigured, false, 'host and user only');
-
-    process.env.SMTP_PASS = 'p';
-    assert.equal(new MailService().isConfigured, true, 'host, user and pass');
+  it('no longer uses nodemailer, SMTP settings or the IPv4 DNS workaround', () => {
+    assert.doesNotMatch(src, /nodemailer/);
+    assert.doesNotMatch(src, /process\.env\.SMTP_/);
+    assert.doesNotMatch(src, /resolve4|node:dns/);
   });
 
-  it('sends nothing, and opens no socket, while unconfigured', async () => {
-    for (const k of SMTP_KEYS) delete process.env[k];
-    const service = new MailService();
-
-    service.sendApprovalEmail({ to: 'someone@example.test', name: 'Someone' });
-    await flush();
-
-    const delivered = await service.sendDocument({ to: ['someone@example.test'], subject: 's', text: 't' });
-    assert.equal(delivered, false, 'sendDocument must report failure, not pretend success');
-    assert.equal(created.length, 0, 'no transport should be built');
-    assert.equal(resolve4Calls.length, 0, 'no DNS lookup should happen');
-    assert.equal(sent.length, 0);
-  });
-});
-
-// ── sendDocument, the path invoices depend on ────────────────────────────────
-
-describe('SMTP readiness - sendDocument', () => {
-  it('refuses a recipient list with no usable address, before any lookup', async () => {
-    const service = serviceWith({});
-    const delivered = await service.sendDocument({ to: ['', 'not-an-address'], subject: 's', text: 't' });
-
-    assert.equal(delivered, false);
-    assert.equal(resolve4Calls.length, 0);
+  it('does not depend on nodemailer', () => {
+    assert.equal(pkg.dependencies?.nodemailer, undefined);
+    assert.equal(pkg.devDependencies?.['@types/nodemailer'], undefined);
   });
 
-  it('attaches the document and reports a true send', async () => {
-    const service = serviceWith({});
-    const delivered = await service.sendDocument({
-      to: ['client@example.test'],
-      subject: 'Invoice INV-1',
-      text: 'Attached.',
-      attachment: { filename: 'INV-1.pdf', content: Buffer.from('%PDF-'), contentType: 'application/pdf' },
-    });
-
-    assert.equal(delivered, true);
-    assert.equal(sent[0].attachments.length, 1);
-    assert.equal(sent[0].attachments[0].filename, 'INV-1.pdf');
-    assert.equal(sent[0].to, 'client@example.test');
-  });
-
-  it('uses SMTP_FROM as the sender when set', async () => {
-    const service = serviceWith({ SMTP_FROM: 'billing@example.test' });
-    await service.sendDocument({ to: ['client@example.test'], subject: 's', text: 't' });
-    assert.equal(sent[0].from, 'billing@example.test');
+  it('never passes the key to a logger call', () => {
+    assert.doesNotMatch(src, /logger\.\w+\([^;]*apiKey/);
   });
 });
