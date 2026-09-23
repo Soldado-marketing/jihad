@@ -88,7 +88,8 @@ jobs:
             test/phase-3-file-storage.test.mjs \
             test/phase-4-invoicing.test.mjs \
             test/security-gate-file-deletion.test.mjs \
-            test/mail-config.test.mjs
+            test/mail-config.test.mjs \
+            test/invoice-send-privacy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
       # service above and drives it over HTTP. Green (101/101), so it blocks.

@@ -155,8 +155,8 @@ describe('fail closed without RESEND_API_KEY', () => {
 
   it('reports an invoice send as not sent, without a request', async () => {
     const { service } = makeService();
-    const sent = await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
-    assert.equal(sent, false);
+    const result = await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    assert.equal(result.accepted, 0);
     assert.equal(calls.length, 0);
   });
 });
@@ -191,24 +191,27 @@ describe('request to Resend', () => {
     for (const call of calls) assert.equal(body(call).from, APPROVED_FROM);
   });
 
-  it('passes subject, text and every valid recipient; drops invalid ones', async () => {
+  it('passes subject and text to every valid recipient; drops invalid ones', async () => {
     const { service } = configured();
-    const sent = await service.sendDocument({
+    const result = await service.sendDocument({
       subject: 'Invoice INV-1',
       text: 'Hello',
       to: ['a@example.com', 'not-an-address', 'b@example.com'],
     });
-    assert.equal(sent, true);
-    const b = body(calls[0]);
-    assert.deepEqual(b.to, ['a@example.com', 'b@example.com']);
-    assert.equal(b.subject, 'Invoice INV-1');
-    assert.equal(b.text, 'Hello');
+    assert.equal(result.recipientCount, 2);
+    assert.equal(result.accepted, 2);
+    assert.equal(calls.length, 2);
+    for (const call of calls) {
+      assert.equal(body(call).subject, 'Invoice INV-1');
+      assert.equal(body(call).text, 'Hello');
+    }
   });
 
   it('makes no request when no recipient is valid', async () => {
     const { service } = configured();
-    const sent = await service.sendDocument({ subject: 's', text: 't', to: ['nope'] });
-    assert.equal(sent, false);
+    const result = await service.sendDocument({ subject: 's', text: 't', to: ['nope'] });
+    assert.equal(result.recipientCount, 0);
+    assert.equal(result.accepted, 0);
     assert.equal(calls.length, 0);
   });
 
@@ -238,37 +241,35 @@ describe('request to Resend', () => {
 });
 
 describe('failures', () => {
-  it('rejects an invoice send on a Resend error, with the status and reason', async () => {
+  it('reports a Resend error as a failed recipient, with the status and reason logged', async () => {
     respond = () =>
       new Response(JSON.stringify({ message: 'The domain is not verified', name: 'validation_error' }), {
         headers: { 'content-type': 'application/json' },
         status: 403,
       });
-    const { service } = configured();
-    await assert.rejects(
-      service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] }),
-      (err) => {
-        assert.match(err.message, /HTTP 403/);
-        assert.match(err.message, /not verified/);
-        assert.ok(!err.message.includes(FAKE_KEY));
-        return true;
-      },
-    );
+    const { service, logs } = configured();
+    const result = await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    assert.deepEqual([result.accepted, result.failed], [0, 1]);
+    const errors = logs.filter(([level]) => level === 'error').map(([, line]) => line);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /HTTP 403/);
+    assert.match(errors[0], /not verified/);
+    for (const [, line] of logs) {
+      assert.ok(!line.includes(FAKE_KEY));
+      assert.ok(!line.includes('a@example.com'));
+    }
   });
 
-  it('rejects on a network failure without leaking the key', async () => {
+  it('reports a network failure as a failed recipient without leaking the key', async () => {
     respond = () => {
       throw new TypeError(`fetch failed while sending Bearer ${FAKE_KEY}`);
     };
-    const { service } = configured();
-    await assert.rejects(
-      service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] }),
-      (err) => {
-        assert.match(err.message, /Resend request failed/);
-        assert.ok(!err.message.includes(FAKE_KEY));
-        return true;
-      },
-    );
+    const { service, logs } = configured();
+    const result = await service.sendDocument({ subject: 's', text: 't', to: ['a@example.com'] });
+    assert.deepEqual([result.accepted, result.failed], [0, 1]);
+    const errors = logs.filter(([level]) => level === 'error').map(([, line]) => line);
+    assert.match(errors[0], /Resend request failed/);
+    for (const [, line] of logs) assert.ok(!line.includes(FAKE_KEY));
   });
 
   it('swallows a failed notification and logs it without the key or the recipient', async () => {
@@ -292,6 +293,117 @@ describe('failures', () => {
     await settle();
     assert.ok(logs.length > 0);
     for (const [, line] of logs) assert.ok(!line.includes(FAKE_KEY));
+  });
+});
+
+describe('invoice recipient privacy - one message per recipient', () => {
+  const RECIPIENTS = ['anna@client-a.example', 'ben@client-a.example', 'cara@other.example'];
+  const pdf = Buffer.from('%PDF-1.7 invoice bytes', 'latin1');
+  const sendAll = (service, to = RECIPIENTS) =>
+    service.sendDocument({
+      attachment: { content: pdf, contentType: 'application/pdf', filename: 'INV-1.pdf' },
+      subject: 'Invoice INV-1',
+      text: 'Invoice INV-1 is attached.',
+      to,
+    });
+
+  it('sends exactly one request per recipient, each addressed to that recipient only', async () => {
+    const { service } = configured();
+    const result = await sendAll(service);
+    assert.equal(calls.length, RECIPIENTS.length);
+    assert.deepEqual(result, {
+      accepted: 3,
+      failed: 0,
+      recipientCount: 3,
+      resendEmailIds: ['msg_test_1', 'msg_test_1', 'msg_test_1'],
+    });
+    calls.forEach((call, i) => assert.deepEqual(body(call).to, [RECIPIENTS[i]]));
+  });
+
+  it('never exposes one recipient to another - not in to, cc, bcc, reply_to or anywhere in the body', async () => {
+    const { service } = configured();
+    await sendAll(service);
+    calls.forEach((call, i) => {
+      const raw = call.init.body;
+      const b = body(call);
+      assert.equal(b.cc, undefined);
+      assert.equal(b.bcc, undefined);
+      assert.equal(b.reply_to, undefined);
+      RECIPIENTS.filter((_, j) => j !== i).forEach((other) => {
+        assert.ok(!raw.includes(other), `request ${i} must not contain ${other}`);
+      });
+    });
+  });
+
+  it('attaches the identical PDF to every message', async () => {
+    const { service } = configured();
+    await sendAll(service);
+    for (const call of calls) {
+      const [att] = body(call).attachments;
+      assert.equal(att.filename, 'INV-1.pdf');
+      assert.ok(Buffer.from(att.content, 'base64').equals(pdf));
+    }
+  });
+
+  it('sends a duplicated address once, compared case-insensitively', async () => {
+    const { service } = configured();
+    const result = await sendAll(service, ['anna@client-a.example', 'ANNA@client-a.example ', 'ben@client-a.example']);
+    assert.equal(result.recipientCount, 2);
+    assert.equal(calls.length, 2);
+  });
+
+  it('keeps going after one recipient fails and reports the partial result', async () => {
+    let n = 0;
+    respond = () => {
+      n += 1;
+      return n === 2 ? new Response('{}', { status: 422 }) : ok(`msg_${n}`);
+    };
+    const { service } = configured();
+    const result = await sendAll(service);
+    assert.equal(calls.length, 3);
+    assert.deepEqual(result, { accepted: 2, failed: 1, recipientCount: 3, resendEmailIds: ['msg_1', 'msg_3'] });
+  });
+
+  it('gives each recipient its own idempotency key', async () => {
+    const { service } = configured();
+    await sendAll(service);
+    const keys = calls.map((call) => call.init.headers['Idempotency-Key']);
+    assert.equal(new Set(keys).size, keys.length);
+    for (const key of keys) assert.match(key, /^document-[0-9a-f-]{36}-\d+$/);
+  });
+
+  it('retries once on 429 with the same idempotency key, so the retry cannot duplicate', async () => {
+    let n = 0;
+    respond = () => {
+      n += 1;
+      return n === 1
+        ? new Response('{}', { headers: { 'retry-after': '0' }, status: 429 })
+        : ok('msg_after_retry');
+    };
+    const { service } = configured();
+    const result = await sendAll(service, ['anna@client-a.example']);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].init.headers['Idempotency-Key'], calls[1].init.headers['Idempotency-Key']);
+    assert.deepEqual(result.resendEmailIds, ['msg_after_retry']);
+  });
+
+  it('does not retry any other error', async () => {
+    respond = () => new Response('{}', { status: 500 });
+    const { service } = configured();
+    const result = await sendAll(service, ['anna@client-a.example']);
+    assert.equal(calls.length, 1);
+    assert.equal(result.failed, 1);
+  });
+
+  it('logs counts only - never a recipient address', async () => {
+    let n = 0;
+    respond = () => ((n += 1) === 2 ? new Response('{}', { status: 500 }) : ok());
+    const { service, logs } = configured();
+    await sendAll(service);
+    assert.ok(logs.some(([, line]) => /recipients=3 accepted=2 failed=1/.test(line)));
+    for (const [, line] of logs) {
+      for (const address of RECIPIENTS) assert.ok(!line.includes(address));
+    }
   });
 });
 

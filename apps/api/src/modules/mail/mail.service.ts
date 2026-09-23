@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 /**
  * The only sender MAOS may use. This is an owner decision, not configuration:
@@ -19,6 +20,24 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 /** Longest provider error text carried into a log line or an exception. */
 const MAX_ERROR_DETAIL = 200;
+
+/** Longest wait honoured from a 429 Retry-After before the single retry. */
+const MAX_RETRY_AFTER_MS = 2_000;
+
+/**
+ * Outcome of a document send. Each recipient gets a separate message, so the
+ * result is per recipient: some can be accepted while others fail.
+ */
+export interface DocumentSendResult {
+  /** Distinct valid recipients a message was attempted for. */
+  recipientCount: number;
+  /** Messages Resend accepted. */
+  accepted: number;
+  /** Messages Resend rejected or that could not be handed over. */
+  failed: number;
+  /** Resend email ids of the accepted messages, in recipient order. */
+  resendEmailIds: string[];
+}
 
 interface OutgoingAttachment {
   filename: string;
@@ -68,7 +87,7 @@ export class MailService {
    * answer. Error text carries the HTTP status and Resend's own name/message
    * fields only - never the request headers, so the key cannot leak into a log.
    */
-  private async deliver(message: OutgoingMessage): Promise<string> {
+  private async deliver(message: OutgoingMessage, idempotencyKey?: string): Promise<string> {
     if (!this.apiKey) {
       throw new Error('Mail service is not configured');
     }
@@ -85,20 +104,36 @@ export class MailService {
       })),
     };
 
-    let response: Response;
-    try {
-      response = await fetch(RESEND_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (err: unknown) {
-      const reason = err instanceof Error ? err.name : 'UnknownError';
-      throw new Error(`Resend request failed: ${reason}`);
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+    // Resend de-duplicates on this key for 24h, so the one retry below can
+    // never turn into a second copy of the same message.
+    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+
+    const post = async (): Promise<Response> => {
+      try {
+        return await fetch(RESEND_ENDPOINT, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+      } catch (err: unknown) {
+        const reason = err instanceof Error ? err.name : 'UnknownError';
+        throw new Error(`Resend request failed: ${reason}`);
+      }
+    };
+
+    let response = await post();
+    // One retry on a rate limit only. Resend allows 10 requests per second per
+    // team; a 20-recipient invoice sent one message at a time can touch that.
+    if (response.status === 429) {
+      const after = Number(response.headers.get('retry-after'));
+      const waitMs = Number.isFinite(after) && after > 0 ? Math.min(after * 1000, MAX_RETRY_AFTER_MS) : 1_000;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      response = await post();
     }
 
     if (!response.ok) {
@@ -191,48 +226,86 @@ export class MailService {
   }
 
   /**
-   * Phase 4 - awaitable send with an optional attachment.
+   * Phase 4 - sends a document (the invoice PDF) to each recipient separately.
    *
-   * Unlike the fire-and-forget send() used for notifications, an invoice send
-   * is a business action the caller must be able to report on truthfully, so
-   * this resolves with whether the message was actually accepted by Resend.
-   * Returns false when mail is not configured; throws only on a real delivery
-   * failure, which the caller surfaces rather than swallowing.
+   * One message per recipient, never one message with a shared To list: a
+   * recipient must not learn who else received the invoice. It also gives
+   * every recipient its own Resend email id, which is what delivery webhooks
+   * report against.
+   *
+   * Never throws. The caller decides what a partial result means; this only
+   * reports it truthfully. Duplicate addresses (case-insensitive) are sent once.
+   * Recipient addresses are not logged: they are personal data.
    */
   async sendDocument(params: {
     to: string[];
     subject: string;
     text: string;
     attachment?: { filename: string; content: Buffer; contentType: string };
-  }): Promise<boolean> {
+  }): Promise<DocumentSendResult> {
+    const recipients = uniqueRecipients(params.to);
+    const result: DocumentSendResult = {
+      accepted: 0,
+      failed: 0,
+      recipientCount: recipients.length,
+      resendEmailIds: [],
+    };
+
     if (!this.apiKey) {
       this.logger.warn('sendDocument skipped - RESEND_API_KEY is not configured.');
-      return false;
+      return result;
     }
-
-    const recipients = params.to.filter((address) => typeof address === 'string' && address.includes('@'));
     if (recipients.length === 0) {
       this.logger.warn('sendDocument skipped - no valid recipient.');
-      return false;
+      return result;
     }
 
-    const id = await this.deliver({
-      subject: params.subject,
-      text: params.text,
-      to: recipients,
-      attachments: params.attachment
-        ? [
-            {
-              filename: params.attachment.filename,
-              content: params.attachment.content,
-              contentType: params.attachment.contentType,
-            },
-          ]
-        : undefined,
-    });
+    const attachments = params.attachment
+      ? [
+          {
+            filename: params.attachment.filename,
+            content: params.attachment.content,
+            contentType: params.attachment.contentType,
+          },
+        ]
+      : undefined;
+    const sendId = randomUUID();
 
-    // Recipient addresses are not logged: they are personal data.
-    this.logger.log(`document_email_sent recipients=${recipients.length} id=${id}`);
-    return true;
+    for (const [index, recipient] of recipients.entries()) {
+      try {
+        const id = await this.deliver(
+          { attachments, subject: params.subject, text: params.text, to: [recipient] },
+          `document-${sendId}-${index}`,
+        );
+        result.accepted += 1;
+        result.resendEmailIds.push(id);
+      } catch (err: unknown) {
+        result.failed += 1;
+        this.logger.error(
+          `document_email_failed index=${index} ${err instanceof Error ? err.message : 'unknown error'}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `document_email_sent recipients=${result.recipientCount} accepted=${result.accepted} failed=${result.failed}`,
+    );
+    return result;
   }
+}
+
+/** Valid addresses only, each once, compared case-insensitively. */
+function uniqueRecipients(addresses: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const address of addresses) {
+    if (typeof address !== 'string') continue;
+    const trimmed = address.trim();
+    if (!trimmed.includes('@')) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
 }
