@@ -21,8 +21,36 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /** Longest provider error text carried into a log line or an exception. */
 const MAX_ERROR_DETAIL = 200;
 
-/** Longest wait honoured from a 429 Retry-After before the single retry. */
-const MAX_RETRY_AFTER_MS = 2_000;
+/**
+ * Longest rate-limit wait honoured before the single retry. If Resend asks for
+ * longer, the message is not retried early - it is reported as failed.
+ */
+const MAX_RATE_LIMIT_WAIT_MS = 10_000;
+
+/** Wait used when a 429 carries neither Retry-After nor ratelimit-reset. */
+const DEFAULT_RATE_LIMIT_WAIT_MS = 1_000;
+
+/**
+ * How long Resend asked us to wait after a 429, in milliseconds.
+ *
+ * Retry-After may be delta-seconds or an HTTP date (RFC 9110); Resend also
+ * sends ratelimit-reset in seconds. The first usable value wins.
+ */
+export function rateLimitWaitMs(headers: Headers, now: number = Date.now()): number {
+  const retryAfter = headers.get('retry-after')?.trim();
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1000);
+    const at = Date.parse(retryAfter);
+    if (Number.isFinite(at)) return Math.max(0, at - now);
+  }
+  const resetHeader = headers.get('ratelimit-reset')?.trim();
+  if (resetHeader) {
+    const reset = Number(resetHeader);
+    if (Number.isFinite(reset) && reset >= 0) return Math.ceil(reset * 1000);
+  }
+  return DEFAULT_RATE_LIMIT_WAIT_MS;
+}
 
 /**
  * Outcome of a document send. Each recipient gets a separate message, so the
@@ -57,6 +85,9 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly apiKey: string | null;
   private readonly appUrl: string;
+
+  /** Rate-limit pause. A field so tests can observe it without waiting. */
+  private sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   constructor() {
     const key = process.env.RESEND_API_KEY?.trim();
@@ -127,13 +158,16 @@ export class MailService {
     };
 
     let response = await post();
-    // One retry on a rate limit only. Resend allows 10 requests per second per
-    // team; a 20-recipient invoice sent one message at a time can touch that.
+    // One retry, on a rate limit only, after the wait Resend asked for. Resend
+    // allows 10 requests per second per team; a 20-recipient invoice sent one
+    // message at a time can touch that. The retry reuses the same
+    // Idempotency-Key (same headers object), so it can never deliver twice.
     if (response.status === 429) {
-      const after = Number(response.headers.get('retry-after'));
-      const waitMs = Number.isFinite(after) && after > 0 ? Math.min(after * 1000, MAX_RETRY_AFTER_MS) : 1_000;
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-      response = await post();
+      const waitMs = rateLimitWaitMs(response.headers);
+      if (waitMs <= MAX_RATE_LIMIT_WAIT_MS) {
+        await this.sleep(waitMs);
+        response = await post();
+      }
     }
 
     if (!response.ok) {

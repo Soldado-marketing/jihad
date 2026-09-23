@@ -45,7 +45,7 @@ function ensureBuilt() {
 }
 
 ensureBuilt();
-const { MailService, MAIL_FROM } = require(join(apiRoot, COMPILED));
+const { MailService, MAIL_FROM, rateLimitWaitMs } = require(join(apiRoot, COMPILED));
 
 const APPROVED_FROM = 'no-reply@soldado-marketing.de';
 const RESEND_URL = 'https://api.resend.com/emails';
@@ -82,7 +82,9 @@ beforeEach(() => {
   calls = [];
   respond = () => ok();
   globalThis.fetch = async (url, init) => {
-    calls.push({ init, url: String(url) });
+    // Snapshot the headers: the service may reuse one headers object across a
+    // retry, and a later mutation must not rewrite what an earlier call sent.
+    calls.push({ init: { ...init, headers: { ...init.headers } }, url: String(url) });
     return respond(url, init);
   };
 });
@@ -372,21 +374,6 @@ describe('invoice recipient privacy - one message per recipient', () => {
     for (const key of keys) assert.match(key, /^document-[0-9a-f-]{36}-\d+$/);
   });
 
-  it('retries once on 429 with the same idempotency key, so the retry cannot duplicate', async () => {
-    let n = 0;
-    respond = () => {
-      n += 1;
-      return n === 1
-        ? new Response('{}', { headers: { 'retry-after': '0' }, status: 429 })
-        : ok('msg_after_retry');
-    };
-    const { service } = configured();
-    const result = await sendAll(service, ['anna@client-a.example']);
-    assert.equal(calls.length, 2);
-    assert.equal(calls[0].init.headers['Idempotency-Key'], calls[1].init.headers['Idempotency-Key']);
-    assert.deepEqual(result.resendEmailIds, ['msg_after_retry']);
-  });
-
   it('does not retry any other error', async () => {
     respond = () => new Response('{}', { status: 500 });
     const { service } = configured();
@@ -404,6 +391,70 @@ describe('invoice recipient privacy - one message per recipient', () => {
     for (const [, line] of logs) {
       for (const address of RECIPIENTS) assert.ok(!line.includes(address));
     }
+  });
+});
+
+describe('rate limit (429) - wait as told, retry once, same idempotency key', () => {
+  const r429 = (headers = {}) => new Response('{}', { headers, status: 429 });
+  const once429 = (headers) => {
+    let n = 0;
+    respond = () => ((n += 1) === 1 ? r429(headers) : ok('msg_after_retry'));
+  };
+  const configuredWithClock = () => {
+    const made = configured();
+    made.waits = [];
+    made.service.sleep = async (ms) => {
+      made.waits.push(ms);
+    };
+    return made;
+  };
+  const sendOne = (service) => service.sendDocument({ subject: 's', text: 't', to: ['anna@client-a.example'] });
+
+  it('waits the Retry-After seconds before the single retry', async () => {
+    once429({ 'retry-after': '3' });
+    const { service, waits } = configuredWithClock();
+    const result = await sendOne(service);
+    assert.deepEqual(waits, [3000]);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(result.resendEmailIds, ['msg_after_retry']);
+  });
+
+  it('reuses the same Idempotency-Key on the retry', async () => {
+    once429({ 'retry-after': '1' });
+    const { service } = configuredWithClock();
+    await sendOne(service);
+    assert.ok(calls[0].init.headers['Idempotency-Key']);
+    assert.equal(calls[0].init.headers['Idempotency-Key'], calls[1].init.headers['Idempotency-Key']);
+  });
+
+  it('honours an HTTP-date Retry-After', () => {
+    const now = Date.parse('2026-09-23T10:00:00Z');
+    const headers = new Headers({ 'retry-after': 'Wed, 23 Sep 2026 10:00:04 GMT' });
+    assert.equal(rateLimitWaitMs(headers, now), 4000);
+  });
+
+  it('falls back to ratelimit-reset, then to one second', () => {
+    assert.equal(rateLimitWaitMs(new Headers({ 'ratelimit-reset': '2' })), 2000);
+    assert.equal(rateLimitWaitMs(new Headers()), 1000);
+    assert.equal(rateLimitWaitMs(new Headers({ 'retry-after': 'garbage' })), 1000);
+  });
+
+  it('does not retry early when Resend asks for more than 10 seconds - the message is reported failed', async () => {
+    once429({ 'retry-after': '60' });
+    const { service, waits } = configuredWithClock();
+    const result = await sendOne(service);
+    assert.deepEqual(waits, []);
+    assert.equal(calls.length, 1);
+    assert.deepEqual([result.accepted, result.failed], [0, 1]);
+  });
+
+  it('retries at most once - a second 429 fails the message', async () => {
+    respond = () => r429({ 'retry-after': '0' });
+    const { service, waits } = configuredWithClock();
+    const result = await sendOne(service);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(waits, [0]);
+    assert.equal(result.failed, 1);
   });
 });
 

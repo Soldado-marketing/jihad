@@ -144,6 +144,12 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
 
+      # Blocking: a partial invoice send must read as a warning with counts,
+      # never as a full success.
+      - name: Web contract tests
+        working-directory: apps/web
+        run: node --test test/invoice-send-result.test.mjs
+
       # Informational: 3 known failures.
       - name: Web tests (informational - 3 known failures)
         working-directory: apps/web
