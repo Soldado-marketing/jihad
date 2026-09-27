@@ -117,7 +117,7 @@ Save the returned token — this is the Owner account.
 - [ ] Login with owner account works
 - [ ] Register a test user → appears in admin approval screen
 - [ ] Approve test user → login works
-- [ ] SMTP configured → test by inviting a user
+- [ ] `RESEND_API_KEY` set → test by inviting a user
 - [ ] S3 configured → test file upload
 
 ---
@@ -150,7 +150,7 @@ DATABASE_URL='<your production DATABASE_URL>' npx prisma migrate deploy
 | `JWT_REFRESH_SECRET` | ✅ | Min 32 chars, random, different from JWT_SECRET |
 | `REDIS_URL` | ✅ | Redis connection string |
 | `WEB_URL` | ✅ | Frontend URL for CORS |
-| `SMTP_HOST` | Recommended | For invites and notifications |
+| `RESEND_API_KEY` | Recommended | Resend API key for invites and notifications. See "Email" below. |
 | `S3_BUCKET` | For files | Bucket name. See "Object storage" below. |
 | `S3_REGION` | For files | e.g. `eu-central-1` |
 | `S3_ACCESS_KEY_ID` | For files | Access key |
@@ -204,6 +204,22 @@ Object keys are generated server-side and namespaced per tenant:
 ```
 <S3_KEY_PREFIX>tenants/<tenantId>/files/<fileAssetId>/v<n>/<uuid><ext>
 ```
+
+---
+
+## Email (Resend)
+
+The API sends mail through the Resend HTTPS API, not SMTP. Outbound SMTP is not
+available on Railway Hobby (blocked on every port), so there is no SMTP
+configuration at all.
+
+- `RESEND_API_KEY` is the only mail variable the API reads. Set it as a Railway
+  secret variable. Without it the API still starts; sends are skipped and
+  reported as not configured.
+- The sender is fixed in code as `MAIL_FROM` = `no-reply@soldado-marketing.de`
+  (`apps/api/src/modules/mail/mail.service.ts`). It is an owner decision, not
+  configuration: a `MAIL_FROM` or `RESEND_ENDPOINT` environment variable is not
+  read and cannot change it.
 
 ---
 
