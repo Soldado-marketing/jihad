@@ -88,7 +88,8 @@ jobs:
             test/phase-3-file-storage.test.mjs \
             test/phase-4-invoicing.test.mjs \
             test/security-gate-file-deletion.test.mjs \
-            test/mail-config.test.mjs
+            test/mail-config.test.mjs \
+            test/invoice-send-privacy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
       # service above and drives it over HTTP. Green (101/101), so it blocks.
@@ -142,6 +143,12 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+
+      # Blocking: a partial invoice send must read as a warning with counts,
+      # never as a full success.
+      - name: Web contract tests
+        working-directory: apps/web
+        run: node --test test/invoice-send-result.test.mjs
 
       # Informational: 3 known failures.
       - name: Web tests (informational - 3 known failures)

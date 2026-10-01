@@ -391,7 +391,7 @@ describe('Phase 4 - mail', () => {
   it('supports an awaitable send with an attachment', () => {
     assert.match(src, /async sendDocument/);
     assert.match(src, /attachments:/);
-    assert.match(src, /Promise<boolean>/);
+    assert.match(src, /Promise<DocumentSendResult>/);
   });
 
   it('does not log recipient addresses', () => {

@@ -145,6 +145,11 @@ export class InvoicesService {
    *
    * Ordering is deliberate: the mail must succeed before the invoice is marked
    * SENT, so a failed send never leaves an invoice claiming it was delivered.
+   *
+   * Each recipient gets a separate message so no recipient sees the others'
+   * addresses. The invoice is marked SENT once at least one recipient's message
+   * was accepted; the response reports how many were accepted and how many
+   * failed, so a partial send is visible rather than silent.
    */
   async send(actor: InvoiceActor, id: string, dto: SendInvoiceDto) {
     const { tenantId } = actor;
@@ -177,7 +182,7 @@ export class InvoicesService {
     const { buffer, filename } = await this.renderPdf(tenantId, id);
     const balanceDue = invoice.totalCents - invoice.paidCents;
 
-    const sent = await this.mail.sendDocument({
+    const delivery = await this.mail.sendDocument({
       attachment: { content: buffer, contentType: 'application/pdf', filename },
       subject: dto.subject ?? `Invoice ${invoice.invoiceNumber}`,
       text:
@@ -190,7 +195,7 @@ export class InvoicesService {
       to: recipients,
     });
 
-    if (!sent) {
+    if (delivery.accepted === 0) {
       throw new ServiceUnavailableException({
         code: 'MAIL_SEND_FAILED',
         reason: 'The invoice email could not be sent.',
@@ -201,10 +206,21 @@ export class InvoicesService {
 
     await this.recordAudit(actor, 'invoice.sent', id, {
       outcome: AuditOutcome.SUCCESS,
-      payload: { invoiceNumber: invoice.invoiceNumber, recipientCount: recipients.length },
+      payload: {
+        invoiceNumber: invoice.invoiceNumber,
+        recipientCount: delivery.recipientCount,
+        acceptedCount: delivery.accepted,
+        failedCount: delivery.failed,
+      },
     });
 
-    return { invoice: updated, recipientCount: recipients.length, sent: true };
+    return {
+      invoice: updated,
+      recipientCount: delivery.recipientCount,
+      acceptedCount: delivery.accepted,
+      failedCount: delivery.failed,
+      sent: true,
+    };
   }
 
   /**

@@ -5,6 +5,7 @@ import { InvoiceDetail, type InvoiceDetailData } from '@/components/finance/invo
 import { formatCents, toCents } from '@/components/finance/invoice-line-editor';
 import { PageHeader } from '@/components/ui/page-header';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
+import { describeInvoiceSend, type InvoiceSendResponse } from '@/lib/invoice-send-result';
 
 type Line = {
   id: string;
@@ -51,6 +52,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [recipients, setRecipients] = useState('');
   const [payment, setPayment] = useState({ amount: '', method: 'BANK_TRANSFER' });
 
@@ -84,6 +86,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setBusy('send');
     setError(null);
     setNotice(null);
+    setWarning(null);
     try {
       // With no recipients the API addresses the CLIENT members of the
       // invoice's project.
@@ -91,11 +94,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         .split(',')
         .map((r) => r.trim())
         .filter(Boolean);
-      const result = await apiFetch<{ recipientCount: number }>(`/invoices/${id}/send`, {
+      const result = await apiFetch<InvoiceSendResponse>(`/invoices/${id}/send`, {
         method: 'POST',
         body: JSON.stringify(list.length > 0 ? { recipients: list } : {}),
       });
-      setNotice(`Invoice sent to ${result.recipientCount} recipient(s).`);
+      const outcome = describeInvoiceSend(result);
+      if (outcome.tone === 'warning') setWarning(outcome.text);
+      else setNotice(outcome.text);
       setRecipients('');
       await load();
     } catch (err) {
@@ -117,6 +122,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setBusy('payment');
     setError(null);
     setNotice(null);
+    setWarning(null);
     try {
       await apiFetch('/payments', {
         method: 'POST',
@@ -153,6 +159,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       {error && (
         <p role="alert" className="text-sm text-red-600">
           {error}
+        </p>
+      )}
+      {warning && (
+        <p role="status" className="text-sm font-medium text-amber-700">
+          {warning}
         </p>
       )}
       {notice && <p className="text-sm text-green-700">{notice}</p>}
