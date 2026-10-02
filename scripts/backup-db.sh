@@ -9,8 +9,16 @@
 #   DATABASE_URL=postgresql://... ./scripts/backup-db.sh [output-dir]
 #
 # Environment:
-#   DATABASE_URL       required - connection string (never printed)
-#   BACKUP_RETENTION   optional - how many dumps to keep (default 14)
+#   DATABASE_URL        required - connection string (never printed)
+#   BACKUP_RETENTION    optional - how many dumps to keep (default 14)
+#   BACKUP_RETRIES      optional - extra attempts after a TRANSIENT connection
+#                       failure, 0-5 (default 2). Anything else fails at once.
+#   BACKUP_RETRY_DELAY  optional - seconds before the first retry, multiplied
+#                       by the attempt number (default 30, max 600)
+#
+# pg_dump writes to <name>.dump.partial-<attempt>. Only a complete, non-empty dump is
+# renamed to <name>.dump and checksummed; any failure removes the partial file,
+# so a broken run can never leave something that looks like a backup.
 #
 # The credentials are passed to pg_dump through libpq's PGUSER/PGPASSWORD
 # environment variables, so neither the password nor an authenticated
@@ -36,6 +44,20 @@ fi
 
 if ! [[ "$RETENTION" =~ ^[0-9]+$ ]] || [[ "$RETENTION" -lt 1 ]]; then
   echo "ERROR: BACKUP_RETENTION must be a positive integer." >&2
+  exit 1
+fi
+
+RETRIES="${BACKUP_RETRIES:-2}"
+RETRY_DELAY="${BACKUP_RETRY_DELAY:-30}"
+
+# Bounded on purpose: a retry loop must never turn into a run that never ends.
+if ! [[ "$RETRIES" =~ ^[0-9]$ ]] || [[ "$RETRIES" -gt 5 ]]; then
+  echo "ERROR: BACKUP_RETRIES must be an integer between 0 and 5." >&2
+  exit 1
+fi
+
+if ! [[ "$RETRY_DELAY" =~ ^[0-9]{1,3}$ ]] || [[ "$RETRY_DELAY" -gt 600 ]]; then
+  echo "ERROR: BACKUP_RETRY_DELAY must be an integer between 0 and 600." >&2
   exit 1
 fi
 
@@ -121,33 +143,91 @@ mkdir -p "$OUTPUT_DIR"
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 DUMP_FILE="${OUTPUT_DIR}/maos-${TIMESTAMP}.dump"
+# Each attempt writes to its own '<name>.dump.partial-<n>'. That name does not
+# match the 'maos-*.dump' pattern used by retention and by anyone looking for
+# backups, so an unfinished file is never mistaken for one. A fresh name per
+# attempt matters on this Mac: pg_dump runs in Docker there, and re-creating a
+# path the host has just deleted through the bind mount failed with "could not
+# open output file ... No such file or directory" on the third attempt.
+PARTIAL_FILE=""
+ERR_FILE="${OUTPUT_DIR}/.maos-${TIMESTAMP}.pg_dump.err"
+COMPLETED=0
 
 echo "Backing up to ${DUMP_FILE} ..."
 
-# pg_dump creates the file before it can fail, and 'set -e' would exit before
-# the emptiness check below. Without this, a failed run leaves a zero-byte file
-# that a later restore could mistake for a backup.
+# pg_dump creates its output file before it can fail, and a connection that
+# drops halfway leaves a NON-empty file behind. Whatever happens, nothing but a
+# complete, checksummed dump may survive the run.
 cleanup_failed_dump() {
-  [[ -s "$DUMP_FILE" ]] || rm -f "$DUMP_FILE"
+  if [[ -n "$PARTIAL_FILE" ]]; then
+    rm -f "$PARTIAL_FILE"
+  fi
+  rm -f "$ERR_FILE"
+  if [[ "$COMPLETED" != 1 ]]; then
+    rm -f "$DUMP_FILE" "${DUMP_FILE}.sha256"
+  fi
 }
 trap cleanup_failed_dump EXIT
 
-# -Fc  custom format: compressed and restorable selectively
-# -Z9  maximum compression
-# --no-owner / --no-privileges keep the dump portable across environments
-pg_dump \
-  --dbname="$PG_STRIPPED_URL" \
-  --format=custom \
-  --compress=9 \
-  --no-owner \
-  --no-privileges \
-  --file="$DUMP_FILE"
+# Connection-level failures that a new connection can fix. Authentication,
+# permission, missing-database and SQL errors are deliberately NOT here: they
+# fail at once instead of being retried.
+is_transient_failure() {
+  grep -qiE \
+    'SSL error|SSL SYSCALL error|unexpected eof|server closed the connection unexpectedly|no connection to the server|could not receive data from server|could not send data to server|Connection reset by peer|Connection refused|Connection timed out|Operation timed out|timeout expired|Network is unreachable|No route to host|could not translate host name|Temporary failure in name resolution|terminating connection due to administrator command' \
+    "$1"
+}
 
-if [[ ! -s "$DUMP_FILE" ]]; then
+MAX_ATTEMPTS=$((RETRIES + 1))
+ATTEMPT=1
+while :; do
+  echo "pg_dump attempt ${ATTEMPT}/${MAX_ATTEMPTS} ..."
+  PARTIAL_FILE="${DUMP_FILE}.partial-${ATTEMPT}"
+  rm -f "$PARTIAL_FILE"
+
+  # -Fc  custom format: compressed and restorable selectively
+  # -Z9  maximum compression
+  # --no-owner / --no-privileges keep the dump portable across environments
+  if pg_dump \
+    --dbname="$PG_STRIPPED_URL" \
+    --format=custom \
+    --compress=9 \
+    --no-owner \
+    --no-privileges \
+    --file="$PARTIAL_FILE" 2>"$ERR_FILE"; then
+    cat "$ERR_FILE" >&2
+    break
+  else
+    PG_STATUS=$?
+  fi
+
+  cat "$ERR_FILE" >&2
+  rm -f "$PARTIAL_FILE"
+
+  if ! is_transient_failure "$ERR_FILE"; then
+    echo "ERROR: pg_dump failed (exit ${PG_STATUS}). Not a transient connection failure - not retrying." >&2
+    exit 1
+  fi
+
+  if [[ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]]; then
+    echo "ERROR: pg_dump failed after ${ATTEMPT} attempt(s); the last failure was a transient connection error (exit ${PG_STATUS})." >&2
+    exit 1
+  fi
+
+  DELAY=$((RETRY_DELAY * ATTEMPT))
+  echo "Transient connection failure on attempt ${ATTEMPT}/${MAX_ATTEMPTS}; retrying in ${DELAY}s ..." >&2
+  sleep "$DELAY"
+  ATTEMPT=$((ATTEMPT + 1))
+done
+
+if [[ ! -s "$PARTIAL_FILE" ]]; then
   echo "ERROR: backup file is empty - aborting." >&2
-  rm -f "$DUMP_FILE"
   exit 1
 fi
+
+# Same directory, so the rename is atomic: the final name only ever refers to
+# a complete dump.
+mv "$PARTIAL_FILE" "$DUMP_FILE"
 
 # Checksum so a corrupted transfer is detectable before a restore is attempted.
 if command -v sha256sum >/dev/null 2>&1; then
@@ -155,6 +235,8 @@ if command -v sha256sum >/dev/null 2>&1; then
 else
   shasum -a 256 "$DUMP_FILE" > "${DUMP_FILE}.sha256"
 fi
+# From here on the dump and its checksum are kept even if pruning fails.
+COMPLETED=1
 
 SIZE="$(du -h "$DUMP_FILE" | cut -f1)"
 echo "OK: ${DUMP_FILE} (${SIZE})"
