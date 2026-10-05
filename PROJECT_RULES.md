@@ -84,12 +84,13 @@
 
 Before making changes, Codex must:
 
-1. Work only inside `/Users/jihadhilal/Documents/codex marketing platform`.
-2. Identify the existing related folders and files.
-3. Prefer updating existing files over creating new ones.
-4. Confirm the correct location before adding any necessary new file.
-5. Avoid touching unrelated files.
-6. Avoid moving, deleting, or renaming files unless explicitly approved.
+1. Work only inside the canonical MAOS repository `~/Developer/MAOS/claude`.
+2. Read `docs/MAOS_PRODUCT_BLUEPRINT.md` and validate the task against it (§30). On a conflict with a Blueprint invariant, STOP and return `BLUEPRINT_CONFLICT`. Never change the Blueprint inside an unrelated implementation task. One MAOS task at a time.
+3. Identify the existing related folders and files.
+4. Prefer updating existing files over creating new ones.
+5. Confirm the correct location before adding any necessary new file.
+6. Avoid touching unrelated files.
+7. Avoid moving, deleting, or renaming files unless explicitly approved.
 
 ## Required File-Change Report
 
