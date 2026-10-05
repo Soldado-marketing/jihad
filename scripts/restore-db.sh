@@ -72,6 +72,71 @@ strip_prisma_params() {
 
 ADMIN_URL="$(strip_prisma_params "$ADMIN_DATABASE_URL")"
 
+case "$ADMIN_URL" in
+  *://*) ;;
+  *)
+    echo "ERROR: ADMIN_DATABASE_URL must be a postgresql://... connection URL." >&2
+    exit 1
+    ;;
+esac
+
+# Same approach as backup-db.sh: move the credentials out of the URL into
+# libpq's PGUSER/PGPASSWORD environment variables, so neither psql nor
+# pg_restore ever receives the password as a command-line argument (arguments
+# are readable through `ps` by any process while they run). Everything that is
+# not a credential - scheme, host, port, database, query parameters such as
+# sslmode - stays in the URL untouched.
+percent_decode() {
+  local s="$1"
+  case "$s" in
+    *%*) printf '%b' "${s//%/\\x}" ;;
+    *)   printf '%s' "$s" ;;
+  esac
+}
+
+PG_STRIPPED_URL="$ADMIN_URL"
+split_credentials() {
+  local url="$1" scheme rest userinfo
+  scheme="${url%%://*}"
+  rest="${url#*://}"
+  case "$rest" in
+    *@*) ;;
+    *) return 0 ;;
+  esac
+  userinfo="${rest%%@*}"
+  PG_STRIPPED_URL="${scheme}://${rest#*@}"
+  if [[ -n "${userinfo%%:*}" ]]; then
+    PGUSER="$(percent_decode "${userinfo%%:*}")"
+    export PGUSER
+  fi
+  case "$userinfo" in
+    *:*)
+      PGPASSWORD="$(percent_decode "${userinfo#*:}")"
+      export PGPASSWORD
+      ;;
+  esac
+}
+
+split_credentials "$ADMIN_URL"
+ADMIN_CONN="$PG_STRIPPED_URL"
+
+# Build the target connection string from the admin one: same scheme and
+# host:port, the new database name as the path, and the ORIGINAL query string
+# (sslmode and friends) carried over. The old `${ADMIN_URL%/*}/${TARGET_DB}`
+# cut at the last '/', which silently dropped '?sslmode=require' and so made
+# pg_restore connect with weaker transport security than psql.
+build_target_url() {
+  local url="$1" db="$2" base query="" scheme rest authority
+  base="${url%%\?*}"
+  if [[ "$url" == *\?* ]]; then
+    query="?${url#*\?}"
+  fi
+  scheme="${base%%://*}"
+  rest="${base#*://}"
+  authority="${rest%%/*}"
+  printf '%s://%s/%s%s' "$scheme" "$authority" "$db" "$query"
+}
+
 # Verify the checksum first: restoring a corrupted dump is worse than not
 # restoring at all.
 if [[ -f "${DUMP_FILE}.sha256" ]]; then
@@ -97,7 +162,7 @@ fi
 
 # Fail if the target already exists. This is the guard that makes the script
 # non-destructive: an existing database is never touched.
-EXISTS="$(psql "$ADMIN_URL" -tAc \
+EXISTS="$(psql "$ADMIN_CONN" -tAc \
   "SELECT 1 FROM pg_database WHERE datname = '${TARGET_DB}'")"
 
 if [[ "$EXISTS" == "1" ]]; then
@@ -107,11 +172,10 @@ if [[ "$EXISTS" == "1" ]]; then
 fi
 
 echo "Creating database '${TARGET_DB}' ..."
-psql "$ADMIN_URL" -q -c "CREATE DATABASE \"${TARGET_DB}\""
+psql "$ADMIN_CONN" -q -c "CREATE DATABASE \"${TARGET_DB}\""
 
-# Build the target connection string by swapping the database segment of the
-# admin URL, so credentials are not re-entered.
-TARGET_URL="${ADMIN_URL%/*}/${TARGET_DB}"
+# Credentials are not re-entered: PGUSER/PGPASSWORD set above are reused.
+TARGET_URL="$(build_target_url "$ADMIN_CONN" "$TARGET_DB")"
 
 echo "Restoring ${DUMP_FILE} into '${TARGET_DB}' ..."
 pg_restore \
