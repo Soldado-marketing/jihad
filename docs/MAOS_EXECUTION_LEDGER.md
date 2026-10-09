@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on T17 merge; T18/T20/T21/T22 owner-gated; T24 waits on T23 merge) |
-| ACTIVE_TASK | none — stopped at owner gate D11 (PR tooling) after MAOS-T23 |
+| ACTIVE_TASK | none — PRs #4–#10 opened; next ready task MAOS-T25 |
 | ACTIVE_BRANCH | — |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T23 pushed (`e81952d`); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | After D11: open PRs for the pushed branches (merge order T09, T10, T12, T14, T16, T17, T23; resolve D13), watch CI. Without waiting for merges, the next dependency-ready task is MAOS-T25 (LoginHistory writers). |
+| EXACT_NEXT_ACTION | Record PR CI results; start MAOS-T25 (LoginHistory writers) from current `main`. Owner merges in order #4, #5, #6, #7, #8, #9, #10 (D13 conflicts resolved on request). |
 
 ## Session resume protocol
 
@@ -45,7 +45,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D8 | Scheduler hosting (in-process vs worker; Railway impact) | T125 | OPEN |
 | D9 | Email delivery tracking scope (EmailMessage/EmailEvent) | T44, T45 | OPEN |
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
-| D11 | PR tooling: `gh` not installed and the GitHub connector is not authorized in Claude Code; PRs must be opened by the owner or tooling enabled | every task's PR step | OPEN |
+| D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
@@ -96,13 +96,13 @@ Compared by test identity, never by count.
 | MAOS-T06 | Delete verified external originals (part 1) | — (ops) | — | per `legacy/README.md` | n/a | COMPLETE |
 | MAOS-T07 | Complete legacy consolidation 2026-10-02 | — (ops) | — | per `legacy/README.md` | n/a | COMPLETE |
 | MAOS-T08 | Backup/restore reliability + CI race fix | fix/backup-restore-reliability | #3 (`df08135`) | gate 239/239, integration 101/101 | 0 | COMPLETE_MERGED |
-| MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE (D1) |
-| MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | not opened (D11) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | not opened (D11) | evidence + table + secret checks | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script (`4a49bde`) | not opened (D11); CI not yet run | 19 new tests; gate 258/258; real Docker e2e on synthetic dump | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo (`9020aa1`) | not opened (D11); CI not yet run | 15 new tests (macOS + Linux); gate 254/254; real e2e backup -> rehearsal | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | not opened (D11); CI not yet run | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | #4 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE (D1) |
+| MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | #5 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | #6 (open) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | #7 (open) | evidence + table + secret checks | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script (`4a49bde`) | #8 (open) | 19 new tests; gate 258/258; real Docker e2e on synthetic dump | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo (`9020aa1`) | #9 (open) | 15 new tests (macOS + Linux); gate 254/254; real e2e backup -> rehearsal | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 (open) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -420,10 +420,10 @@ Dependency-ready tasks are taken top to bottom; gated tasks wait for their gate 
 
 One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRESSIONS | status`
 
-- MAOS-T09 | Product Blueprint v1 (+ refresh) | docs/product-blueprint-v1 | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE
-- MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks, 136 tasks | 0 | COMPLETE_AWAITING_MERGE
-- MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh | not opened (D11) | compose config, links, secret scan | 0 | COMPLETE_AWAITING_MERGE
-- MAOS-T14 | Release-control assessment (ADR-016, Proposed) | docs/release-control-assessment | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE
-- MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script | not opened (D11) | 19 tests, gate 258/258, full 43 known failures unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
-- MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo | not opened (D11) | 15 tests (macOS + Linux), gate 254/254, full 43 known unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
-- MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access | not opened (D11) | revocation suite 10/10, mutations 4/4 caught, gate 239/239, integration 111/111 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T09 | Product Blueprint v1 (+ refresh) | docs/product-blueprint-v1 | #4 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | #5 (open) | docs checks, 136 tasks | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh | #6 (open) | compose config, links, secret scan | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T14 | Release-control assessment (ADR-016, Proposed) | docs/release-control-assessment | #7 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script | #8 (open) | 19 tests, gate 258/258, full 43 known failures unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo | #9 (open) | 15 tests (macOS + Linux), gate 254/254, full 43 known unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access | #10 (open) | revocation suite 10/10, mutations 4/4 caught, gate 239/239, integration 111/111 | 0 | COMPLETE_AWAITING_MERGE
