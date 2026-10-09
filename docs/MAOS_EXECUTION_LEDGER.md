@@ -15,13 +15,13 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | Field | Value |
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
-| CURRENT_WAVE | W0 — Decisions + repository reconciliation |
-| ACTIVE_TASK | MAOS-T14 — Release-control assessment |
-| ACTIVE_BRANCH | `docs/release-control-assessment` |
+| CURRENT_WAVE | W1 — Operational recoverability (W0 remainder gated: T11/T13 on D1, T15 destructive) |
+| ACTIVE_TASK | MAOS-T16 — Restore rehearsal script |
+| ACTIVE_BRANCH | `ops/restore-rehearsal-script` |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T09 refreshed and pushed (`5618d78`); T10 branch created from `df08135` |
-| EXACT_NEXT_ACTION | Write the T14 assessment (docs/adr), validate, commit, push |
+| EXACT_NEXT_ACTION | T16: write stub tests first, then scripts/restore-rehearsal.sh |
 
 ## Session resume protocol
 
@@ -98,6 +98,7 @@ Compared by test identity, never by count.
 | MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE (D1) |
 | MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | not opened (D11) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | not opened (D11) | evidence + table + secret checks | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -418,3 +419,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T09 | Product Blueprint v1 (+ refresh) | docs/product-blueprint-v1 | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks, 136 tasks | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh | not opened (D11) | compose config, links, secret scan | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T14 | Release-control assessment (ADR-016, Proposed) | docs/release-control-assessment | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE
