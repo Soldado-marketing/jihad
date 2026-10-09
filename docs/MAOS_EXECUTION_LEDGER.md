@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on T17 merge; T18/T20/T21/T22 owner-gated; T24 waits on T23 merge) |
-| ACTIVE_TASK | none — waiting for PR #13 (T146) CI; then owner merge of #13 unblocks CI for #4–#12 |
+| ACTIVE_TASK | MAOS-T30 — Web dependency patch (Next.js 15.5.27) |
 | ACTIVE_BRANCH | — |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T23 pushed (`e81952d`); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | Check PR #13 CI. After the owner merges #13, rerun the API job of #4–#12 (PR CI uses the merge with main, so they pick up the mirror). Next dependency-ready task: MAOS-T27 (foreign-ID validation, work domain). |
+| EXACT_NEXT_ACTION | T30: bump next to 15.5.27 (non-major) in apps/web, verify typecheck/build/contract/full web tests and npm audit. Owner: merge #13 first, then rerun the API job of #4–#14. T28/T29 wait on T27 (#14) merge. |
 
 ## Session resume protocol
 
@@ -106,7 +106,8 @@ Compared by test identity, never by count.
 | MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 (open) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers (`3ab7418`) | #11 (open) | new integration suite 8/8; 4 mutations caught; write-failure safe; gate 239/239; integration 109/109 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 new isolation tests; 4 mutations caught; gate 239/239; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 (open) | digest identical to Docker Hub; validated by its own CI | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 (open, CI PASS) | digest identical to Docker Hub; own CI all jobs pass | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | new suite 12/12; 4 mutations caught; gate 239/239; integration 113/113 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -437,3 +438,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers | #11 (open) | suite 8/8, mutations 4/4, gate 239/239, integration 109/109 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 tests, mutations 4/4, gate 239/239, integration 106/106 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T146 | CI PostgreSQL service from ECR Public mirror | ci/postgres-service-mirror | #13 (open) | identical digest; own CI | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | suite 12/12, mutations 4/4, gate 239/239, integration 113/113 | 0 | COMPLETE_AWAITING_MERGE
