@@ -41,6 +41,13 @@ export interface AuthTokens {
 // Generic neutral error so registration doesn't leak tenant existence
 const REGISTRATION_NEUTRAL_ERROR = 'Registration could not be completed. Please check your details and try again.';
 
+/**
+ * User statuses that may hold a session. Checked at login, on every request
+ * (validateSession) and on refresh, so a user who stops being in one of these
+ * states loses access at once instead of when their tokens expire.
+ */
+const allowedStatuses: readonly string[] = ['APPROVED', 'ACTIVE'];
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -243,7 +250,6 @@ export class AuthService {
     }
 
     // APPROVED and ACTIVE are both valid for login
-    const allowedStatuses: string[] = ['APPROVED', 'ACTIVE'];
     if (!allowedStatuses.includes(userStatus)) {
       throw new ForbiddenException('Account access denied');
     }
@@ -400,7 +406,13 @@ export class AuthService {
     }
 
     const membership = session.user.memberships.find((m) => m.tenantId === session.tenantId);
-    if (!membership) throw new UnauthorizedException('Membership not found');
+    if (!membership || !allowedStatuses.includes(session.user.status as string)) {
+      await this.prisma.session.updateMany({
+        where: { id: session.id, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Invalid or expired session');
+    }
 
     const newRefreshToken = crypto.randomBytes(48).toString('hex');
     const newHash = this.hashToken(newRefreshToken);
@@ -445,9 +457,24 @@ export class AuthService {
   async validateSession(sessionId: string): Promise<boolean> {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
-      select: { status: true, expiresAt: true },
+      select: {
+        status: true,
+        expiresAt: true,
+        tenantId: true,
+        user: { select: { status: true, memberships: { select: { tenantId: true, status: true } } } },
+      },
     });
     if (!session || session.status !== 'ACTIVE' || session.expiresAt < new Date()) {
+      return false;
+    }
+    // A session is only as valid as the user and the membership behind it:
+    // a suspended, disabled or archived user, or a membership that is no
+    // longer ACTIVE in the session's tenant, loses access on the next request.
+    if (!allowedStatuses.includes(session.user.status as string)) {
+      return false;
+    }
+    const membership = session.user.memberships.find((m) => m.tenantId === session.tenantId);
+    if (!membership || membership.status !== 'ACTIVE') {
       return false;
     }
     void this.prisma.session.update({
