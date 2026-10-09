@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W1 — Operational recoverability (W0 remainder gated: T11/T13 on D1, T15 destructive) |
-| ACTIVE_TASK | MAOS-T16 — Restore rehearsal script |
-| ACTIVE_BRANCH | `ops/restore-rehearsal-script` |
+| ACTIVE_TASK | MAOS-T17 — Version-control the nightly backup wrapper |
+| ACTIVE_BRANCH | `ops/backup-wrapper-in-repo` |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T09 refreshed and pushed (`5618d78`); T10 branch created from `df08135` |
-| EXACT_NEXT_ACTION | T16: write stub tests first, then scripts/restore-rehearsal.sh |
+| EXACT_NEXT_ACTION | T17: read the live wrapper (redacted), write stub tests, then scripts/nightly-backup.sh |
 
 ## Session resume protocol
 
@@ -56,7 +56,7 @@ Each schema task also needs OWNER_GATE_MIGRATION before production apply (see Da
 | Check | Result |
 |---|---|
 | API full (`npm test`) | 342 tests / 299 pass / 43 fail (known) |
-| API blocking gate (ci.yml list) | 239 / 239 |
+| API blocking gate (ci.yml list) | 239 / 239 on `main`; 258 / 258 on T16 branch |
 | Integration (integration-api, then security pair) | 34/34 + 67/67 = 101 / 101 |
 | Web full (`npm test`) | 64 tests / 61 pass / 3 fail (known) |
 | Web contract | 5 / 5 |
@@ -99,6 +99,7 @@ Compared by test identity, never by count.
 | MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | not opened (D11) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | not opened (D11) | evidence + table + secret checks | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script (`4a49bde`) | not opened (D11); CI not yet run | 19 new tests; gate 258/258; real Docker e2e on synthetic dump | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -420,3 +421,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks, 136 tasks | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh | not opened (D11) | compose config, links, secret scan | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T14 | Release-control assessment (ADR-016, Proposed) | docs/release-control-assessment | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script | not opened (D11) | 19 tests, gate 258/258, full 43 known failures unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
