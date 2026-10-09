@@ -26,7 +26,7 @@ describe('Sprint 2 workspace shell and navigation baseline', () => {
     assert.equal(existsWeb('tailwind.config.ts'), true);
 
     const packageJson = readWeb('package.json');
-    assert.match(packageJson, /"next": "15\.5\.15"/);
+    assert.match(packageJson, /"next": "15\.5\.27"/);
     assert.match(packageJson, /"react": "19\.2\.0"/);
     assert.match(packageJson, /"typescript"/);
   });
