@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on T17 merge; T18/T20/T21/T22 owner-gated; T24 waits on T23 merge) |
-| ACTIVE_TASK | none — PRs #4–#10 opened; next ready task MAOS-T25 |
-| ACTIVE_BRANCH | — |
+| ACTIVE_TASK | MAOS-T26 — Client-summary isolation |
+| ACTIVE_BRANCH | `fix/client-summary-isolation` |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T23 pushed (`e81952d`); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | Record PR CI results; start MAOS-T25 (LoginHistory writers) from current `main`. Owner merges in order #4, #5, #6, #7, #8, #9, #10 (D13 conflicts resolved on request). |
+| EXACT_NEXT_ACTION | T26: extend security-gate-client-isolation (two clients, distinct counts) first, then scope dashboards client-summary via ClientScopeService. CI reruns for #4–#10 in progress (Docker Hub rate limit, INFRASTRUCTURE). |
 
 ## Session resume protocol
 
@@ -47,6 +47,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
 | D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
+| CI-1 | 2026-10-09 first CI runs of PRs #4–#10 failed at "Initialize containers": Docker Hub unauthenticated pull rate limit for `postgres:16-alpine` (INFRASTRUCTURE, no test ran). Failed jobs rerun, staggered. Follow-up T146. | PR CI | IN PROGRESS |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
 
@@ -103,6 +104,7 @@ Compared by test identity, never by count.
 | MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script (`4a49bde`) | #8 (open) | 19 new tests; gate 258/258; real Docker e2e on synthetic dump | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo (`9020aa1`) | #9 (open) | 15 new tests (macOS + Linux); gate 254/254; real e2e backup -> rehearsal | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 (open) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers (`3ab7418`) | #11 (open) | new integration suite 8/8; 4 mutations caught; write-failure safe; gate 239/239; integration 109/109 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -209,6 +211,9 @@ Goal: inventory and remove or explicitly guard AI, transcription and realtime pl
 
 **T39 Stale test triage** · docs/test · deps T26 · M N · P N · R N · X N · G OWNER_GATE (any retirement) · LOW
 Goal: rewrite each of the 43 API + 3 web stale assertions to current truth or retire it with approval; make the full suite blocking. Problem: red informational suite hides real signal. Scope: `apps/*/test/sprint-*`, CI. Tests: full suites green; no assertion weakened. Done: full suite blocking in CI. Not: product changes.
+
+**T146 CI database service from a non-rate-limited registry** · ops · deps — · M N · P N · R N · X N · G none · LOW
+Goal: the CI `postgres` service image is pulled from a registry without anonymous pull limits (for example the AWS ECR Public mirror of the official image), same version. Problem: concurrent PR runs hit Docker Hub's unauthenticated rate limit (CI-1) and fail before any test. Scope: `.github/workflows/ci.yml` service image only. Tests: CI green on the PR; image digest/version equivalent. Done: PR CI passes. Not: other CI changes.
 
 ### W3 — Safety requiring migrations
 
@@ -406,7 +411,7 @@ Dependency-ready tasks are taken top to bottom; gated tasks wait for their gate 
 
 1. **W0:** T10 → T12 → T14 → (T11, T13 after D1) → T15 (after T12, T47)
 2. **W1:** T16 → T17 → T19 → (T18 after D3 + secret) → (T20 after D2) → (T21, T22 gates)
-3. **W2:** T23 → T24 → T25 → T26 → T27 → T28 → T29 → T30 → T31 → T32 → T33 → T34 → (T35, T36, T37, T38, T39 at their gates)
+3. **W2:** T23 → T24 → T25 → T26 → T27 → T28 → T29 → T30 → T31 → T32 → T33 → T34 → T146 → (T35, T36, T37, T38, T39 at their gates)
 4. **W3:** T40 → (T41, T42 after D6) → T43 → (T44, T45 after D9) → T46 (G-DATA)
 5. **W4:** T47 → T48 → T59 → T60 → T61 → T62 → T65 → T66 → T67 → T68 → T49 → T50 → T51 → T52 → T53 → T54 → T55 → T56 → T57 → T58 → T63 → T64 → T69
 6. **W5:** T70 → T86
@@ -427,3 +432,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script | #8 (open) | 19 tests, gate 258/258, full 43 known failures unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo | #9 (open) | 15 tests (macOS + Linux), gate 254/254, full 43 known unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access | #10 (open) | revocation suite 10/10, mutations 4/4 caught, gate 239/239, integration 111/111 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers | #11 (open) | suite 8/8, mutations 4/4, gate 239/239, integration 109/109 | 0 | COMPLETE_AWAITING_MERGE
