@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on T17 merge; T18/T20/T21/T22 owner-gated; T24 waits on T23 merge) |
-| ACTIVE_TASK | MAOS-T26 — Client-summary isolation |
-| ACTIVE_BRANCH | `fix/client-summary-isolation` |
+| ACTIVE_TASK | none — waiting for PR #13 (T146) CI; then owner merge of #13 unblocks CI for #4–#12 |
+| ACTIVE_BRANCH | — |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T23 pushed (`e81952d`); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | T26: extend security-gate-client-isolation (two clients, distinct counts) first, then scope dashboards client-summary via ClientScopeService. CI reruns for #4–#10 in progress (Docker Hub rate limit, INFRASTRUCTURE). |
+| EXACT_NEXT_ACTION | Check PR #13 CI. After the owner merges #13, rerun the API job of #4–#12 (PR CI uses the merge with main, so they pick up the mirror). Next dependency-ready task: MAOS-T27 (foreign-ID validation, work domain). |
 
 ## Session resume protocol
 
@@ -47,7 +47,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
 | D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
-| CI-1 | 2026-10-09 first CI runs of PRs #4–#10 failed at "Initialize containers": Docker Hub unauthenticated pull rate limit for `postgres:16-alpine` (INFRASTRUCTURE, no test ran). Failed jobs rerun, staggered. Follow-up T146. | PR CI | IN PROGRESS |
+| CI-1 | 2026-10-09 PR CI (#4–#12) fails at "Initialize containers": Docker Hub anonymous pull rate limit for `postgres:16-alpine` (INFRASTRUCTURE, no test ran); staggered reruns hit the same limit. Fix: T146 (#13). **Merge #13 first**, then rerun the API job of the other PRs. | all PR CI | OPEN — owner merge of #13 |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
 
@@ -105,6 +105,8 @@ Compared by test identity, never by count.
 | MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo (`9020aa1`) | #9 (open) | 15 new tests (macOS + Linux); gate 254/254; real e2e backup -> rehearsal | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 (open) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers (`3ab7418`) | #11 (open) | new integration suite 8/8; 4 mutations caught; write-failure safe; gate 239/239; integration 109/109 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 new isolation tests; 4 mutations caught; gate 239/239; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 (open) | digest identical to Docker Hub; validated by its own CI | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -433,3 +435,5 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo | #9 (open) | 15 tests (macOS + Linux), gate 254/254, full 43 known unchanged, real e2e | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access | #10 (open) | revocation suite 10/10, mutations 4/4 caught, gate 239/239, integration 111/111 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers | #11 (open) | suite 8/8, mutations 4/4, gate 239/239, integration 109/109 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 tests, mutations 4/4, gate 239/239, integration 106/106 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T146 | CI PostgreSQL service from ECR Public mirror | ci/postgres-service-mirror | #13 (open) | identical digest; own CI | 0 | COMPLETE_AWAITING_MERGE
