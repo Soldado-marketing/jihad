@@ -78,7 +78,8 @@ The CONTRACTOR target requires the assigned-scope work in §6 and §39; it is no
 | Area | Status | Evidence |
 |---|---|---|
 | Tenancy | IMPLEMENTED | `Tenant`; every tenant-owned model carries `tenantId`; `tenant-context` module. |
-| Authentication | IMPLEMENTED | Bootstrap (one-time), register → `PENDING_APPROVAL` → owner approval, login, refresh, logout, JWT + DB-backed `Session`; `Device`, `LoginHistory`, `Invite`, `RegistrationRequest`. |
+| Authentication | IMPLEMENTED | Bootstrap (one-time), register → `PENDING_APPROVAL` → owner approval, login, refresh, logout, JWT + DB-backed `Session`; `Device`, `Invite`, `RegistrationRequest`. |
+| Sessions / login history | PARTIAL | Session endpoints `GET /sessions/current` and `POST /sessions/revoke` are placeholders; the `LoginHistory` model has no writer; suspension does not revoke sessions (§37). |
 | RBAC / permissions | IMPLEMENTED (role × resource) / PARTIAL (row scope) | `PermissionService`, `PermissionGuard`, `PermissionResource`, `MembershipPermission`; assigned-item scope not implemented (§2.1). |
 | Audit | IMPLEMENTED | `AuditEvent`, `audit` module, login/registration audit actions. |
 | Projects | IMPLEMENTED (basic) | `Project`, `ProjectMember`; fields: name, description, status (`ACTIVE`/`PAUSED`/`ARCHIVED`), client visibility. |
@@ -88,7 +89,7 @@ The CONTRACTOR target requires the assigned-scope work in §6 and §39; it is no
 | Approvals | IMPLEMENTED | `ApprovalRequest`, `ApprovalDecision`; pages `/approvals`. |
 | Chat | IMPLEMENTED | `ChatChannel`, `ChatMembership`, `ChatMessage`; page `/chat`. |
 | Collaboration notes | IMPLEMENTED | `collaboration` module (`collaboration/notes`). |
-| Notifications | PARTIAL | Read side only: list, unread count, mark read, mark all read. **No code creates notifications.** |
+| Notifications | PARTIAL | Read side only on `main`: list, unread count, mark read, mark all read. **No code on `main` creates notifications.** A writer (`NotificationsService.notify()`, six wired events) exists on the unmerged branch `feat/v2-a1-notifications`, which conflicts with `main`. |
 | Voice | PARTIAL | `VoiceNote`, `VoiceTranscript`, `VoiceToTaskDraft`; transcription and AI extraction are placeholders. |
 | Realtime | PARTIAL | `realtime` module is a placeholder gateway. |
 | Finance | IMPLEMENTED (foundation) | `Invoice`, `InvoiceLine`, `Payment`, `RevenueRecord`, `CostRecord`; integer cents; profitability arithmetic (`finance/profitability.ts`); invoice PDF (pdfkit); invoice email via Resend over HTTPS. |
@@ -520,6 +521,7 @@ Version 1.0. A material architecture change increments the version (1.x for refi
 | Version | Date | Task | Change |
 |---|---|---|---|
 | 1.0 | 2026-10-05 | MAOS-T09 | Initial canonical blueprint, reconciled against `df08135`. |
+| 1.0 | 2026-10-09 | MAOS-T09 | Pre-merge factual refresh of §3 and the dated snapshot §35–§41 from the 2026-10-09 audit (backup recovery, session/login-history placeholders, dependency advisories, revenue integrity, unmerged notification branch). No rule, invariant or ownership change, so the version stays 1.0. |
 
 ## 33. Repository reconciliation (on `df08135`)
 
@@ -552,12 +554,14 @@ Version 1.0. A material architecture change increments the version (1.x for refi
 
 They do not duplicate this document.
 
-## 35. Current project status snapshot (2026-10-05)
+## 35. Current project status snapshot (2026-10-09)
 
 - **Canonical repo:** `~/Developer/MAOS/claude`
-- **Current main:** `df08135`
-- **Task registry (per the owner's Master Doc record):** MAOS-T01 to MAOS-T07 COMPLETE; MAOS-T08 COMPLETE.
+- **Current main:** `df08135` (unchanged since MAOS-T08)
+- **Task registry:** MAOS-T01, T02, T03, T05, T06, T07, T08 verified complete from git or on-disk evidence; MAOS-T04 has no verifiable record; MAOS-T09 (this Blueprint) is complete but not merged. The live task registry is `docs/MAOS_EXECUTION_LEDGER.md` once merged.
 - **MAOS-T08:** PR #3 merged into `df08135`; CI PASS (run 37311267837); blocking gate 239/239; integration 101/101; NEW_REGRESSIONS 0; Railway API `jihad` deploy SUCCESS; `/api/health` 200; `/api/health/ready` 200; web not redeployed (no watched paths changed).
+- **Baseline on `df08135` (2026-10-09):** API full 342 tests / 299 pass / 43 known stale-spec failures; gate 239/239; integration 101/101; web 64 tests / 61 pass / 3 known failures; API and web typecheck and build PASS.
+- **Unmerged work:** `feat/v2-a1-notifications` (notification writers, 2026-09-06, conflicts with `main` in four invoice/payment files); `docs/consolidate` (env/deploy docs; also carries an SH Investments README and must not be merged as is).
 - **Production data:** REAL_CLIENT_DATA_ALLOWED = no (owner decision).
 - Backup infrastructure risks are **not** solved (§37).
 
@@ -565,34 +569,41 @@ They do not duplicate this document.
 
 | | |
 |---|---|
-| ACTIVE_TASK | MAOS-T09 |
+| ACTIVE_TASK | MAOS-T09 (complete, awaiting owner review and merge) |
 | BASE | `df08135` |
 | BRANCH | `docs/product-blueprint-v1` |
 | GOAL | Establish the permanent Product Blueprint and architecture guardrails. |
 
-Creating this Blueprint approves no implementation phase.
+Creating this Blueprint approves no implementation phase. Execution state lives in the execution ledger, not here.
 
 ## 37. Safety work remaining (separate from product V2)
 
-Verified on 2026-10-05.
+Verified on 2026-10-09.
 
 | Item | Status | Evidence / why | Next action |
 |---|---|---|---|
-| Nightly production backup | **FAILING** | Backup log: 2026-10-04 run failed ("could not obtain the database URL from Railway (login expired?)"); 2026-10-05 run failed after 3 retries ("SSL error: unexpected eof"). Last good dump 2026-10-03 03:32 local. The T08 retry and no-partial-dump logic worked as designed. | Restore a working nightly backup (next task, §40). |
-| Backup depends on the Mac | OPEN | LaunchAgent at 03:30 runs a script under `~/MAOS_BACKUPS` (reached through `~/Developer/MAOS/backups`); it only runs while the Mac is awake and logged in. | Part of the backup follow-up. |
-| No backup failure alerting | OPEN | Failures are written only to a local log. | Part of the backup follow-up. |
+| Nightly production backup | FRAGILE | 2026-10-04 and 2026-10-06 failed ("could not obtain the database URL from Railway (login expired?)"); 2026-10-05 failed after 3 retries ("SSL error: unexpected eof"); 2026-10-07, 08, 09 succeeded. The wrapper depends on an interactive Railway CLI login. | Version-control the wrapper; non-interactive credential source. |
+| Backup depends on the Mac | OPEN | LaunchAgent at 03:30 runs a script under `~/MAOS_BACKUPS` (reached through `~/Developer/MAOS/backups`, outside Git); runs stretch to 4.5 hours while the Mac sleeps. | Wake schedule (owner applies) and run guard. |
+| No backup failure alerting | OPEN | Failures are written only to a local log. | Failure and staleness alert. |
 | No off-Mac backup copy | OPEN | Dumps exist only under `~/MAOS_BACKUPS` on the Mac. | Owner decision on storage target. |
-| Public PostgreSQL endpoint | OPEN (owner decision) | The backup script reads Railway's `DATABASE_PUBLIC_URL`, so the database's public endpoint is in use. | Infrastructure decision. |
-| Client summary count leak | OPEN | `GET /api/dashboards/client-summary` is allowed for CLIENT (`client-portal` read) but counts projects, tasks and invoices across the whole tenant, not the client's `clientScopeKey`. Counts only, no records. | Small client-isolation fix + test; owner decides priority. |
-| Suspended-user session revocation | OPEN | Suspension does not revoke sessions; `validateSession`/refresh do not re-check `User.status`. | Safety ITEM 2. |
-| Invoice default-recipient filtering | DEFERRED | Owner deferred it to a later approval. | Separate approval. |
-| Dependency patches | OPEN | Next.js 15.5.15, multer 2.2.0. | Safety ITEM 4. |
-| Foreign-ID tenant validation | OPEN | Body foreign IDs not consistently tenant-validated. | Safety ITEM 5, with cross-tenant HTTP tests. |
-| `visibilityScope` | OPEN | Stored and displayed, not enforced. Restrict values to what is enforced before any new enforcement system. | Safety ITEM 6. |
-| Contractor assigned-item scope | OPEN | `ResourceScopeService` placeholder. | Pair with ITEM 6 or a dedicated task. |
-| German invoice compliance | OPEN | Invoice model/PDF not complete for full German requirements. | Separate approved task. |
-| Security/ops hygiene | OPEN | Trust proxy, placeholder endpoints, dead code, stale security tests, stale CI/SMTP references, stale instruction-file text. | Safety ITEM 7. |
-| Compatibility symlink | OPEN | `~/Developer/claude` → `~/Developer/MAOS/claude` still present; the skill named it as the repository path until this task. | Reconcile later; do not remove inside an unrelated task. |
+| No automated restore rehearsal | OPEN | Rehearsals are manual. | Scripted, scheduled rehearsal in a disposable container. |
+| Public PostgreSQL endpoint | OPEN (owner decision) | The backup reads Railway's `DATABASE_PUBLIC_URL`. | Infrastructure decision. |
+| Client summary count leak | OPEN | `GET /api/dashboards/client-summary` is allowed for CLIENT but counts projects, tasks and invoices across the whole tenant. Counts only, no records. The stale test "keeps client dashboard summaries client-safe" fails for this reason. | Client-scoped counts + isolation test. |
+| Suspended users keep access | OPEN | Suspension does not revoke sessions; `validateSession` and refresh do not re-check `User.status`. Membership status is enforced inside `PermissionService`. | Revoke + re-check. |
+| Session endpoints | OPEN | `GET /api/sessions/current` and `POST /api/sessions/revoke` return placeholders. | Real own-session endpoints. |
+| LoginHistory | OPEN | No code writes `LoginHistory`. | Writers on login success/failure. |
+| Foreign-ID tenant validation | OPEN | Body foreign IDs are written unchecked (for example `projectId` and `assignedToUserId` in `tasks.repository.ts`). | Per-domain validation with cross-tenant HTTP tests. |
+| `visibilityScope` | OPEN | Stored and displayed, never filtered on. | Restrict to enforced values first. |
+| Contractor assigned-item scope | OPEN | `ResourceScopeService` placeholder. | Dedicated task (changes what contractors see). |
+| Invoice default-recipient filtering | DEFERRED | Default recipients are all CLIENT members of the invoice project, not filtered by the invoice's `clientScopeKey` or membership status. Owner deferred. | Separate approval. |
+| Dependency advisories | OPEN | `npm audit --omit=dev`: API 1 critical (`proxy-addr`) + 5 high (incl. `@nestjs/platform-express`/multer 2.2.0, `prisma`); web 1 critical (`next` 15.5.15) + 4 high. All fixable without a major upgrade (Next 15.5.27). | Patch web and API separately. |
+| Trust proxy / throttling | OPEN | No `trust proxy`; the global throttler keys on the Railway proxy address. | Set trust proxy + test. |
+| Web security headers | OPEN | No headers configured in `next.config` or middleware. | Add headers. |
+| Revenue posting integrity | PARTIAL | "Revenue once per invoice" is a check-then-insert in code (`invoices.repository.ts`); no database constraint. | Partial unique index (migration). |
+| German invoice compliance | OPEN | No VAT, tax-identity or service-date fields. | Owner regime decision, then schema + PDF. |
+| Security/ops hygiene | OPEN | Placeholder endpoints (sessions, AI, transcription, realtime), stale sprint-spec tests, stale SMTP references, stale instruction-file text. | Hygiene tasks. |
+| Repository visibility | Public (fact) | GitHub reports `Soldado-marketing/jihad` as public. | Owner decision. |
+| Compatibility symlink | OPEN | `~/Developer/claude` → `~/Developer/MAOS/claude` still present. | Reconcile later; not inside an unrelated task. |
 
 ## 38. Product module status
 
@@ -612,46 +623,44 @@ Verified on 2026-10-05.
 | Content | MISSING | PLANNED (C2) | No ContentItem | A2, C1 |
 | Social | MISSING | PLANNED (E) | No SocialPost | C2, D1 |
 | Reports | PARTIAL | PLANNED (D3) | No engine | D1, D4 |
-| Notifications | PARTIAL | PLANNED (A1) | No writers | — |
+| Notifications | PARTIAL | PLANNED (A1) | Writers exist only on an unmerged, conflicting branch | — |
 | Settings | PARTIAL | PLANNED (C1) | No TenantSettings | — |
 | Integrations | MISSING (beyond S3 and Resend) | PLANNED (F) | No OAuth layer | D4 |
 | Automation | MISSING | PLANNED (G) | No scheduler | D4 |
 
 ## 39. Roadmap remaining after T09
 
-**Operational / safety remaining:** restore working nightly backups; alerting; off-Mac copy; public endpoint decision; client-summary count leak; suspended-user enforcement; dependency patches; foreign-ID tenant validation; `visibilityScope` restriction; contractor assigned-item scope; German invoice compliance; hygiene (including stale instruction text and the compatibility symlink); invoice default-recipient filtering when re-approved.
+**Operational / safety remaining:** everything OPEN, FRAGILE, PARTIAL or DEFERRED in §37.
 
-**Product roadmap remaining:** Phase A → B → C → D → E → F → G (§27). None started.
+**Product roadmap remaining:** Phase A → B → C → D → E → F → G (§27). None started; the notification writers (A1) exist only on an unmerged branch.
 
 **Deferred / do-not-build-yet:** everything in §28; CalendarEvent entity; integration credentials until Phase F.
 
+The granular, ordered task registry is maintained in `docs/MAOS_EXECUTION_LEDGER.md`, not in this file.
+
 ## 40. Exact next task candidate
 
-This Blueprint approves nothing. One candidate only, based on the evidence in §37:
-
-**MAOS-T10 — Restore and verify the nightly production backup.** Diagnose the 2026-10-04 (Railway login) and 2026-10-05 (connection drop) failures, get the scheduled backup producing verified dumps again, and add a local failure alert. Bounded: no schema, no application code; any Railway action, production backup run or credential change only with explicit owner approval inside that task.
-
-Why next: every later item that needs a migration (§29) requires a verified backup immediately beforehand, and the last good backup is from 2026-10-03.
+This Blueprint approves nothing. The next task is the first dependency-ready task in the execution ledger's registry. On the 2026-10-09 evidence that is backup recoverability (Floor 1): the scheduled backup failed three of six nights, has no alert and no off-Mac copy, and every migration (§29) needs a verified backup immediately beforehand.
 
 ## 41. MAOS_OWNER_SNAPSHOT
 
-**WHERE_WE_ARE_NOW:** MAOS runs in production on Railway from `df08135`. The core platform (tenancy, auth, permissions, projects, tasks, CRM, files, approvals, chat, finance, client portal) exists and CI is green. Real client data is not allowed yet. Nightly backups are currently failing.
+**WHERE_WE_ARE_NOW:** MAOS runs in production on Railway from `df08135`. The core platform (tenancy, auth, permissions, projects, tasks, CRM, files, approvals, chat, finance, client portal) exists and CI is green. Real client data is not allowed yet. Nightly backups recovered on 2026-10-07 after three failures but remain fragile.
 
-**WHAT_IS_FINISHED:** MAOS-T01 to MAOS-T08; backup/restore script hardening; integration-test race fix; invoice recipient privacy; Resend mail.
+**WHAT_IS_FINISHED:** MAOS-T01–T03, T05–T08; backup/restore script hardening; integration-test race fix; invoice recipient privacy; Resend mail.
 
-**WHAT_IS_ACTIVE:** MAOS-T09, this Blueprint.
+**WHAT_IS_ACTIVE:** MAOS-T09, this Blueprint, awaiting review.
 
-**WHAT_IS_BLOCKING_US:** no verified backup since 2026-10-03; open safety items (§37), especially suspended-user sessions, foreign-ID validation, contractor scope and the client-summary count leak.
+**WHAT_IS_BLOCKING_US:** fragile, unalerted, Mac-only backups; open safety items (§37), especially suspended-user sessions, foreign-ID validation, contractor scope, the client-summary count leak and critical dependency advisories.
 
-**WHAT_COMES_NEXT:** MAOS-T10, restore and verify the nightly production backup (§40).
+**WHAT_COMES_NEXT:** backup recoverability (§40).
 
-**WHAT_REMAINS_AFTER_THAT:** the rest of the safety batch, then Phases A to G in order.
+**WHAT_REMAINS_AFTER_THAT:** the rest of the safety work, then Phases A to G in order.
 
 **READY_FOR_V2:** NO
 
 **READY_FOR_LARGE_USER_ROLLOUT:** NO
 
-**REASON:** backups are failing, real client data is not yet allowed, and several authorization gaps (suspended-user sessions, foreign-ID validation, contractor assigned scope) are open.
+**REASON:** backups are fragile, real client data is not yet allowed, several authorization gaps are open and critical dependency advisories are unpatched.
 
 ## 42. Master Doc relationship
 
