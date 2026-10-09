@@ -14,22 +14,35 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
-| CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on T17 merge; T18/T20/T21/T22 owner-gated; T24 waits on T23 merge) |
-| ACTIVE_TASK | none — checkpoint at owner gate CI-1 (merge #13) after MAOS-T30 |
-| ACTIVE_BRANCH | — |
-| ACTIVE_HEAD | — |
+| CURRENT_MAIN | `df08135` (verified 2026-10-10: origin = GitHub) |
+| CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
+| ACTIVE_TASK | none |
+| TASK_STATUS | — (last task MAOS-T30 COMPLETE_AWAITING_MERGE) |
+| CURRENT_BRANCH | — (ledger branch `docs/execution-ledger` checked out) |
+| HEAD | — |
+| COMPLETED_STEPS | — |
+| CURRENT_STEP | — |
+| REMAINING_STEPS | — |
+| TESTS_PASSED | — |
+| TESTS_PENDING | — |
+| PR_URL | — (open PRs #4–#15 listed below) |
+| CI_STATUS | #13 PASS; #4–#12, #14, #15 API job blocked by CI-1 (Docker Hub rate limit) until #13 is merged |
+| BLOCKERS | CI-1: PR CI cannot validate until #13 merges |
+| OWNER_GATE_PENDING | Merge #13 (or reply "continue" to start T31 without CI) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T30 pushed (#15); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | Owner merges #13 (CI mirror). Then rerun API CI on #4–#15 and record results. Next dependency-ready task: MAOS-T31 (API dependency patch). T24 waits on #10, T28/T29 on #14, T19 on #9. Local apps/web node_modules is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
+| EXACT_NEXT_ACTION | After #13 merges: rerun the failed API job on #4–#15, record CI here, then start MAOS-T31 (API dependency patch) from current `main`. Local `apps/web/node_modules` is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
 
-## Session resume protocol
+## Session resume protocol (resume command: `كمل MAOS`)
 
-1. `cd ~/Developer/MAOS/claude && git fetch origin`
-2. Read `docs/MAOS_PRODUCT_BLUEPRINT.md` (from `main`, or `docs/product-blueprint-v1` until merged).
-3. Read this ledger (from `main`, or `docs/execution-ledger` until merged).
-4. `git status`; verify ACTIVE_TASK, ACTIVE_BRANCH and HEAD; verify what was actually committed.
-5. Resume EXACT_NEXT_ACTION. Never start a new task while ACTIVE_TASK is set.
+1. `cd ~/Developer/MAOS/claude && git fetch origin`; check `git status`, branch and HEAD.
+2. Read this ledger (from `main`, or `origin/docs/execution-ledger` until merged). Compare it with Git and, only if relevant to the active task, its PR/CI.
+3. If ACTIVE_TASK is set: continue that task from EXACT_NEXT_ACTION. Never switch tasks because a session restarted.
+4. If OWNER_GATE_PENDING is set and not resolved on GitHub: do not pass it; return only the decision needed.
+5. If no task is active and no gate blocks: start the first dependency-ready task in Execution order.
+6. If the last session ended without a clean checkpoint: rebuild state from git log, pushed branches, PRs and CI, update this table, then continue.
+7. Read the Blueprint only when the active task needs architecture validation or a conflict appears. Do not re-audit, re-plan or rerun completed tests.
+8. Update this table when a task starts, after tests, commit, push, PR, CI results, before an owner gate and before stopping.
 
 ## Owner gates and decisions
 
