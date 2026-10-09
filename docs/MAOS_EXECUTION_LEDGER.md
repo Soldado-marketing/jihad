@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W0 — Decisions + repository reconciliation |
-| ACTIVE_TASK | none — MAOS-T10 complete; next ready task MAOS-T12 |
-| ACTIVE_BRANCH | — |
+| ACTIVE_TASK | MAOS-T14 — Release-control assessment |
+| ACTIVE_BRANCH | `docs/release-control-assessment` |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T09 refreshed and pushed (`5618d78`); T10 branch created from `df08135` |
-| EXACT_NEXT_ACTION | Start MAOS-T12 on a new branch from verified `main` |
+| EXACT_NEXT_ACTION | Write the T14 assessment (docs/adr), validate, commit, push |
 
 ## Session resume protocol
 
@@ -97,6 +97,7 @@ Compared by test identity, never by count.
 | MAOS-T08 | Backup/restore reliability + CI race fix | fix/backup-restore-reliability | #3 (`df08135`) | gate 239/239, integration 101/101 | 0 | COMPLETE_MERGED |
 | MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE (D1) |
 | MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | not opened (D11) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -416,3 +417,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 
 - MAOS-T09 | Product Blueprint v1 (+ refresh) | docs/product-blueprint-v1 | not opened (D11) | docs checks | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | not opened (D11) | docs checks, 136 tasks | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh | not opened (D11) | compose config, links, secret scan | 0 | COMPLETE_AWAITING_MERGE
