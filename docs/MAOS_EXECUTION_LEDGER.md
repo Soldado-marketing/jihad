@@ -16,12 +16,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-09: local = origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on T17 merge; T18/T20/T21/T22 owner-gated; T24 waits on T23 merge) |
-| ACTIVE_TASK | MAOS-T30 — Web dependency patch (Next.js 15.5.27) |
+| ACTIVE_TASK | none — checkpoint at owner gate CI-1 (merge #13) after MAOS-T30 |
 | ACTIVE_BRANCH | — |
 | ACTIVE_HEAD | — |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
-| LAST_SAFE_CHECKPOINT | 2026-10-09 — T23 pushed (`e81952d`); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | T30: bump next to 15.5.27 (non-major) in apps/web, verify typecheck/build/contract/full web tests and npm audit. Owner: merge #13 first, then rerun the API job of #4–#14. T28/T29 wait on T27 (#14) merge. |
+| LAST_SAFE_CHECKPOINT | 2026-10-09 — T30 pushed (#15); all work committed and pushed; no uncommitted state |
+| EXACT_NEXT_ACTION | Owner merges #13 (CI mirror). Then rerun API CI on #4–#15 and record results. Next dependency-ready task: MAOS-T31 (API dependency patch). T24 waits on #10, T28/T29 on #14, T19 on #9. Local apps/web node_modules is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
 
 ## Session resume protocol
 
@@ -46,6 +46,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D9 | Email delivery tracking scope (EmailMessage/EmailEvent) | T44, T45 | OPEN |
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
 | D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |
+| D14 | Next 16 (major): remaining web advisories are in the postcss 8.4.31 pinned by Next 15 (build-time only for MAOS); fixing them needs a separate major-upgrade task | web advisories | OPEN (non-blocking) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
 | CI-1 | 2026-10-09 PR CI (#4–#12) fails at "Initialize containers": Docker Hub anonymous pull rate limit for `postgres:16-alpine` (INFRASTRUCTURE, no test ran); staggered reruns hit the same limit. Fix: T146 (#13). **Merge #13 first**, then rerun the API job of the other PRs. | all PR CI | OPEN — owner merge of #13 |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
@@ -108,6 +109,7 @@ Compared by test identity, never by count.
 | MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 new isolation tests; 4 mutations caught; gate 239/239; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 (open, CI PASS) | digest identical to Docker Hub; own CI all jobs pass | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | new suite 12/12; 4 mutations caught; gate 239/239; integration 113/113 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | web typecheck/build/contract; full web 3 known; prod Docker image built and served 200 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -439,3 +441,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 tests, mutations 4/4, gate 239/239, integration 106/106 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T146 | CI PostgreSQL service from ECR Public mirror | ci/postgres-service-mirror | #13 (open) | identical digest; own CI | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | suite 12/12, mutations 4/4, gate 239/239, integration 113/113 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | typecheck, build, contract 5/5, full web 3 known, Docker image 200 | 0 | COMPLETE_AWAITING_MERGE
