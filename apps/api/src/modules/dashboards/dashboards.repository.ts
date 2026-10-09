@@ -29,11 +29,25 @@ export class DashboardsRepository {
     };
   }
 
-  async getClientSummary(tenantId: string) {
+  /**
+   * clientScopeKey null = internal role: tenant-wide counts (owner preview).
+   * Otherwise the counts match exactly what that client's portal lists show:
+   * client-visible rows in its scope, and invoices that are not DRAFT.
+   */
+  async getClientSummary(tenantId: string, clientScopeKey: string | null) {
+    if (clientScopeKey === null) {
+      const [projects, tasks, invoices] = await Promise.all([
+        this.prisma.project.count({ where: { tenantId } }),
+        this.prisma.task.count({ where: { tenantId } }),
+        this.prisma.invoice.count({ where: { tenantId } }),
+      ]);
+      return { projects, tasks, invoices };
+    }
+    const visible = { tenantId, clientVisible: true, clientScopeKey };
     const [projects, tasks, invoices] = await Promise.all([
-      this.prisma.project.count({ where: { tenantId } }),
-      this.prisma.task.count({ where: { tenantId } }),
-      this.prisma.invoice.count({ where: { tenantId } }),
+      this.prisma.project.count({ where: visible }),
+      this.prisma.task.count({ where: visible }),
+      this.prisma.invoice.count({ where: { ...visible, status: { not: 'DRAFT' } } }),
     ]);
     return { projects, tasks, invoices };
   }
