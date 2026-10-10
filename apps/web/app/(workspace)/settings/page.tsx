@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { getStoredTenant, type StoredTenant } from '@/lib/auth';
 import { apiFetch } from '@/lib/fetch';
+import { effectiveAccessLabel } from '@/security/access-scope';
 
 type Me = {
   id: string;
@@ -120,7 +121,7 @@ export default function SettingsPage() {
               <Field label="Email" value={me.email} />
               <Field label="Role" value={roleLabels[me.role ?? ''] ?? me.role ?? '—'} />
               <Field label="Account status" value={me.membershipStatus ?? me.status} />
-              <Field label="Visibility scope" value={me.visibilityScope ?? '—'} />
+              <Field label="Data access" value={effectiveAccessLabel(me.role)} />
               <Field
                 label="Member since"
                 value={new Date(me.createdAt).toLocaleDateString(undefined, {

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **STATUS** | ACTIVE CANONICAL PRODUCT BLUEPRINT |
-| **VERSION** | 1.0 |
+| **VERSION** | 1.1 |
 | **BASELINE** | main `df08135` |
 | **DATE** | 2026-10-05 |
 | **OWNER** | MAOS owner |
@@ -164,7 +164,7 @@ Guaranteed by code today unless marked otherwise.
 
 **TARGET:**
 - Role-aware left navigation; a menu entry is never shown to a role that cannot read its data.
-- Target navigation: Dashboard, CRM & Leads, Kunden, Projekte, Social Media, Content, Kalender, Aufgaben, Medien, Zeit & Kosten, Finanzen, Freelancer, Team, Reports, Automation, Einstellungen.
+- Target navigation, grouped (v1.1, §43): **Work** — Dashboard, My Work, CRM, Customers, Projects, Tasks, Calendar; **Production** — Content, Media, Approvals, Social; **Business** — Time & Costs, Finance, Freelancers, Team; **Insights** — Reports; **System** — Settings, Integrations, Automation, System Health. Evolve the existing registry in small steps; never show a group or entry to a role that cannot read its data.
 - Tenant/workspace context visible in the shell.
 - Global search across Customers, Projects, Tasks, Files.
 - Notification bell backed by real notification writers (§4).
@@ -437,6 +437,8 @@ None of these phases is approved for implementation by this document. Each item 
 
 Never start a later phase because it is easier or more visible.
 
+The v1.1 modules in §43 are sequenced inside these phases (§43.3); they add no phase.
+
 ## 28. Do not build yet
 
 Unless a later task explicitly approves it:
@@ -521,6 +523,7 @@ Version 1.0. A material architecture change increments the version (1.x for refi
 | Version | Date | Task | Change |
 |---|---|---|---|
 | 1.0 | 2026-10-05 | MAOS-T09 | Initial canonical blueprint, reconciled against `df08135`. |
+| 1.1 | 2026-10-10 | MAOS-T11 | Approved product structure added (§43): My Work, Customer 360, client lifecycle, service catalog and packages, request center, templates and recurring work, delivery tools, quality control, knowledge base, import/export, archive, system health, release control, grouped navigation. Extension only — no invariant, ownership or phase change. Rationale: owner-approved Master Autonomous Build & Completion Protocol v1.0 (2026-10-09). |
 | 1.0 | 2026-10-09 | MAOS-T09 | Pre-merge factual refresh of §3 and the dated snapshot §35–§41 from the 2026-10-09 audit (backup recovery, session/login-history placeholders, dependency advisories, revenue integrity, unmerged notification branch). No rule, invariant or ownership change, so the version stays 1.0. |
 
 ## 33. Repository reconciliation (on `df08135`)
@@ -669,3 +672,58 @@ This Blueprint approves nothing. The next task is the first dependency-ready tas
 - The repository remains the source of truth for current code.
 - This Blueprint does not copy or replace the Master Doc. §35–§41 are a dated snapshot, not an operational log; when they disagree with a newer Master Doc checkpoint, the Master Doc wins for operational state.
 - A later, separately approved task may migrate or unify the operational Master Doc into an accessible canonical location. There must never be two competing operational Master Docs.
+
+## 43. Approved product structure (v1.1)
+
+Added 2026-10-10 by MAOS-T11 from the owner-approved Master Autonomous Build & Completion Protocol v1.0. Every item is **TARGET / PLANNED**: none exists yet unless §3 says so, and none is approved for implementation by this section. Each one reuses the canonical systems in §5 and §26; none may introduce a second task, project, customer, file, approval, invoice, payment or user system.
+
+### 43.1 Change control (§31)
+
+| OLD_RULE | PROPOSED_RULE | REASON | IMPACT | OWNER_APPROVAL_REQUIRED |
+|---|---|---|---|---|
+| §7 lists 16 navigation entries | §7 groups navigation into Work / Production / Business / Insights / System and adds My Work, Integrations, System Health | Approved product structure | Navigation evolves in small steps (registry task) | Granted (protocol v1.0); each UI task still reviewed |
+| No My Work, Customer 360, Client Health, client lifecycle, packages, request center, templates, recurring work, QC, knowledge base, import/export, archive, system health or release control | These are TARGET modules as defined in §43.2 | Approved product structure | New registry tasks; no existing rule changes | Granted for planning; each implementation task needs its own approval and any schema its migration gate |
+| §27 phases list only the v1.0 modules | §43.3 places each new module inside the existing phases | Keep one roadmap | No phase added or reordered | Granted |
+
+### 43.2 Modules
+
+| Module | Purpose | Reuses (canonical) | New model needed |
+|---|---|---|---|
+| My Work | One per-user inbox: assigned, overdue and upcoming tasks, approvals waiting, requests needing action, notifications, meetings, blocked work, content awaiting action | Task, ApprovalRequest, Notification, Meeting, ContentItem | No — aggregation only |
+| Global search + quick actions | Permission-aware search over customers, projects, tasks, files; command palette | existing domains | No |
+| Unified activity timeline | Per-resource history | AuditEvent | No |
+| Customer 360 | One workspace per customer: profile, contacts, CRM history, projects, tasks, content, media, approvals, requests, contracts, packages, invoices, payments, profitability, meetings, timeline | Customer (§10) + all linked domains | No beyond Customer |
+| Client health | Explainable score; every input shown (overdue work, blocked approvals, open requests, renewals, unpaid invoices, delivery completion, workload) | MetricsService (§21) | No |
+| Client onboarding / offboarding | Checklists per customer | Templates, Task | No (uses templates) |
+| Contracts / renewals | Contract terms and renewal dates | Customer, Finance | Yes (approved schema task) |
+| Service catalog | Reusable agency services and defaults (Social Media, Video/Photo, Web, Meta/TikTok/Google Ads, administration) | ServiceTemplate (§22) | ServiceTemplate |
+| Retainers / monthly packages | Recurring deliverable expectations per customer and month, tracked against canonical content and tasks (e.g. "Reels 2/3, Posts 3/3, waiting approval 1") | ContentItem, Task, Project | Yes (package definition only) |
+| Client request center | Portal request → triage → accept/reject → canonical Task or Project work → status visible to the client | Task, Project, client portal | Yes (request record; never a second task system) |
+| Templates + recurring work | Project, task, content and service templates; explicit recurring generation first, automatic later (§23) | Project, Task, ContentItem | Yes (template/recurrence definitions) |
+| Task dependencies / blockers, saved views, bulk actions | Delivery tools on the canonical Task system | Task | Dependencies: yes; saved views: only if stored |
+| Meeting notes → decisions → tasks | Turn meeting outcomes into tasks | Meeting, InternalNote, Task | No |
+| Quality control | Reusable delivery checklists (format, language, brand, audio, spelling, caption, platform rules, client approval) | Subtask, ApprovalRequest | Possibly checklist templates |
+| Approval queue | One view of pending approvals | ApprovalRequest | No |
+| Monthly deliverables tracker | Package progress per customer and month | Packages, ContentItem, Task | No beyond packages |
+| Brand guidelines + knowledge base | SOPs, internal processes, client brand guidelines, onboarding docs — not a Notion clone | FileAsset where files are attached | Yes (simple document records) |
+| Freelancer operating flow | Assigned → delivered → approved → cost → freelancer invoice uploaded → matched → due → paid | User + Membership, MemberProfile, ContractorTerms, FileAsset, Finance | Freelancer invoice/match records |
+| Resource planning, capacity forecast, profitability cockpit | Availability, load, utilisation, forecast; estimated vs actual hours, labour/freelancer/external cost, margin by project/customer/service | TimeEntry, Rate, MetricsService | Capacity fields; no precise utilisation before TimeEntry/Rate data exists |
+| Import / export | CSV first for customers, projects, tasks, time entries, safe finance data; no ETL platform | existing domains | No |
+| Data archive / retention | Archive and retention rules | existing domains | Possibly retention markers |
+| System health | Owner-only view: API/web health, deployment, backup freshness, restore rehearsal status, failed jobs, integration and scheduler health; never secrets | health endpoints, backup/rehearsal reports, scheduler | No |
+| Release control | Restored-dump rehearsal for risky changes; minimal server-side feature flags; staging decision (ADR-016, decision D10) | — | No (staging is an owner/Railway gate) |
+
+### 43.3 Placement in the phases (§27)
+
+- **Phase A:** My Work, global search + quick actions, activity timeline, Customer 360 foundation, grouped navigation (smallest safe evolution).
+- **Phase B:** freelancer operating flow, resource planning, capacity forecast, profitability cockpit (after TimeEntry/Rate).
+- **Phase C:** service catalog, retainers/packages, templates, recurring work (explicit), request center, quality control, approval queue, meeting notes → tasks, task dependencies, saved views/bulk actions, client onboarding/offboarding, contracts/renewals, knowledge base and brand guidelines, monthly deliverables tracker, import/export, archive.
+- **Phase D:** client health, system health UI, delivery and financial performance reports.
+- **Phase G:** automatic recurring work, renewal reminders and digests (after the scheduler).
+
+Owner question D12 (whether Calendar, Templates, Recurring work and Requests come before People & Money) stays open; until it is answered the order above follows §27.
+
+### 43.4 Do not build yet (additions to §28)
+
+Generic rule-engine UI; speculative AI features without a real workflow.
+

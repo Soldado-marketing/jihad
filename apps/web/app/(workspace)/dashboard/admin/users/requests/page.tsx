@@ -5,16 +5,11 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageTransition } from '@/components/motion';
 import { LoadingState } from '@/components/states/loading-state';
 import { apiFetch } from '@/lib/fetch';
+import { effectiveAccessLabel } from '@/security/access-scope';
 
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 type Role = 'MANAGER' | 'EMPLOYEE' | 'CONTRACTOR' | 'CLIENT';
-type VisibilityScope =
-  | 'TENANT_WIDE'
-  | 'WORKSPACE_LEVEL'
-  | 'PROJECT_LEVEL'
-  | 'CLIENT_LEVEL'
-  | 'ASSIGNED_ITEMS_ONLY';
 
 interface RegistrationRequest {
   id: string;
@@ -43,14 +38,6 @@ const ROLE_LABELS: Record<Role, string> = {
   CLIENT: 'Client',
 };
 
-const SCOPE_LABELS: Record<VisibilityScope, string> = {
-  TENANT_WIDE: 'Tenant-wide',
-  WORKSPACE_LEVEL: 'Workspace level',
-  PROJECT_LEVEL: 'Project level',
-  CLIENT_LEVEL: 'Client level',
-  ASSIGNED_ITEMS_ONLY: 'Assigned items only',
-};
-
 const STATUS_BADGE: Record<RequestStatus, string> = {
   PENDING: 'bg-amber-100 text-amber-700',
   APPROVED: 'bg-green-100 text-green-700',
@@ -71,7 +58,6 @@ export default function UserRequestsPage() {
   // Approve modal state
   const [approveTarget, setApproveTarget] = useState<RegistrationRequest | null>(null);
   const [approveRole, setApproveRole] = useState<Role>('EMPLOYEE');
-  const [approveScope, setApproveScope] = useState<VisibilityScope>('ASSIGNED_ITEMS_ONLY');
   const [approveNote, setApproveNote] = useState('');
   const [approveLoading, setApproveLoading] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
@@ -120,7 +106,6 @@ export default function UserRequestsPage() {
         method: 'POST',
         body: JSON.stringify({
           role: approveRole,
-          visibilityScope: approveScope,
           adminNote: approveNote.trim() || undefined,
           permissions: [],
         }),
@@ -345,7 +330,6 @@ export default function UserRequestsPage() {
                             onClick={() => {
                               setApproveTarget(req);
                               setApproveRole('EMPLOYEE');
-                              setApproveScope('ASSIGNED_ITEMS_ONLY');
                               setApproveNote('');
                               setApproveError(null);
                             }}
@@ -499,20 +483,12 @@ export default function UserRequestsPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-foreground">
-                    Visibility Scope
-                  </label>
-                  <select
-                    value={approveScope}
-                    onChange={(e) => setApproveScope(e.target.value as VisibilityScope)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    {(Object.entries(SCOPE_LABELS) as [VisibilityScope, string][]).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
+                  <p className="mb-1 block text-sm font-medium text-foreground">Data access</p>
+                  <p className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                    {effectiveAccessLabel(approveRole)}
+                  </p>
                   <p className="mt-1 text-xs text-muted">
-                    Controls which resources this user can see after login.
+                    Set by the role. There is no narrower per-user visibility setting.
                   </p>
                 </div>
 
