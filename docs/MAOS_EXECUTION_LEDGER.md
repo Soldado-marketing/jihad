@@ -48,6 +48,9 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | ID | Decision / gate | Blocks | Status |
 |---|---|---|---|
+
+**Owner decisions 2026-10-10:** #13 APPROVED to merge (only #13). T35 YES (contractors: assigned items only). T36 YES (hide unenforced visibilityScope options). D4/T37 YES (default recipients: invoice's own client scope, ACTIVE users/memberships). T38/T39 YES with verification (no legitimate callers first). D9 YES (per-recipient delivery tracking; migration gate still applies). D16: reject overpayments; add duplicate-payment/idempotency protection (migration gate still applies). T18 YES (Keychain; never print the credential). D1 approved in principle: merge #4 only after green CI and no conflict. DEFERRED: D2, D3, D6. Other PR merges (#5–#12, #14–#19) remain owner-gated.
+
 | D1 | Review and merge MAOS-T09 Blueprint (`docs/product-blueprint-v1`) | T11, T13 | OPEN |
 | D2 | Off-Mac backup storage target (provider, region, cost) | T20 | OPEN |
 | D3 | Keep or close the public PostgreSQL endpoint | T18 design, G-DATA | OPEN |
