@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Identity
 
-- **Project name:** codex marketing platform (MAOS — Marketing & Operations System)
+- **Project name:** MAOS — Soldado Marketing Platform (Marketing & Operations System)
 - **Active frontend:** `apps/web` (Next.js 15)
 - **Active backend:** `apps/api` (NestJS 11)
 - **Full rules:** `PROJECT_RULES.md`
@@ -20,7 +20,7 @@ npm run typecheck        # Type-check without emitting
 npm test                 # Run tests
 
 npm run prisma:generate       # Regenerate Prisma client after schema changes
-npm run prisma:migrate:dev    # Create + apply a new dev migration
+npm run prisma:migrate:dev    # ONLY on a disposable local database, to create a migration in an approved schema task — never against a shared or production database
 npm run prisma:migrate        # Apply migrations in production
 npm run prisma:seed           # Seed the database
 npm run prisma:studio         # Open Prisma Studio GUI
@@ -48,13 +48,6 @@ docker compose up -d
 curl http://localhost:3001/api/health
 ```
 
-### Root (legacy project only — do not use for MAOS)
-
-```bash
-npm run lint             # ESLint
-npm run format           # Prettier
-```
-
 ## Architecture
 
 ### Monorepo Layout
@@ -64,7 +57,7 @@ npm run format           # Prettier
 ├── apps/api/            ← NestJS backend (PostgreSQL via Prisma)
 │   ├── src/
 │   │   ├── common/      ← guards, decorators, interceptors, tenant context
-│   │   └── modules/     ← 39 feature modules
+│   │   └── modules/     ← 42 feature modules
 │   └── prisma/          ← schema.prisma + migrations/
 ├── apps/web/            ← Next.js 15 frontend (App Router)
 │   ├── app/             ← routes: (auth)/, (client)/, (workspace)/
@@ -74,11 +67,8 @@ npm run format           # Prettier
 │       ├── lib/         ← utilities
 │       ├── i18n/        ← translations
 │       └── security/    ← security helpers
-├── docs/                ← all specs and sprint documentation
-├── app/                 ← ⛔ old root Next.js app (protected)
-├── components/          ← ⛔ old root components (protected)
-├── lib/                 ← ⛔ old root lib (protected)
-└── styles/              ← ⛔ old root styles (protected)
+├── scripts/             ← backup, restore and restore-rehearsal scripts
+└── docs/                ← Product Blueprint, execution ledger, specs, ADRs
 ```
 
 ### API Module Pattern
@@ -90,7 +80,7 @@ Every feature follows the same structure inside `apps/api/src/modules/<feature>/
 - `<feature>.repository.ts` — Prisma data access
 - `dto/` — request/response DTOs with `class-validator` decorators
 
-The 39 modules include: `admin-users`, `ai-provider`, `approvals`, `audit`, `auth`, `chat`, `client-portal`, `collaboration`, `crm`, `dashboards`, `devices`, `file-versions`, `files`, `finance`, `follow-ups`, `health`, `invites`, `invoices`, `leads`, `mail`, `meetings`, `memberships`, `notifications`, `opportunities`, `payments`, `permissions`, `prisma`, `projects`, `realtime`, `reports`, `sessions`, `subtasks`, `tasks`, `tenant-context`, `tenants`, `transcription`, `users`, `voice-notes`, `voice-to-task`.
+The 42 modules: `admin-users`, `ai-provider`, `approvals`, `audit`, `auth`, `chat`, `client-portal`, `collaboration`, `crm`, `dashboards`, `devices`, `file-versions`, `files`, `finance`, `follow-ups`, `health`, `invites`, `invoices`, `labels`, `leads`, `login-history`, `mail`, `meetings`, `memberships`, `notifications`, `opportunities`, `payments`, `permissions`, `prisma`, `projects`, `realtime`, `reports`, `sessions`, `storage`, `subtasks`, `tasks`, `tenant-context`, `tenants`, `transcription`, `users`, `voice-notes`, `voice-to-task`.
 
 ### Multi-Tenancy
 
@@ -124,9 +114,9 @@ Next.js App Router with route groups:
 | Prisma schema + migrations | `apps/api/prisma/` |
 | Documentation | `docs/` |
 
-**Root-level files only:** `CLAUDE.md`, `PROJECT_RULES.md`, `README.md`, `package.json`, `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `.gitignore`, `.env.example`.
+**Root-level files only:** `CLAUDE.md`, `PROJECT_RULES.md`, `README.md`, `.gitignore`, `docker-compose.yml`, `docker-compose.dev.yml`, `setup.sh`, `run_migrations.sh`. There is no root `package.json`: each app has its own.
 
-**Never modify:** `app/`, `components/`, `lib/`, `styles/` (protected legacy root Next.js app).
+**No root application:** the old root Next.js app was removed. Do not recreate root-level `app/`, `components/`, `lib/` or `styles/` folders; all code lives in `apps/api` and `apps/web`.
 
 ## Environment
 
@@ -135,6 +125,10 @@ Copy `.env.example` to `.env` and fill in at minimum:
 - `JWT_SECRET` and `JWT_REFRESH_SECRET`
 
 Docker Compose dev defaults: `postgresql://maos:maos_password@localhost:5432/maos_db`
+
+## Product Blueprint (mandatory)
+
+Before planning or executing any MAOS task, read `docs/MAOS_PRODUCT_BLUEPRINT.md` (canonical target product architecture) and validate the task against it (§30). If the task conflicts with an architecture invariant, security invariant, domain ownership rule or phase dependency, STOP and return `BLUEPRINT_CONFLICT` instead of implementing. Never modify the Blueprint inside an unrelated implementation task. One MAOS task at a time.
 
 ## Task Protocol
 

@@ -27,11 +27,16 @@ Never sacrifice a higher priority for a lower priority.
 
 The ONLY active MAOS repository is:
 
-`/Users/jihadhilal/Developer/claude`
+`~/Developer/MAOS/claude` (`~/Developer/claude` is only a temporary compatibility symlink to it)
 
-The following repository is stale and MUST NOT be used:
+The canonical target product architecture is `docs/MAOS_PRODUCT_BLUEPRINT.md`.
+Before planning or executing any MAOS task, read it and validate the task against it (§30).
+If the task conflicts with a Blueprint invariant, STOP and return `BLUEPRINT_CONFLICT`.
+Never modify the Blueprint inside an unrelated implementation task. One MAOS task at a time.
 
-`/Users/jihadhilal/Documents/claude`
+Any other MAOS checkout (for example an old copy under `~/Documents`) is stale and MUST NOT be used; old copies were consolidated under `~/Developer/MAOS/legacy` on 2026-10-01.
+
+Execution state (active task, owner gates, test baseline, known failures by name) lives in `docs/MAOS_EXECUTION_LEDGER.md`.
 
 Before every implementation phase verify:
 
@@ -651,25 +656,23 @@ Mutation testing is valuable for important security changes when practical.
 
 These are comparison checkpoints, not permanent truths.
 
-Gate 1 blocking suite:
+The current baseline, with every known failure listed by name, is kept in `docs/MAOS_EXECUTION_LEDGER.md`. As of 2026-10-10 on `main`:
 
-`179/179`
+Blocking unit/contract gate (`ci.yml`):
 
-Gate 2 authorization suite:
+`239/239`
 
-`36/36`
+HTTP integration (`integration-api` first, then the security suites):
 
-HTTP integration:
+`101/101`
 
-`34/34`
+Full API suite:
 
-Current known API baseline:
-
-`239 pass / 43 known legacy failures`
+`342 tests / 43 known legacy failures`
 
 Web:
 
-`56 pass / 3 known legacy failures`
+`64 tests / 3 known legacy failures`
 
 Required before merge:
 
@@ -948,22 +951,10 @@ storage deletion safety
 Gate 2:
 controller authorization hardening
 
-Active:
-
 Gate 3:
-same-tenant Client A vs Client B isolation
+same-tenant Client A vs Client B isolation (`TenantMembership.clientScopeKey`, enforced server-side; `security-gate-client-isolation` runs in CI)
 
-The previous Gate 3 test discovered cross-client leaks.
-
-Current approved fix direction:
-
-add:
-
-`TenantMembership.clientScopeKey`
-
-and enforce resource `clientScopeKey` server-side.
-
-Gate 3 must NOT merge until:
+Open security work is tracked as tasks in `docs/MAOS_EXECUTION_LEDGER.md`. Any change to client isolation must keep:
 
 `CROSS_CLIENT_LEAKS=0`
 
