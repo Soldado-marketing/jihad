@@ -14,10 +14,10 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `0d73f6c` (#13 and #4 merged 2026-10-10; main CI green; no deploys — watch paths; prod health 200/200) |
-| CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | none |
-| TASK_STATUS | — (last task MAOS-T44 COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION) |
+| CURRENT_MAIN | `c828abe` (2026-10-10: #21, #22, #23, #7, #6, #16, #15, #8, #9, #10, #11, #12, #14, #17, #18, #19, #20, #24, #25 merged in that order; main CI green, Railway SUCCESS and prod health 200/200 after every merge) |
+| CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
+| ACTIVE_TASK | none (next: MAOS-T19) |
+| TASK_STATUS | — (merge batch complete) |
 | CURRENT_BRANCH | — |
 | HEAD | — |
 | COMPLETED_STEPS | — |
@@ -25,13 +25,13 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | REMAINING_STEPS | — |
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
-| PR_URL | open: #5–#12, #14–#26 |
-| CI_STATUS | #5–#12, #14–#19 PASS (rerun on new merge refs); #20–#26 opened after #13 and run the mirrored image |
-| BLOCKERS | No W1–W3 task is dependency-ready: all wait on PR merges, deferred decisions (D2, D6) or owner actions (T21, T22, migration gates) |
-| OWNER_GATE_PENDING | (1) review/merge open PRs — #21 first (restores main baseline); (2) OWNER_GATE_MIGRATION for #26 (apply migration after a verified backup, before deploying the code); (3) whether W4 may start before the open safety PRs are merged (ambiguity: brief vs rule 4) |
+| PR_URL | open: #5 (this ledger), #26 (migration-gated) |
+| CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
+| BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
+| OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
-| LAST_SAFE_CHECKPOINT | 2026-10-10 — T44 pushed (#26); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | On each merge start the first task it unblocks: #9→T19, T18 · #10→T24 · #14→T28, T29, T35 · #19→T40, D16 overpayment, D16 idempotency · #25+#12→T39 · #26 (+webhook secret)→T45 · #8→T22 (owner OK to rehearse a production dump). |
+| LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
+| EXACT_NEXT_ACTION | Start MAOS-T19 (backup failure/staleness alerting) on a new branch from `c828abe`; then T24 → T28 → T29 → T35 → D16 overpayment → T39 → F-1 → F-2 → T40 (stops at migration gate). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -120,26 +120,26 @@ Compared by test identity, never by count.
 | MAOS-T08 | Backup/restore reliability + CI race fix | fix/backup-restore-reliability | #3 (`df08135`) | gate 239/239, integration 101/101 | 0 | COMPLETE_MERGED |
 | MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | #4 MERGED (`0d73f6c`) | CI PASS | 0 | COMPLETE_MERGED |
 | MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | #5 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | #6 (open) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | #7 (open) | evidence + table + secret checks | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script (`4a49bde`) | #8 (open) | 19 new tests; gate 258/258; real Docker e2e on synthetic dump | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo (`9020aa1`) | #9 (open) | 15 new tests (macOS + Linux); gate 254/254; real e2e backup -> rehearsal | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 (open) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers (`3ab7418`) | #11 (open) | new integration suite 8/8; 4 mutations caught; write-failure safe; gate 239/239; integration 109/109 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 new isolation tests; 4 mutations caught; gate 239/239; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 MERGED (`9dd7047`) | CI PASS; follow-up #21 fixes phase-5-ops assertion it broke | 1 → fixed in #21 | COMPLETE_MERGED (follow-up #21 open) |
-| MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | new suite 12/12; 4 mutations caught; gate 239/239; integration 113/113 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | web typecheck/build/contract; full web 3 known; prod Docker image built and served 200 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T31 | API dependency patch (proxy-addr, multer, platform-express) | fix/api-dependency-patch | #16 (open) | 0 critical; gate 239/239; integration 101/101; prod image health/ready 200 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T32 | Trust proxy + per-client throttling | fix/trust-proxy-throttling | #17 (open) | unit 8/8 (gate 247), throttle 2/2 (integration 103); 3 mutations; real boot | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T33 | Web security headers (CSP report-only) | fix/web-security-headers | #18 (open) | header tests 7/7 (web contract 12); 3 mutations; served headers verified on prod build | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T34 | Finance payment rules (status, currency, client scope) | fix/finance-payment-rules | #19 (open) | suite 8/8; 5 mutations; integration 110/110; gate 239/239 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T36 | visibilityScope: store/show only the enforced scope | fix/visibility-scope-restriction | #20 (open) | API 6/6 (integration 107), web 4/4 (contract 9), mutation caught | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T146b | phase-5-ops accepts mirrored image (fixes regression from #13) | fix/phase5-ops-mirrored-image | #21 (open) | phase-5-ops 28/28; full suite back to 43 known | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T13 | Instruction-file accuracy | docs/instruction-file-accuracy | #22 (open) | docs checks; suites unchanged | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T11 | Blueprint v1.1 (approved product structure) | docs/blueprint-v1-1 | #23 (open) | 43 sections, tables valid | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T37 | Default invoice recipients: own active client (D4) | fix/invoice-default-recipients | #24 (open) | suite 5/5; 4 mutations; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T38 | Remove fake-success placeholders + unused placeholder code (non-session) | fix/remove-placeholder-endpoints | #25 (open) | callers traced; gate 239/239; integration 102/102; obsolete assertions updated | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | #6 MERGED (`98a5f29`) | compose config, link and secret checks | 0 | COMPLETE_MERGED |
+| MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | #7 MERGED (`9b9ca39`) | evidence + table + secret checks | 0 | COMPLETE_MERGED |
+| MAOS-T16 | Restore rehearsal script | ops/restore-rehearsal-script (`4a49bde`) | #8 MERGED (`8f65018`) | 19 new tests; gate 258/258; real Docker e2e on synthetic dump | 0 | COMPLETE_MERGED |
+| MAOS-T17 | Version-control nightly backup runner + pg_dump shim | ops/backup-wrapper-in-repo (`9020aa1`) | #9 MERGED (`53a7a10`) | 15 new tests (macOS + Linux); gate 254/254; real e2e backup -> rehearsal | 0 | COMPLETE_MERGED |
+| MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 MERGED (`c670582`) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_MERGED |
+| MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers (`3ab7418`) | #11 MERGED (`20908f5`) | new integration suite 8/8; 4 mutations caught; write-failure safe; gate 239/239; integration 109/109 | 0 | COMPLETE_MERGED |
+| MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 MERGED (`1ec415a`) | 5 new isolation tests; 4 mutations caught; gate 239/239; integration 106/106 | 0 | COMPLETE_MERGED |
+| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 MERGED (`9dd7047`) | CI PASS; follow-up #21 fixes phase-5-ops assertion it broke | 1 → fixed in #21 | COMPLETE_MERGED (follow-up #21 merged) |
+| MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 MERGED (`3daf138`) | new suite 12/12; 4 mutations caught; gate 239/239; integration 113/113 | 0 | COMPLETE_MERGED |
+| MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 MERGED (`f725754`) | web typecheck/build/contract; full web 3 known; prod Docker image built and served 200 | 0 | COMPLETE_MERGED |
+| MAOS-T31 | API dependency patch (proxy-addr, multer, platform-express) | fix/api-dependency-patch | #16 MERGED (`af16468`) | 0 critical; gate 239/239; integration 101/101; prod image health/ready 200 | 0 | COMPLETE_MERGED |
+| MAOS-T32 | Trust proxy + per-client throttling | fix/trust-proxy-throttling | #17 MERGED (`3e14f6d`) | unit 8/8 (gate 247), throttle 2/2 (integration 103); 3 mutations; real boot | 0 | COMPLETE_MERGED |
+| MAOS-T33 | Web security headers (CSP report-only) | fix/web-security-headers | #18 MERGED (`af7f284`) | header tests 7/7 (web contract 12); 3 mutations; served headers verified on prod build | 0 | COMPLETE_MERGED |
+| MAOS-T34 | Finance payment rules (status, currency, client scope) | fix/finance-payment-rules | #19 MERGED (`1697b6d`) | suite 8/8; 5 mutations; integration 110/110; gate 239/239 | 0 | COMPLETE_MERGED |
+| MAOS-T36 | visibilityScope: store/show only the enforced scope | fix/visibility-scope-restriction | #20 MERGED (`452ef3e`) | API 6/6 (integration 107), web 4/4 (contract 9), mutation caught | 0 | COMPLETE_MERGED |
+| MAOS-T146b | phase-5-ops accepts mirrored image (fixes regression from #13) | fix/phase5-ops-mirrored-image | #21 MERGED (`33310e3`) | phase-5-ops 28/28; full suite back to 43 known | 0 | COMPLETE_MERGED |
+| MAOS-T13 | Instruction-file accuracy | docs/instruction-file-accuracy | #22 MERGED (`437f15f`) | docs checks; suites unchanged | 0 | COMPLETE_MERGED |
+| MAOS-T11 | Blueprint v1.1 (approved product structure) | docs/blueprint-v1-1 | #23 MERGED (`c0bbc72`) | 43 sections, tables valid | 0 | COMPLETE_MERGED |
+| MAOS-T37 | Default invoice recipients: own active client (D4) | fix/invoice-default-recipients | #24 MERGED (`7fce1ac`) | suite 5/5; 4 mutations; integration 106/106 | 0 | COMPLETE_MERGED |
+| MAOS-T38 | Remove fake-success placeholders + unused placeholder code (non-session) | fix/remove-placeholder-endpoints | #25 MERGED (`c828abe`) | callers traced; gate 239/239; integration 102/102; obsolete assertions updated | 0 | COMPLETE_MERGED |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -485,4 +485,5 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T11 | Blueprint v1.1 | docs/blueprint-v1-1 | #23 (open) | docs | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T37 | Default invoice recipients | fix/invoice-default-recipients | #24 (open) | 5/5, integration 106/106 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T38 | Remove placeholders (non-session) | fix/remove-placeholder-endpoints | #25 (open) | gate 239/239, integration 102/102 | 0 | COMPLETE_AWAITING_MERGE
+- 2026-10-10 merge batch | #21 #22 #23 #7 #6 #16 #15 #8 #9 #10 #11 #12 #14 #17 #18 #19 #20 #24 #25 merged → main `c828abe` | ci.yml conflicts union-resolved and re-measured per PR; DEPLOY.md conflict (#17) kept both rows; duplicate `run:` key (#20) fixed | gate 281/281, integration 159/159 | 0 | COMPLETE_MERGED
 - MAOS-T44 | Email delivery tracking (migration) | feat/email-delivery-tracking | #26 (open) | gate 243/243, integration 104/104 | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
