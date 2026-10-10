@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { InvoiceStatusName, computeInvoiceTotals, resolveInvoiceStatus } from './invoice-totals';
+import {
+  InvoiceStatusName,
+  UNCOUNTED_PAYMENT_STATUSES,
+  computeInvoiceTotals,
+  resolveInvoiceStatus,
+} from './invoice-totals';
 
 /**
  * Client-safe projection.
@@ -194,7 +199,7 @@ export class InvoicesRepository {
       if (!invoice) return null;
 
       const paid = await tx.payment.aggregate({
-        where: { tenantId, invoiceId, status: { notIn: ['FAILED', 'REFUNDED', 'CANCELED'] } },
+        where: { tenantId, invoiceId, status: { notIn: [...UNCOUNTED_PAYMENT_STATUSES] } },
         _sum: { amountCents: true },
       });
 

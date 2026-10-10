@@ -10,7 +10,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { InvoiceActor, InvoicesService } from '../invoices/invoices.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { CreatePaymentInput, PaymentsRepository } from './payments.repository';
+import { CreatePaymentInput, OverpaymentError, PaymentsRepository } from './payments.repository';
 
 @Injectable()
 export class PaymentsService {
@@ -83,12 +83,34 @@ export class PaymentsService {
       input = { ...input, clientScopeKey: invoice.clientScopeKey ?? undefined };
     }
 
-    const payment = await this.repo.create(tenantId, actor.actorId, input);
+    const payment = dto.invoiceId
+      ? await this.createWithinBalance(tenantId, actor.actorId, { ...input, invoiceId: dto.invoiceId })
+      : await this.repo.create(tenantId, actor.actorId, input);
 
     const invoice = dto.invoiceId
       ? await this.invoices.syncAfterPayment(actor, dto.invoiceId)
       : null;
 
     return { invoice, payment };
+  }
+
+  /** D16: a payment may not take an invoice above its total (409 OVERPAYMENT). */
+  private async createWithinBalance(
+    tenantId: string,
+    actorId: string,
+    input: CreatePaymentInput & { invoiceId: string },
+  ) {
+    try {
+      return await this.repo.createWithinInvoiceBalance(tenantId, actorId, input);
+    } catch (error) {
+      if (error instanceof OverpaymentError) {
+        throw new ConflictException({
+          code: 'OVERPAYMENT',
+          reason: 'The payment exceeds the remaining invoice balance.',
+          remainingCents: error.remainingCents,
+        });
+      }
+      throw error;
+    }
   }
 }

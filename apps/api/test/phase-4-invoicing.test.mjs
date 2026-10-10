@@ -262,7 +262,10 @@ describe('Phase 4 - invoice lifecycle', () => {
     assert.match(repository, /recalculatePaid/);
     assert.match(repository, /payment\.aggregate/);
     assert.match(repository, /resolveInvoiceStatus/);
-    assert.match(repository, /notIn: \['FAILED', 'REFUNDED', 'CANCELED'\]/);
+    // Failed, refunded and cancelled payments never count. The list is shared
+    // with the overpayment check (D16) so both agree.
+    assert.match(repository, /notIn: \[\.\.\.UNCOUNTED_PAYMENT_STATUSES\]/);
+    assert.deepEqual([...totals.UNCOUNTED_PAYMENT_STATUSES], ['FAILED', 'REFUNDED', 'CANCELED']);
   });
 
   it('posts invoice revenue at most once', () => {
