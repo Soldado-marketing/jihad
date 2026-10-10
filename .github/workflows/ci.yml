@@ -19,7 +19,11 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # Same image as docker.io/library/postgres:16-alpine (identical digest),
+        # pulled from the AWS ECR Public mirror of the Docker Official Images:
+        # concurrent PR runs hit Docker Hub's anonymous pull rate limit and
+        # failed before any test ran (MAOS-T146).
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: maos
           POSTGRES_PASSWORD: maos_password
@@ -76,7 +80,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (239 tests).
+      # Blocking gate: the suites that are fully green today (273 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -90,16 +94,22 @@ jobs:
             test/security-gate-file-deletion.test.mjs \
             test/mail-config.test.mjs \
             test/invoice-send-privacy.test.mjs \
-            test/backup-restore-scripts.test.mjs
+            test/backup-restore-scripts.test.mjs \
+            test/nightly-backup-script.test.mjs \
+            test/restore-rehearsal-script.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (106/106), so it blocks.
+      # service above and drives it over HTTP. Green (124/124), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
       # security-gate-client-isolation proves one client cannot reach another
       # inside the same tenant, and - just as important - that each client can
       # still reach its own, which a broken portal would otherwise pass.
+      # login-history proves login attempts are recorded (IP hashed only) and
+      # that each user can read their own history and nobody else's.
+      # security-gate-session-revocation proves a suspended or non-active user
+      # loses access immediately: existing access and refresh tokens stop working.
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -114,7 +124,9 @@ jobs:
           node --test test/integration-api.test.mjs
           node --test \
             test/security-gate-authz.test.mjs \
-            test/security-gate-client-isolation.test.mjs
+            test/security-gate-client-isolation.test.mjs \
+            test/login-history.test.mjs \
+            test/security-gate-session-revocation.test.mjs
 
       # Informational: the sprint-*-baseline suites describe features that were
       # specified but never built. They carry 43 known failures. Reported so the
