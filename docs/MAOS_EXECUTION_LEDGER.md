@@ -16,22 +16,22 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `0d73f6c` (#13 and #4 merged 2026-10-10; main CI green; no deploys — watch paths; prod health 200/200) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | MAOS-T13 — Instruction-file accuracy |
+| ACTIVE_TASK | MAOS-T38 — Placeholder endpoints and dead code (non-session part) |
 | TASK_STATUS | ACTIVE |
-| CURRENT_BRANCH | `docs/instruction-file-accuracy` |
+| CURRENT_BRANCH | `fix/remove-placeholder-endpoints` |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
-| PR_URL | open: #5–#12, #14–#21 |
+| PR_URL | open: #5–#12, #14–#24 |
 | CI_STATUS | After #13: #5–#12, #14–#19 all PASS (API, web, audit) and MERGEABLE; #20 (T36) and #21 (T146 follow-up) opened |
 | BLOCKERS | none for T36 |
 | OWNER_GATE_PENDING | (1) merge #13, then review/merge #4–#19; (2) decisions: T35 contractor scope, T36 visibilityScope, D4 (T37), T38 removals, T39 test retirements, D6 (T41/T42), D9 (T44/T45), D16 overpayment/idempotency, T18 Keychain secret, D2 off-Mac target, D3, D1 |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — T34 pushed (#19); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | T13 (W0) → T11 (W0, owner review) → T37 (W2) → T38 non-session placeholders (W2). #21 restores main's full-suite baseline (phase-5-ops broken by #13): recommend owner merges it first. Merges of #5–#12, #14–#21 remain owner-gated. |
+| EXACT_NEXT_ACTION | T38: inventory placeholders, prove no legitimate callers, remove; then T39 (stale tests), then W3 T44 (email delivery schema, stops at migration gate). Merges of open PRs remain owner-gated; #21 restores main's full-suite baseline. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -134,6 +134,10 @@ Compared by test identity, never by count.
 | MAOS-T33 | Web security headers (CSP report-only) | fix/web-security-headers | #18 (open) | header tests 7/7 (web contract 12); 3 mutations; served headers verified on prod build | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T34 | Finance payment rules (status, currency, client scope) | fix/finance-payment-rules | #19 (open) | suite 8/8; 5 mutations; integration 110/110; gate 239/239 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T36 | visibilityScope: store/show only the enforced scope | fix/visibility-scope-restriction | #20 (open) | API 6/6 (integration 107), web 4/4 (contract 9), mutation caught | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T146b | phase-5-ops accepts mirrored image (fixes regression from #13) | fix/phase5-ops-mirrored-image | #21 (open) | phase-5-ops 28/28; full suite back to 43 known | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T13 | Instruction-file accuracy | docs/instruction-file-accuracy | #22 (open) | docs checks; suites unchanged | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T11 | Blueprint v1.1 (approved product structure) | docs/blueprint-v1-1 | #23 (open) | 43 sections, tables valid | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T37 | Default invoice recipients: own active client (D4) | fix/invoice-default-recipients | #24 (open) | suite 5/5; 4 mutations; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -473,3 +477,7 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T09 | Product Blueprint v1 | docs/product-blueprint-v1 | #4 MERGED | CI PASS | 0 | COMPLETE_MERGED
 - MAOS-T146 | CI postgres mirror | ci/postgres-service-mirror | #13 MERGED | CI PASS | follow-up #21 | COMPLETE_MERGED
 - MAOS-T36 | visibilityScope restriction | fix/visibility-scope-restriction | #20 (open) | API 6/6, web 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T146b | phase-5-ops mirrored image | fix/phase5-ops-mirrored-image | #21 (open) | 28/28 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T13 | Instruction-file accuracy | docs/instruction-file-accuracy | #22 (open) | docs | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T11 | Blueprint v1.1 | docs/blueprint-v1-1 | #23 (open) | docs | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T37 | Default invoice recipients | fix/invoice-default-recipients | #24 (open) | 5/5, integration 106/106 | 0 | COMPLETE_AWAITING_MERGE
