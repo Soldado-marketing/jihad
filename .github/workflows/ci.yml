@@ -175,12 +175,11 @@ jobs:
 
       # Blocking: a partial invoice send must read as a warning with counts,
       # never as a full success.
+      # Blocking: every route carries the security headers (MAOS-T33).
       # Blocking: no visibility choice the backend does not enforce (MAOS-T36).
       - name: Web contract tests
         working-directory: apps/web
-        run: node --test test/invoice-send-result.test.mjs test/access-scope.test.mjs
-      # Blocking: every route carries the security headers (MAOS-T33).
-        run: node --test test/invoice-send-result.test.mjs test/security-headers.test.mjs
+        run: node --test test/invoice-send-result.test.mjs test/security-headers.test.mjs test/access-scope.test.mjs
 
       # Informational: 3 known failures.
       - name: Web tests (informational - 3 known failures)
