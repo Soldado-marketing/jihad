@@ -65,6 +65,8 @@ export interface DocumentSendResult {
   failed: number;
   /** Resend email ids of the accepted messages, in recipient order. */
   resendEmailIds: string[];
+  /** One entry per attempted recipient, in order (MAOS-T44 delivery tracking). */
+  deliveries: Array<{ recipient: string; accepted: boolean; providerMessageId: string | null }>;
 }
 
 interface OutgoingAttachment {
@@ -283,6 +285,7 @@ export class MailService {
       failed: 0,
       recipientCount: recipients.length,
       resendEmailIds: [],
+      deliveries: [],
     };
 
     if (!this.apiKey) {
@@ -313,8 +316,10 @@ export class MailService {
         );
         result.accepted += 1;
         result.resendEmailIds.push(id);
+        result.deliveries.push({ recipient, accepted: true, providerMessageId: id });
       } catch (err: unknown) {
         result.failed += 1;
+        result.deliveries.push({ recipient, accepted: false, providerMessageId: null });
         this.logger.error(
           `document_email_failed index=${index} ${err instanceof Error ? err.message : 'unknown error'}`,
         );

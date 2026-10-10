@@ -318,6 +318,7 @@ describe('invoice recipient privacy - one message per recipient', () => {
       failed: 0,
       recipientCount: 3,
       resendEmailIds: ['msg_test_1', 'msg_test_1', 'msg_test_1'],
+      deliveries: RECIPIENTS.map((recipient) => ({ recipient, accepted: true, providerMessageId: 'msg_test_1' })),
     });
     calls.forEach((call, i) => assert.deepEqual(body(call).to, [RECIPIENTS[i]]));
   });
@@ -363,7 +364,18 @@ describe('invoice recipient privacy - one message per recipient', () => {
     const { service } = configured();
     const result = await sendAll(service);
     assert.equal(calls.length, 3);
-    assert.deepEqual(result, { accepted: 2, failed: 1, recipientCount: 3, resendEmailIds: ['msg_1', 'msg_3'] });
+    assert.deepEqual(result, {
+      accepted: 2,
+      failed: 1,
+      recipientCount: 3,
+      resendEmailIds: ['msg_1', 'msg_3'],
+      // MAOS-T44: per-recipient outcome, so the failed recipient is known.
+      deliveries: [
+        { recipient: RECIPIENTS[0], accepted: true, providerMessageId: 'msg_1' },
+        { recipient: RECIPIENTS[1], accepted: false, providerMessageId: null },
+        { recipient: RECIPIENTS[2], accepted: true, providerMessageId: 'msg_3' },
+      ],
+    });
   });
 
   it('gives each recipient its own idempotency key', async () => {

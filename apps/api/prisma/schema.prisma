@@ -283,6 +283,7 @@ model Tenant {
   registrationRequests RegistrationRequest[]
   labels               Label[]
   taskLabels           TaskLabel[]
+  emailMessages        EmailMessage[]
 
   @@index([status])
 }
@@ -1176,3 +1177,49 @@ model TaskLabel {
   @@index([tenantId, taskId])
   @@index([tenantId, labelId])
 }
+
+// ── Email delivery tracking (MAOS-T44) ───────────────────────────────────────
+// One EmailMessage per recipient of an outgoing document email (each recipient
+// gets a separate message). providerMessageId is the Resend email id and is
+// what delivery webhooks (T45) match on. EmailEvent keeps the provider's
+// delivery events for a message.
+
+enum EmailDeliveryStatus {
+  SENT
+  FAILED
+  DELIVERED
+  DELAYED
+  BOUNCED
+  COMPLAINED
+}
+
+model EmailMessage {
+  id                String              @id @default(cuid())
+  tenantId          String
+  resourceType      String
+  resourceId        String
+  recipient         String
+  providerMessageId String?             @unique
+  status            EmailDeliveryStatus
+  lastEventAt       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  events            EmailEvent[]
+
+  @@index([tenantId, resourceType, resourceId])
+}
+
+model EmailEvent {
+  id             String       @id @default(cuid())
+  tenantId       String
+  emailMessageId String
+  type           String
+  occurredAt     DateTime
+  createdAt      DateTime     @default(now())
+  message        EmailMessage @relation(fields: [emailMessageId], references: [id], onDelete: Cascade)
+
+  @@index([emailMessageId, occurredAt])
+  @@index([tenantId])
+}
+
