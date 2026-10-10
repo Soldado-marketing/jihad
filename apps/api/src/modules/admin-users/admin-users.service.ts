@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { effectiveVisibilityScope } from '../permissions/visibility-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
@@ -111,7 +112,7 @@ export class AdminUsersService {
           userId: regRequest.userId,
           role: dto.role as any,
           status: 'ACTIVE',
-          visibilityScope: dto.visibilityScope as any,
+          visibilityScope: effectiveVisibilityScope(dto.role),
         },
       });
 
@@ -192,7 +193,7 @@ export class AdminUsersService {
           action: RegistrationAction.SCOPE_ASSIGNED,
           permissionResult: AuditPermissionResult.ALLOWED,
           outcome: AuditOutcome.SUCCESS,
-          payload: { visibilityScope: dto.visibilityScope },
+          payload: { visibilityScope: effectiveVisibilityScope(dto.role) },
         }),
       ]);
     } catch (auditErr: unknown) {

@@ -97,13 +97,14 @@ jobs:
             test/backup-restore-scripts.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (101/101), so it blocks.
+      # service above and drives it over HTTP. Green (107/107), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
       # security-gate-client-isolation proves one client cannot reach another
       # inside the same tenant, and - just as important - that each client can
       # still reach its own, which a broken portal would otherwise pass.
+      # visibility-scope proves approval stores only an enforced scope.
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -118,7 +119,8 @@ jobs:
           node --test test/integration-api.test.mjs
           node --test \
             test/security-gate-authz.test.mjs \
-            test/security-gate-client-isolation.test.mjs
+            test/security-gate-client-isolation.test.mjs \
+            test/visibility-scope.test.mjs
 
       # Informational: the sprint-*-baseline suites describe features that were
       # specified but never built. They carry 43 known failures. Reported so the
@@ -156,9 +158,10 @@ jobs:
 
       # Blocking: a partial invoice send must read as a warning with counts,
       # never as a full success.
+      # Blocking: no visibility choice the backend does not enforce (MAOS-T36).
       - name: Web contract tests
         working-directory: apps/web
-        run: node --test test/invoice-send-result.test.mjs
+        run: node --test test/invoice-send-result.test.mjs test/access-scope.test.mjs
 
       # Informational: 3 known failures.
       - name: Web tests (informational - 3 known failures)

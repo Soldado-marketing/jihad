@@ -37,8 +37,14 @@ export class ApproveRequestDto {
   })
   role!: ApprovalRole;
 
+  /**
+   * Accepted for compatibility with older clients but not used: the stored
+   * scope is derived from the role (see effectiveVisibilityScope), because the
+   * backend enforces no narrower scope (MAOS-T36).
+   */
+  @IsOptional()
   @IsEnum(ApprovalVisibilityScope)
-  visibilityScope!: ApprovalVisibilityScope;
+  visibilityScope?: ApprovalVisibilityScope;
 
   @IsOptional()
   @IsArray()
