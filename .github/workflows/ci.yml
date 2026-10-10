@@ -97,7 +97,7 @@ jobs:
             test/backup-restore-scripts.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (101/101), so it blocks.
+      # service above and drives it over HTTP. Green (102/102), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.

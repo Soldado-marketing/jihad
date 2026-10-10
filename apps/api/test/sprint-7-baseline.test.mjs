@@ -31,7 +31,8 @@ describe('Sprint 7 chat, notifications, and realtime API baseline', () => {
     assert.match(schema, /READ/);
   });
 
-  it('adds chat, notification, and realtime placeholder modules', () => {
+  // The unused realtime gateway placeholder was removed in MAOS-T38.
+  it('adds chat and notification modules', () => {
     const requiredFiles = [
       'src/modules/chat/chat.controller.ts',
       'src/modules/chat/chat.service.ts',
@@ -41,8 +42,6 @@ describe('Sprint 7 chat, notifications, and realtime API baseline', () => {
       'src/modules/notifications/notifications.service.ts',
       'src/modules/notifications/notifications.repository.ts',
       'src/modules/notifications/notifications.module.ts',
-      'src/modules/realtime/realtime-gateway.placeholder.ts',
-      'src/modules/realtime/realtime.module.ts',
     ];
 
     for (const file of requiredFiles) {
@@ -52,7 +51,7 @@ describe('Sprint 7 chat, notifications, and realtime API baseline', () => {
     const appModule = readApi('src/app.module.ts');
     assert.match(appModule, /ChatModule/);
     assert.match(appModule, /NotificationsModule/);
-    assert.match(appModule, /RealtimeModule/);
+    assert.doesNotMatch(appModule, /RealtimeModule/);
   });
 
   it('adds REST-first chat and notification endpoint skeletons', () => {
