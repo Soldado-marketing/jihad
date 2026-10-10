@@ -16,13 +16,13 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-10: origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | MAOS-T31 — API dependency patch |
+| ACTIVE_TASK | MAOS-T32 — Trust proxy and per-client throttling |
 | TASK_STATUS | ACTIVE |
-| CURRENT_BRANCH | `fix/api-dependency-patch` |
+| CURRENT_BRANCH | `fix/trust-proxy-throttling` |
 | HEAD | — |
 | COMPLETED_STEPS | — |
-| CURRENT_STEP | Patch API dependencies (non-major) |
-| REMAINING_STEPS | patch → audit → gate/integration/full suite → commit → push → PR |
+| CURRENT_STEP | Inspect bootstrap and throttler keying |
+| REMAINING_STEPS | test first → set trust proxy (one hop) → verify keying → gate/integration/full → commit → push → PR |
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
 | PR_URL | — (open PRs #4–#15 listed below) |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | Merge #13 (non-blocking: blocks PR CI validation only; work continues) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T30 pushed (#15); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | Finish MAOS-T31. When #13 is merged: rerun the failed API job on #4–#15 and record CI. Local `apps/web/node_modules` is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
+| EXACT_NEXT_ACTION | Finish MAOS-T32. When #13 is merged: rerun the failed API job on #4–#16 and record CI. Local `apps/web/node_modules` is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -59,6 +59,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D9 | Email delivery tracking scope (EmailMessage/EmailEvent) | T44, T45 | OPEN |
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
 | D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |
+| D15 | Prisma major upgrade: remaining API advisories (deepmerge-ts via @prisma/config) need Prisma >6; config-load only | API advisories | OPEN (non-blocking) |
 | D14 | Next 16 (major): remaining web advisories are in the postcss 8.4.31 pinned by Next 15 (build-time only for MAOS); fixing them needs a separate major-upgrade task | web advisories | OPEN (non-blocking) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
 | CI-1 | 2026-10-09 PR CI (#4–#12) fails at "Initialize containers": Docker Hub anonymous pull rate limit for `postgres:16-alpine` (INFRASTRUCTURE, no test ran); staggered reruns hit the same limit. Fix: T146 (#13). **Merge #13 first**, then rerun the API job of the other PRs. | all PR CI | OPEN — owner merge of #13 |
@@ -123,6 +124,7 @@ Compared by test identity, never by count.
 | MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 (open, CI PASS) | digest identical to Docker Hub; own CI all jobs pass | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | new suite 12/12; 4 mutations caught; gate 239/239; integration 113/113 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | web typecheck/build/contract; full web 3 known; prod Docker image built and served 200 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T31 | API dependency patch (proxy-addr, multer, platform-express) | fix/api-dependency-patch | #16 (open) | 0 critical; gate 239/239; integration 101/101; prod image health/ready 200 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -455,3 +457,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T146 | CI PostgreSQL service from ECR Public mirror | ci/postgres-service-mirror | #13 (open) | identical digest; own CI | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | suite 12/12, mutations 4/4, gate 239/239, integration 113/113 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | typecheck, build, contract 5/5, full web 3 known, Docker image 200 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T31 | API dependency patch | fix/api-dependency-patch | #16 (open) | gate 239/239, integration 101/101, prod image 200/200 | 0 | COMPLETE_AWAITING_MERGE
