@@ -302,10 +302,18 @@ export class AdminUsersService {
       throw new ForbiddenException('Owner accounts cannot be suspended through this endpoint.');
     }
 
-    await this.prisma.user.update({
-      where: { id: targetUserId },
-      data: { status: 'SUSPENDED' as any },
-    });
+    // Status change and session revocation are one unit: a suspended user must
+    // not keep any working access or refresh token, in any tenant.
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: targetUserId },
+        data: { status: 'SUSPENDED' as any },
+      }),
+      this.prisma.session.updateMany({
+        where: { userId: targetUserId, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      }),
+    ]);
 
     const actorMembership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId: actorId } },
