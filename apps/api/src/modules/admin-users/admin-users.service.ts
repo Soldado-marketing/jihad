@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { effectiveVisibilityScope } from '../permissions/visibility-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
@@ -111,7 +112,7 @@ export class AdminUsersService {
           userId: regRequest.userId,
           role: dto.role as any,
           status: 'ACTIVE',
-          visibilityScope: dto.visibilityScope as any,
+          visibilityScope: effectiveVisibilityScope(dto.role),
         },
       });
 
@@ -192,7 +193,7 @@ export class AdminUsersService {
           action: RegistrationAction.SCOPE_ASSIGNED,
           permissionResult: AuditPermissionResult.ALLOWED,
           outcome: AuditOutcome.SUCCESS,
-          payload: { visibilityScope: dto.visibilityScope },
+          payload: { visibilityScope: effectiveVisibilityScope(dto.role) },
         }),
       ]);
     } catch (auditErr: unknown) {
@@ -302,10 +303,18 @@ export class AdminUsersService {
       throw new ForbiddenException('Owner accounts cannot be suspended through this endpoint.');
     }
 
-    await this.prisma.user.update({
-      where: { id: targetUserId },
-      data: { status: 'SUSPENDED' as any },
-    });
+    // Status change and session revocation are one unit: a suspended user must
+    // not keep any working access or refresh token, in any tenant.
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: targetUserId },
+        data: { status: 'SUSPENDED' as any },
+      }),
+      this.prisma.session.updateMany({
+        where: { userId: targetUserId, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      }),
+    ]);
 
     const actorMembership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId: actorId } },

@@ -8,14 +8,13 @@ import { ClientFilesController } from './client-files.controller';
 import { FilesController } from './files.controller';
 import { FilesRepository } from './files.repository';
 import { FilesService } from './files.service';
-import { SignedUrlService } from './signed-url.service';
 
 @Module({
   controllers: [FilesController, ClientFilesController],
   // StorageModule: deleting a file has to delete the objects its versions own,
   // otherwise the rows disappear and the bytes stay in the bucket untracked.
   imports: [AuditModule, FileVersionsModule, MembershipsModule, PermissionsModule, StorageModule],
-  providers: [FilesRepository, FilesService, SignedUrlService],
-  exports: [FilesService, SignedUrlService],
+  providers: [FilesRepository, FilesService],
+  exports: [FilesService],
 })
 export class FilesModule {}

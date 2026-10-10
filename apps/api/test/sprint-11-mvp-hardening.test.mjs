@@ -195,7 +195,6 @@ describe('Sprint 11 MVP API hardening regression', () => {
     const auditRedactor = readApi('src/modules/audit/audit-redactor.ts');
     const auditService = readApi('src/modules/audit/audit.service.ts');
     const sensitiveServices = [
-      readApi('src/modules/files/signed-url.service.ts'),
       readApi('src/modules/chat/chat.service.ts'),
       readApi('src/modules/voice-notes/voice-notes.service.ts'),
       readApi('src/modules/voice-to-task/voice-to-task.service.ts'),
@@ -205,7 +204,9 @@ describe('Sprint 11 MVP API hardening regression', () => {
 
     assert.match(auditRedactor, /password|token|secret|privateKey/);
     assert.match(auditService, /createAuditEventPlaceholder/);
-    assert.match(sensitiveServices, /redacted|suppressed|placeholder/);
+    // MAOS-T38: a "redacted|suppressed|placeholder" marker was only ever found in
+    // the dead signed-url placeholder (removed). Redaction itself is asserted by
+    // the redactor patterns above and the raw-field check below.
     assert.doesNotMatch(sensitiveServices, /rawSecret|cardNumber|fullTranscript|messageBodyRaw/);
   });
 
