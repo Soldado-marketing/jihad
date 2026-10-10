@@ -50,3 +50,71 @@ export async function assertActiveMemberInTenant(
   });
   if (!membership) invalidReference(field);
 }
+
+export async function assertTaskInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  taskId: Reference,
+  field = 'taskId',
+): Promise<void> {
+  if (taskId === undefined || taskId === null) return;
+  const task = await prisma.task.findFirst({ where: { id: taskId, tenantId }, select: { id: true } });
+  if (!task) invalidReference(field);
+}
+
+export async function assertFileAssetInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  fileAssetId: Reference,
+  field = 'fileAssetId',
+): Promise<void> {
+  if (fileAssetId === undefined || fileAssetId === null) return;
+  const asset = await prisma.fileAsset.findFirst({ where: { id: fileAssetId, tenantId }, select: { id: true } });
+  if (!asset) invalidReference(field);
+}
+
+/**
+ * The version must be in the tenant and, when `fileAssetId` is given, belong
+ * to that file - otherwise a request could pair one file with another file's
+ * version.
+ */
+export async function assertFileVersionInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  fileVersionId: Reference,
+  fileAssetId?: Reference,
+  field = 'fileVersionId',
+): Promise<void> {
+  if (fileVersionId === undefined || fileVersionId === null) return;
+  const version = await prisma.fileVersion.findFirst({
+    where: { id: fileVersionId, tenantId, ...(fileAssetId ? { fileAssetId } : {}) },
+    select: { id: true },
+  });
+  if (!version) invalidReference(field);
+}
+
+/**
+ * Resource types a polymorphic reference (`resourceType` + `resourceId`) may
+ * name. A reference can only be checked when its type is known, so any other
+ * type is refused rather than stored unchecked.
+ */
+export const LINKABLE_RESOURCE_TYPES = ['project', 'task', 'file'] as const;
+
+export async function assertResourceInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  resourceType: string | null | undefined,
+  resourceId: Reference,
+): Promise<void> {
+  if (resourceId === undefined || resourceId === null) return;
+  switch (resourceType) {
+    case 'project':
+      return assertProjectInTenant(prisma, tenantId, resourceId, 'resourceId');
+    case 'task':
+      return assertTaskInTenant(prisma, tenantId, resourceId, 'resourceId');
+    case 'file':
+      return assertFileAssetInTenant(prisma, tenantId, resourceId, 'resourceId');
+    default:
+      invalidReference('resourceType');
+  }
+}
