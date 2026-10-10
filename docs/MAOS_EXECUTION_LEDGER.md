@@ -16,13 +16,13 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `df08135` (verified 2026-10-10: origin = GitHub) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | MAOS-T33 — Web security headers |
+| ACTIVE_TASK | MAOS-T34 — Finance rules without migration |
 | TASK_STATUS | ACTIVE |
-| CURRENT_BRANCH | `fix/web-security-headers` |
+| CURRENT_BRANCH | `fix/finance-payment-rules` |
 | HEAD | — |
 | COMPLETED_STEPS | — |
-| CURRENT_STEP | Inspect web config and inline scripts/styles |
-| REMAINING_STEPS | header test first → next.config headers (CSP report-only) → build + served-header check → web tests → commit → push → PR |
+| CURRENT_STEP | Inspect payment/invoice rules (currency, VOID/DRAFT, overpayment, idempotency) |
+| REMAINING_STEPS | verify current behaviour by test → enforce missing rules → gate/integration/full → commit → push → PR |
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
 | PR_URL | — (open PRs #4–#15 listed below) |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | Merge #13 (non-blocking: blocks PR CI validation only; work continues) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-09 — T30 pushed (#15); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | Finish MAOS-T33. When #13 is merged: rerun the failed API job on #4–#17 and record CI. Local `apps/web/node_modules` is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
+| EXACT_NEXT_ACTION | Finish MAOS-T34. When #13 is merged: rerun the failed API job on #4–#18 and record CI. Local `apps/web/node_modules` is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -126,6 +126,7 @@ Compared by test identity, never by count.
 | MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | web typecheck/build/contract; full web 3 known; prod Docker image built and served 200 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T31 | API dependency patch (proxy-addr, multer, platform-express) | fix/api-dependency-patch | #16 (open) | 0 critical; gate 239/239; integration 101/101; prod image health/ready 200 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T32 | Trust proxy + per-client throttling | fix/trust-proxy-throttling | #17 (open) | unit 8/8 (gate 247), throttle 2/2 (integration 103); 3 mutations; real boot | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T33 | Web security headers (CSP report-only) | fix/web-security-headers | #18 (open) | header tests 7/7 (web contract 12); 3 mutations; served headers verified on prod build | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -460,3 +461,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | typecheck, build, contract 5/5, full web 3 known, Docker image 200 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T31 | API dependency patch | fix/api-dependency-patch | #16 (open) | gate 239/239, integration 101/101, prod image 200/200 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T32 | Trust proxy + per-client throttling | fix/trust-proxy-throttling | #17 (open) | gate 247/247, integration 103/103, real boot | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T33 | Web security headers | fix/web-security-headers | #18 (open) | web contract 12/12, full web 3 known, served headers verified | 0 | COMPLETE_AWAITING_MERGE
