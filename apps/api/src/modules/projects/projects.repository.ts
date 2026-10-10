@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -7,9 +8,9 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 export class ProjectsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
+  list(tenantId: string, scope: Prisma.ProjectWhereInput = {}, taskScope: Prisma.TaskWhereInput = {}) {
     return this.prisma.project.findMany({
-      where: { tenantId },
+      where: { tenantId, AND: [scope] },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -19,7 +20,7 @@ export class ProjectsRepository {
         clientVisible: true,
         createdAt: true,
         updatedAt: true,
-        _count: { select: { tasks: true } },
+        _count: { select: { tasks: { where: taskScope } } },
       },
     });
   }
@@ -34,16 +35,17 @@ export class ProjectsRepository {
     });
   }
 
-  getById(tenantId: string, id: string) {
+  getById(tenantId: string, id: string, scope: Prisma.ProjectWhereInput = {}, taskScope: Prisma.TaskWhereInput = {}) {
     return this.prisma.project.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, AND: [scope] },
       include: {
         tasks: {
+          where: taskScope,
           select: { id: true, title: true, status: true, priority: true, dueAt: true, clientVisible: true },
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
-        _count: { select: { tasks: true } },
+        _count: { select: { tasks: { where: taskScope } } },
       },
     });
   }

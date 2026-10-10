@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
   Injectable,
@@ -71,10 +72,11 @@ function taskListSelect() {
 export class TasksRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, filters: ListTaskFilters = {}) {
+  list(tenantId: string, filters: ListTaskFilters = {}, scope: Prisma.TaskWhereInput = {}) {
     return this.prisma.task.findMany({
       where: {
         tenantId,
+        AND: [scope],
         ...(filters.projectId ? { projectId: filters.projectId } : {}),
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.priority ? { priority: filters.priority } : {}),
@@ -104,9 +106,9 @@ export class TasksRepository {
     });
   }
 
-  getById(tenantId: string, id: string) {
+  getById(tenantId: string, id: string, scope: Prisma.TaskWhereInput = {}) {
     return this.prisma.task.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, AND: [scope] },
       include: taskFullInclude(),
     });
   }
@@ -146,7 +148,7 @@ export class TasksRepository {
    *
    * Returns the updated tasks (id, status, sortOrder, updatedAt) — lightweight.
    */
-  async reorder(tenantId: string, items: ReorderItemDto[]) {
+  async reorder(tenantId: string, items: ReorderItemDto[], scope: Prisma.TaskWhereInput = {}) {
     const ids = items.map(i => i.id);
 
     // Reject duplicates
@@ -156,7 +158,7 @@ export class TasksRepository {
 
     // Verify all IDs belong to this tenant in a single query
     const count = await this.prisma.task.count({
-      where: { tenantId, id: { in: ids } },
+      where: { tenantId, id: { in: ids }, AND: [scope] },
     });
     if (count !== ids.length) {
       throw new NotFoundException('One or more task IDs not found in this tenant');
