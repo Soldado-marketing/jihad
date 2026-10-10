@@ -25,6 +25,10 @@
 #   4   backup exceeded MAOS_BACKUP_MAX_SECONDS and was stopped
 #   75  another run holds the lock
 #
+# Every failure also raises an alert through scripts/backup-alert.sh
+# (MAOS-T19). A skipped run (75) is not a failure and stays silent: the run
+# holding the lock reports for itself.
+#
 # Environment (all optional):
 #   MAOS_BACKUP_HOME         default $HOME/MAOS_BACKUPS (production/, logs/)
 #   MAOS_BACKUP_MAX_SECONDS  default 7200
@@ -36,6 +40,7 @@
 #   MAOS_BACKUP_PG_DUMP      docker (default: use scripts/pg-dump-docker.sh as
 #                            pg_dump) or path (use pg_dump from PATH)
 #   MAOS_BACKUP_SCRIPT       backup script; default scripts/backup-db.sh
+#   MAOS_BACKUP_ALERT        alert command; default scripts/backup-alert.sh
 
 set -u
 
@@ -52,6 +57,7 @@ RAILWAY_BIN="${RAILWAY_BIN:-$HOME/.npm-global/bin/railway}"
 RAILWAY_DIR="${MAOS_RAILWAY_DIR:-$REPO}"
 PG_DUMP_MODE="${MAOS_BACKUP_PG_DUMP:-docker}"
 BACKUP_SCRIPT="${MAOS_BACKUP_SCRIPT:-$SCRIPT_DIR/backup-db.sh}"
+ALERT="${MAOS_BACKUP_ALERT:-$SCRIPT_DIR/backup-alert.sh}"
 
 # Absolute paths only: launchd gives a minimal PATH, never the login shell's.
 PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -92,6 +98,9 @@ trap cleanup EXIT
 finish() {
   log "$1"
   log "=== run end ==="
+  if [ "$2" -ne 0 ]; then
+    "$ALERT" "Nightly backup failed - $1" >/dev/null 2>&1 || log "alert could not be raised"
+  fi
   exit "$2"
 }
 
