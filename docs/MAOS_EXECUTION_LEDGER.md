@@ -16,22 +16,22 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 |---|---|
 | CURRENT_MAIN | `0d73f6c` (#13 and #4 merged 2026-10-10; main CI green; no deploys — watch paths; prod health 200/200) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | MAOS-T44 — Email delivery model (D9; stops at migration gate) |
-| TASK_STATUS | ACTIVE |
-| CURRENT_BRANCH | `feat/email-delivery-tracking` |
+| ACTIVE_TASK | none |
+| TASK_STATUS | — (last task MAOS-T44 COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION) |
+| CURRENT_BRANCH | — |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
-| PR_URL | open: #5–#12, #14–#25 |
-| CI_STATUS | After #13: #5–#12, #14–#19 all PASS (API, web, audit) and MERGEABLE; #20 (T36) and #21 (T146 follow-up) opened |
-| BLOCKERS | none for T36 |
-| OWNER_GATE_PENDING | (1) merge #13, then review/merge #4–#19; (2) decisions: T35 contractor scope, T36 visibilityScope, D4 (T37), T38 removals, T39 test retirements, D6 (T41/T42), D9 (T44/T45), D16 overpayment/idempotency, T18 Keychain secret, D2 off-Mac target, D3, D1 |
+| PR_URL | open: #5–#12, #14–#26 |
+| CI_STATUS | #5–#12, #14–#19 PASS (rerun on new merge refs); #20–#26 opened after #13 and run the mirrored image |
+| BLOCKERS | No W1–W3 task is dependency-ready: all wait on PR merges, deferred decisions (D2, D6) or owner actions (T21, T22, migration gates) |
+| OWNER_GATE_PENDING | (1) review/merge open PRs — #21 first (restores main baseline); (2) OWNER_GATE_MIGRATION for #26 (apply migration after a verified backup, before deploying the code); (3) whether W4 may start before the open safety PRs are merged (ambiguity: brief vs rule 4) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
-| LAST_SAFE_CHECKPOINT | 2026-10-10 — T34 pushed (#19); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | T44: schema (EmailMessage/EmailEvent) + migration created on a disposable DB + failure-safe writer in invoice send; PR states the migration must be applied before the code deploys (OWNER_GATE_MIGRATION). T39 waits on #25 (same test files) and #12. T40/D16 wait on #19. T19/T18 on #9, T24 on #10, T28/T29/T35 on #14. |
+| LAST_SAFE_CHECKPOINT | 2026-10-10 — T44 pushed (#26); all work committed and pushed; no uncommitted state |
+| EXACT_NEXT_ACTION | On each merge start the first task it unblocks: #9→T19, T18 · #10→T24 · #14→T28, T29, T35 · #19→T40, D16 overpayment, D16 idempotency · #25+#12→T39 · #26 (+webhook secret)→T45 · #8→T22 (owner OK to rehearse a production dump). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -140,6 +140,7 @@ Compared by test identity, never by count.
 | MAOS-T11 | Blueprint v1.1 (approved product structure) | docs/blueprint-v1-1 | #23 (open) | 43 sections, tables valid | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T37 | Default invoice recipients: own active client (D4) | fix/invoice-default-recipients | #24 (open) | suite 5/5; 4 mutations; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T38 | Remove fake-success placeholders + unused placeholder code (non-session) | fix/remove-placeholder-endpoints | #25 (open) | callers traced; gate 239/239; integration 102/102; obsolete assertions updated | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -484,3 +485,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T11 | Blueprint v1.1 | docs/blueprint-v1-1 | #23 (open) | docs | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T37 | Default invoice recipients | fix/invoice-default-recipients | #24 (open) | 5/5, integration 106/106 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T38 | Remove placeholders (non-session) | fix/remove-placeholder-endpoints | #25 (open) | gate 239/239, integration 102/102 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T44 | Email delivery tracking (migration) | feat/email-delivery-tracking | #26 (open) | gate 243/243, integration 104/104 | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
