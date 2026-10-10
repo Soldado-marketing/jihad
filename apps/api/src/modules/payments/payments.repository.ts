@@ -69,7 +69,7 @@ export class PaymentsRepository {
   findInvoiceForTenant(tenantId: string, invoiceId: string) {
     return this.prisma.invoice.findFirst({
       where: { id: invoiceId, tenantId },
-      select: { id: true, currency: true, status: true },
+      select: { id: true, currency: true, status: true, clientScopeKey: true },
     });
   }
 
