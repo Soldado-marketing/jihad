@@ -163,12 +163,17 @@ export class InvoicesService {
       });
     }
 
-    const recipients = await this.resolveRecipients(tenantId, invoice.projectId, dto.recipients);
+    const recipients = await this.resolveRecipients(
+      tenantId,
+      invoice.projectId,
+      invoice.clientScopeKey,
+      dto.recipients,
+    );
     if (recipients.length === 0) {
       throw new BadRequestException({
         code: 'NO_RECIPIENT',
         reason:
-          'No recipient. Pass "recipients", or add a CLIENT member to the invoice project.',
+          "No recipient. Pass \"recipients\", or add an active CLIENT member of the invoice's client to the invoice project.",
       });
     }
 
@@ -224,18 +229,19 @@ export class InvoicesService {
   }
 
   /**
-   * Explicit recipients win. Otherwise the CLIENT members of the invoice's
-   * project are used, so a normal send needs no address at all.
+   * Explicit recipients win. Otherwise the active CLIENT members of the
+   * invoice's own client on its project are used (MAOS-T37).
    */
   private async resolveRecipients(
     tenantId: string,
     projectId: string | null,
+    clientScopeKey: string | null,
     explicit?: string[],
   ): Promise<string[]> {
     if (explicit && explicit.length > 0) return explicit;
     if (!projectId) return [];
 
-    const users = await this.repo.findProjectClientEmails(tenantId, projectId);
+    const users = await this.repo.findProjectClientEmails(tenantId, projectId, clientScopeKey);
     return users.map((user) => user.email);
   }
 

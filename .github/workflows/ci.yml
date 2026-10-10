@@ -100,13 +100,15 @@ jobs:
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (153/153), so it blocks.
+      # service above and drives it over HTTP. Green (158/158), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
       # security-gate-client-isolation proves one client cannot reach another
       # inside the same tenant, and - just as important - that each client can
       # still reach its own, which a broken portal would otherwise pass.
+      # invoice-default-recipients proves a default send reaches only the
+      # invoice's own, active client.
       # visibility-scope proves approval stores only an enforced scope.
       # finance-payment-rules proves payments respect invoice status, currency
       # and client scope.
@@ -132,6 +134,7 @@ jobs:
           node --test \
             test/security-gate-authz.test.mjs \
             test/security-gate-client-isolation.test.mjs \
+            test/invoice-default-recipients.test.mjs \
             test/visibility-scope.test.mjs \
             test/finance-payment-rules.test.mjs \
             test/security-gate-foreign-ids.test.mjs \
