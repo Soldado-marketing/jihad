@@ -195,6 +195,8 @@ export class InvoicesService {
       to: recipients,
     });
 
+    await this.trackDeliveries(tenantId, id, delivery.deliveries);
+
     if (delivery.accepted === 0) {
       throw new ServiceUnavailableException({
         code: 'MAIL_SEND_FAILED',
@@ -271,6 +273,29 @@ export class InvoicesService {
     }
 
     return updated;
+  }
+
+  /**
+   * Records per-recipient delivery (MAOS-T44). Failure-safe: tracking must never
+   * change the outcome of a send that has already happened.
+   */
+  private async trackDeliveries(
+    tenantId: string,
+    invoiceId: string,
+    deliveries: Array<{ recipient: string; accepted: boolean; providerMessageId: string | null }> | undefined,
+  ): Promise<void> {
+    try {
+      await this.repo.recordEmailDeliveries(tenantId, 'Invoice', invoiceId, deliveries ?? []);
+    } catch {
+      this.logger.warn('invoice delivery tracking failed');
+    }
+  }
+
+  /** Delivery status per recipient for one of the tenant's invoices. */
+  async listDeliveries(tenantId: string, invoiceId: string) {
+    await this.get(tenantId, invoiceId);
+    const items = await this.repo.listInvoiceDeliveries(tenantId, invoiceId);
+    return { items };
   }
 
   private toMembershipRole(role: string): MembershipRole | undefined {

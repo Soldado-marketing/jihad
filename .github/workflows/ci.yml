@@ -80,7 +80,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (239 tests).
+      # Blocking gate: the suites that are fully green today (243 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -94,10 +94,11 @@ jobs:
             test/security-gate-file-deletion.test.mjs \
             test/mail-config.test.mjs \
             test/invoice-send-privacy.test.mjs \
-            test/backup-restore-scripts.test.mjs
+            test/backup-restore-scripts.test.mjs \
+            test/email-delivery-tracking.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (101/101), so it blocks.
+      # service above and drives it over HTTP. Green (104/104), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -118,7 +119,8 @@ jobs:
           node --test test/integration-api.test.mjs
           node --test \
             test/security-gate-authz.test.mjs \
-            test/security-gate-client-isolation.test.mjs
+            test/security-gate-client-isolation.test.mjs \
+            test/email-deliveries-endpoint.test.mjs
 
       # Informational: the sprint-*-baseline suites describe features that were
       # specified but never built. They carry 43 known failures. Reported so the

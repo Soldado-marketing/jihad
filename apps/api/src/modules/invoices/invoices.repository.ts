@@ -265,4 +265,34 @@ export class InvoicesRepository {
       select: { email: true },
     });
   }
+
+  /** One EmailMessage per attempted recipient of a document email (MAOS-T44). */
+  async recordEmailDeliveries(
+    tenantId: string,
+    resourceType: string,
+    resourceId: string,
+    deliveries: Array<{ recipient: string; accepted: boolean; providerMessageId: string | null }>,
+  ): Promise<void> {
+    if (deliveries.length === 0) return;
+    await this.prisma.emailMessage.createMany({
+      data: deliveries.map((d) => ({
+        tenantId,
+        resourceType,
+        resourceId,
+        recipient: d.recipient.toLowerCase(),
+        providerMessageId: d.providerMessageId,
+        status: d.accepted ? 'SENT' : 'FAILED',
+      })),
+    });
+  }
+
+  /** Delivery status per recipient for one invoice, newest first. */
+  listInvoiceDeliveries(tenantId: string, invoiceId: string) {
+    return this.prisma.emailMessage.findMany({
+      where: { tenantId, resourceType: 'Invoice', resourceId: invoiceId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, recipient: true, status: true, lastEventAt: true, createdAt: true },
+    });
+  }
+
 }

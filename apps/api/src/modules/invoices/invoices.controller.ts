@@ -58,6 +58,13 @@ export class InvoicesController {
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INVOICE })
   get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.get(user.tenantId, id); }
 
+  /** Per-recipient delivery status of this invoice's emails (MAOS-T44). */
+  @Get(':id/deliveries')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INVOICE })
+  listDeliveries(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.svc.listDeliveries(user.tenantId, id);
+  }
+
   @Patch(':id/status')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.INVOICE })
   updateStatus(
