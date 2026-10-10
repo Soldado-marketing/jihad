@@ -99,13 +99,15 @@ jobs:
             test/restore-rehearsal-script.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (124/124), so it blocks.
+      # service above and drives it over HTTP. Green (136/136), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
       # security-gate-client-isolation proves one client cannot reach another
       # inside the same tenant, and - just as important - that each client can
       # still reach its own, which a broken portal would otherwise pass.
+      # security-gate-foreign-ids proves IDs sent in a body or path (project,
+      # assignee, parent task) must belong to the caller's tenant.
       # login-history proves login attempts are recorded (IP hashed only) and
       # that each user can read their own history and nobody else's.
       # security-gate-session-revocation proves a suspended or non-active user
@@ -125,6 +127,7 @@ jobs:
           node --test \
             test/security-gate-authz.test.mjs \
             test/security-gate-client-isolation.test.mjs \
+            test/security-gate-foreign-ids.test.mjs \
             test/login-history.test.mjs \
             test/security-gate-session-revocation.test.mjs
 
