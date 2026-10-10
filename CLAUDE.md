@@ -136,6 +136,10 @@ Copy `.env.example` to `.env` and fill in at minimum:
 
 Docker Compose dev defaults: `postgresql://maos:maos_password@localhost:5432/maos_db`
 
+## Product Blueprint (mandatory)
+
+Before planning or executing any MAOS task, read `docs/MAOS_PRODUCT_BLUEPRINT.md` (canonical target product architecture) and validate the task against it (§30). If the task conflicts with an architecture invariant, security invariant, domain ownership rule or phase dependency, STOP and return `BLUEPRINT_CONFLICT` instead of implementing. Never modify the Blueprint inside an unrelated implementation task. One MAOS task at a time.
+
 ## Task Protocol
 
 1. Read the existing structure before making changes.

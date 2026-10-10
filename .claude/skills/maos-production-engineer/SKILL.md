@@ -27,7 +27,12 @@ Never sacrifice a higher priority for a lower priority.
 
 The ONLY active MAOS repository is:
 
-`/Users/jihadhilal/Developer/claude`
+`~/Developer/MAOS/claude` (`~/Developer/claude` is only a temporary compatibility symlink to it)
+
+The canonical target product architecture is `docs/MAOS_PRODUCT_BLUEPRINT.md`.
+Before planning or executing any MAOS task, read it and validate the task against it (§30).
+If the task conflicts with a Blueprint invariant, STOP and return `BLUEPRINT_CONFLICT`.
+Never modify the Blueprint inside an unrelated implementation task. One MAOS task at a time.
 
 The following repository is stale and MUST NOT be used:
 
