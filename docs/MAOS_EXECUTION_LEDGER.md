@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `9dd7047` (#13 merged 2026-10-10; main CI green; no deploy — watch paths; prod health 200/200) |
+| CURRENT_MAIN | `0d73f6c` (#13 and #4 merged 2026-10-10; main CI green; no deploys — watch paths; prod health 200/200) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | MAOS-T36 — visibilityScope restriction |
+| ACTIVE_TASK | MAOS-T13 — Instruction-file accuracy |
 | TASK_STATUS | ACTIVE |
-| CURRENT_BRANCH | `fix/visibility-scope-restriction` |
+| CURRENT_BRANCH | `docs/instruction-file-accuracy` |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
-| PR_URL | — (open PRs #4–#15 listed below) |
-| CI_STATUS | #13 merged. #4–#12, #14–#19 closed+reopened 2026-10-10 for fresh CI on the new merge refs; results pending |
+| PR_URL | open: #5–#12, #14–#21 |
+| CI_STATUS | After #13: #5–#12, #14–#19 all PASS (API, web, audit) and MERGEABLE; #20 (T36) and #21 (T146 follow-up) opened |
 | BLOCKERS | none for T36 |
 | OWNER_GATE_PENDING | (1) merge #13, then review/merge #4–#19; (2) decisions: T35 contractor scope, T36 visibilityScope, D4 (T37), T38 removals, T39 test retirements, D6 (T41/T42), D9 (T44/T45), D16 overpayment/idempotency, T18 Keychain secret, D2 off-Mac target, D3, D1 |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — T34 pushed (#19); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | T36 (W2), then T37 (W2), then T38 non-session placeholders; record PR CI results; merge #4 when green. Remaining W2/W3 work waits on PR merges (T19←#9, T24←#10, T28/T29/T35←#14, T40/D16←#19, T18←#9). |
+| EXACT_NEXT_ACTION | T13 (W0) → T11 (W0, owner review) → T37 (W2) → T38 non-session placeholders (W2). #21 restores main's full-suite baseline (phase-5-ops broken by #13): recommend owner merges it first. Merges of #5–#12, #14–#21 remain owner-gated. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -66,7 +66,8 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D15 | Prisma major upgrade: remaining API advisories (deepmerge-ts via @prisma/config) need Prisma >6; config-load only | API advisories | OPEN (non-blocking) |
 | D14 | Next 16 (major): remaining web advisories are in the postcss 8.4.31 pinned by Next 15 (build-time only for MAOS); fixing them needs a separate major-upgrade task | web advisories | OPEN (non-blocking) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
-| CI-1 | 2026-10-09 PR CI (#4–#12) fails at "Initialize containers": Docker Hub anonymous pull rate limit for `postgres:16-alpine` (INFRASTRUCTURE, no test ran); staggered reruns hit the same limit. Fix: T146 (#13). **Merge #13 first**, then rerun the API job of the other PRs. | all PR CI | OPEN — owner merge of #13 |
+| F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | OPEN |
+| CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
 
@@ -116,7 +117,7 @@ Compared by test identity, never by count.
 | MAOS-T06 | Delete verified external originals (part 1) | — (ops) | — | per `legacy/README.md` | n/a | COMPLETE |
 | MAOS-T07 | Complete legacy consolidation 2026-10-02 | — (ops) | — | per `legacy/README.md` | n/a | COMPLETE |
 | MAOS-T08 | Backup/restore reliability + CI race fix | fix/backup-restore-reliability | #3 (`df08135`) | gate 239/239, integration 101/101 | 0 | COMPLETE_MERGED |
-| MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | #4 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE (D1) |
+| MAOS-T09 | Product Blueprint v1 (+ 2026-10-09 refresh) | docs/product-blueprint-v1 (`5618d78`) | #4 MERGED (`0d73f6c`) | CI PASS | 0 | COMPLETE_MERGED |
 | MAOS-T10 | Execution ledger and task registry | docs/execution-ledger | #5 (open) | docs checks | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T12 | Env and deploy documentation refresh | docs/env-deploy-refresh (`0d19d0d`) | #6 (open) | compose config, link and secret checks | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T14 | Release-control assessment (ADR-016) | docs/release-control-assessment (`8c3b608`) | #7 (open) | evidence + table + secret checks | 0 | COMPLETE_AWAITING_MERGE |
@@ -125,13 +126,14 @@ Compared by test identity, never by count.
 | MAOS-T23 | Suspended/non-active users lose access immediately | fix/suspended-user-access (`e81952d`) | #10 (open) | new integration suite 10/10; 4 independent mutations caught; gate 239/239; integration 111/111 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T25 | LoginHistory writers + own-history reader | fix/login-history-writers (`3ab7418`) | #11 (open) | new integration suite 8/8; 4 mutations caught; write-failure safe; gate 239/239; integration 109/109 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T26 | Client-summary isolation | fix/client-summary-isolation | #12 (open) | 5 new isolation tests; 4 mutations caught; gate 239/239; integration 106/106 | 0 | COMPLETE_AWAITING_MERGE |
-| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 (open, CI PASS) | digest identical to Docker Hub; own CI all jobs pass | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T146 | CI PostgreSQL service from ECR Public mirror (pulled forward: blocks all PR CI) | ci/postgres-service-mirror | #13 MERGED (`9dd7047`) | CI PASS; follow-up #21 fixes phase-5-ops assertion it broke | 1 → fixed in #21 | COMPLETE_MERGED (follow-up #21 open) |
 | MAOS-T27 | Foreign-ID tenant validation — work domain | fix/foreign-id-work-domain | #14 (open) | new suite 12/12; 4 mutations caught; gate 239/239; integration 113/113 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T30 | Web dependency patch: Next.js 15.5.27 | fix/web-next-patch | #15 (open) | web typecheck/build/contract; full web 3 known; prod Docker image built and served 200 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T31 | API dependency patch (proxy-addr, multer, platform-express) | fix/api-dependency-patch | #16 (open) | 0 critical; gate 239/239; integration 101/101; prod image health/ready 200 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T32 | Trust proxy + per-client throttling | fix/trust-proxy-throttling | #17 (open) | unit 8/8 (gate 247), throttle 2/2 (integration 103); 3 mutations; real boot | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T33 | Web security headers (CSP report-only) | fix/web-security-headers | #18 (open) | header tests 7/7 (web contract 12); 3 mutations; served headers verified on prod build | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T34 | Finance payment rules (status, currency, client scope) | fix/finance-payment-rules | #19 (open) | suite 8/8; 5 mutations; integration 110/110; gate 239/239 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T36 | visibilityScope: store/show only the enforced scope | fix/visibility-scope-restriction | #20 (open) | API 6/6 (integration 107), web 4/4 (contract 9), mutation caught | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -468,3 +470,6 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T32 | Trust proxy + per-client throttling | fix/trust-proxy-throttling | #17 (open) | gate 247/247, integration 103/103, real boot | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T33 | Web security headers | fix/web-security-headers | #18 (open) | web contract 12/12, full web 3 known, served headers verified | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T34 | Finance payment rules | fix/finance-payment-rules | #19 (open) | suite 8/8, mutations 5/5, integration 110/110, gate 239/239 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T09 | Product Blueprint v1 | docs/product-blueprint-v1 | #4 MERGED | CI PASS | 0 | COMPLETE_MERGED
+- MAOS-T146 | CI postgres mirror | ci/postgres-service-mirror | #13 MERGED | CI PASS | follow-up #21 | COMPLETE_MERGED
+- MAOS-T36 | visibilityScope restriction | fix/visibility-scope-restriction | #20 (open) | API 6/6, web 4/4 | 0 | COMPLETE_AWAITING_MERGE
