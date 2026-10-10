@@ -274,6 +274,20 @@ step, on purpose:
 **Test a restore before you need one.** A backup you have never restored is a
 hypothesis, not a backup.
 
+### Restore rehearsal
+
+```bash
+./scripts/restore-rehearsal.sh ./backups/maos-20260901T030000Z.dump
+```
+
+Requires Docker. The rehearsal verifies the dump's `.sha256` (required), starts
+a throwaway `postgres:18` container with **no network and no published port**,
+restores the dump with `restore-db.sh` into a new database, and fails unless the
+restore has tables, at least one applied Prisma migration and no failed or
+unfinished migration. It prints table names and row counts only (no row data)
+and always removes the container. Set `REHEARSAL_PG_IMAGE` if the dump was made
+by a newer `pg_dump`, and `REHEARSAL_REPORT=<file>` to keep the report.
+
 ---
 
 ## Continuous integration
