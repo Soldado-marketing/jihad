@@ -256,6 +256,24 @@ A nightly cron entry:
 0 3 * * * cd /srv/maos && DATABASE_URL=postgresql://... ./scripts/backup-db.sh /srv/maos/backups >> /var/log/maos-backup.log 2>&1
 ```
 
+### Scheduled runner (backup Mac)
+
+`scripts/nightly-backup.sh` is the scheduled entry point. It takes no
+arguments, fetches `DATABASE_PUBLIC_URL` from the Railway project linked to the
+repository (`railway variables --service Postgres --kv`), runs
+`backup-db.sh` into `$MAOS_BACKUP_HOME/production` (default
+`~/MAOS_BACKUPS/production`) and appends to `$MAOS_BACKUP_HOME/logs/backup.log`,
+with any connection string redacted. When the host has no PostgreSQL client
+tools it uses `scripts/pg-dump-docker.sh` (pg_dump inside `postgres:18`) as
+`pg_dump`.
+
+It allows one run at a time and stops a run after
+`MAOS_BACKUP_MAX_SECONDS` (default 7200), removing partial dumps. Exit codes:
+`0` success, the backup's own status on failure, `2` Docker or Railway CLI
+missing, `3` database URL not obtainable (for example an expired Railway
+login), `4` time limit exceeded, `75` another run in progress. Invoke it with
+`/bin/bash`.
+
 ### Restore
 
 ```bash
