@@ -150,6 +150,7 @@ DATABASE_URL='<your production DATABASE_URL>' npx prisma migrate deploy
 | `JWT_REFRESH_SECRET` | ✅ | Min 32 chars, random, different from JWT_SECRET |
 | `REDIS_URL` | ✅ | Redis connection string |
 | `WEB_URL` | ✅ | Frontend URL for CORS |
+| `TRUST_PROXY_HOPS` | Optional | Proxy hops trusted for the client IP (`X-Forwarded-For`). Default `1` (Railway). Set `0` when the API is reachable without a proxy. Integer 0–5; anything else stops startup. |
 | `SMTP_HOST` | Recommended | For invites and notifications |
 | `S3_BUCKET` | For files | Bucket name. See "Object storage" below. |
 | `S3_REGION` | For files | e.g. `eu-central-1` |
