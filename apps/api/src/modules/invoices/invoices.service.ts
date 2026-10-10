@@ -14,7 +14,9 @@ import { InvoiceStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
+import { assertProjectInTenant } from '../../common/tenant/tenant-references';
 import { MailService } from '../mail/mail.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { SendInvoiceDto } from './dto/send-invoice.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -53,6 +55,7 @@ export class InvoicesService {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly clientScope: ClientScopeService,
+    private readonly prisma: PrismaService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
@@ -71,9 +74,10 @@ export class InvoicesService {
     return invoice;
   }
 
-  create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
+  async create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
+    await assertProjectInTenant(this.prisma, tenantId, dto.projectId);
     try {
-      return this.repo.create(tenantId, actorId, dto);
+      return await this.repo.create(tenantId, actorId, dto);
     } catch (error) {
       if (error instanceof InvoiceAmountError) {
         throw new BadRequestException({ code: 'INVALID_INVOICE_AMOUNT', reason: error.message });
