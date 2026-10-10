@@ -11,6 +11,7 @@ import {
   UnsafeObjectKeyError,
   assertKeyBelongsToTenant,
 } from '../storage/object-key';
+import { ResourceScopeService } from '../permissions/resource-scope.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateFileDto } from './dto/create-file.dto';
@@ -26,9 +27,14 @@ export class FilesService {
     private readonly storage: StorageService,
     private readonly clientScope: ClientScopeService,
     private readonly prisma: PrismaService,
+    private readonly resourceScope: ResourceScopeService,
   ) {}
 
-  list(tenantId: string) { return this.repo.list(tenantId); }
+  /** A CONTRACTOR sees only files of their member projects or visible tasks. */
+  async list(tenantId: string, actorId: string) {
+    const scope = await this.resourceScope.resolveWorkScope(tenantId, actorId);
+    return this.repo.list(tenantId, this.resourceScope.fileWhere(scope));
+  }
 
   /** Client-portal list: the caller's client scope, client-visible, approved only. */
   async listForClient(tenantId: string, actorId: string, role: string) {
@@ -42,16 +48,24 @@ export class FilesService {
     return this.repo.create(tenantId, actorId, dto);
   }
 
-  async get(tenantId: string, id: string) {
-    const item = await this.repo.getById(tenantId, id);
+  /**
+   * `actorId` applies the caller's work scope (CONTRACTOR: assigned files
+   * only). Every controller route passes it; internal callers that already
+   * checked access may omit it.
+   */
+  async get(tenantId: string, id: string, actorId?: string) {
+    const where = actorId
+      ? this.resourceScope.fileWhere(await this.resourceScope.resolveWorkScope(tenantId, actorId))
+      : {};
+    const item = await this.repo.getById(tenantId, id, where);
     // Rows from another tenant are simply not found by the scoped query, so a
     // caller cannot use this route to probe for ids across tenants.
     if (!item) throw new NotFoundException('File not found');
     return item;
   }
 
-  async update(tenantId: string, id: string, dto: UpdateFileDto) {
-    await this.get(tenantId, id);
+  async update(tenantId: string, id: string, dto: UpdateFileDto, actorId?: string) {
+    await this.get(tenantId, id, actorId);
     return this.repo.update(tenantId, id, dto);
   }
 
@@ -64,8 +78,8 @@ export class FilesService {
    * first means a storage failure aborts the whole delete and leaves the asset
    * intact and retryable.
    */
-  async delete(tenantId: string, id: string) {
-    await this.get(tenantId, id);
+  async delete(tenantId: string, id: string, actorId?: string) {
+    await this.get(tenantId, id, actorId);
     await this.purgeStoredObjects(tenantId, id);
     return this.repo.delete(tenantId, id);
   }

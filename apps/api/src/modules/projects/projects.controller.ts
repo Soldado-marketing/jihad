@@ -28,7 +28,7 @@ export class ProjectsController {
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT })
   listProjects(@CurrentUser() user: JwtPayload) {
-    return this.projectsService.listProjects(user.tenantId);
+    return this.projectsService.listProjects(user.tenantId, user.sub);
   }
 
   @Post()
@@ -40,7 +40,7 @@ export class ProjectsController {
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT })
   getProject(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.projectsService.getProject(user.tenantId, id);
+    return this.projectsService.getProject(user.tenantId, id, user.sub);
   }
 
   @Patch(':id')
@@ -57,6 +57,6 @@ export class ProjectsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission({ action: PermissionAction.DELETE, resource: PermissionResource.PROJECT })
   deleteProject(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.projectsService.deleteProject(user.tenantId, id);
+    return this.projectsService.deleteProject(user.tenantId, id, user.sub);
   }
 }

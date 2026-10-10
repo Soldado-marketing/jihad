@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -26,6 +27,25 @@ export class DashboardsRepository {
       collaboration: { notes, files, pendingApprovals: approvals },
       voiceNotes,
       invoices,
+    };
+  }
+
+  /** Same shape as getWorkspaceSummary, counting only the given scopes. */
+  async getAssignedWorkSummary(
+    tenantId: string,
+    where: { project: Prisma.ProjectWhereInput; task: Prisma.TaskWhereInput; file: Prisma.FileAssetWhereInput },
+  ) {
+    const [projects, tasks, files] = await Promise.all([
+      this.prisma.project.count({ where: { tenantId, AND: [where.project] } }),
+      this.prisma.task.count({ where: { tenantId, AND: [where.task] } }),
+      this.prisma.fileAsset.count({ where: { tenantId, AND: [where.file] } }),
+    ]);
+    return {
+      projectTasks: { projects, tasks },
+      crm: { leads: 0, opportunities: 0, meetings: 0, pendingFollowUps: 0 },
+      collaboration: { notes: 0, files, pendingApprovals: 0 },
+      voiceNotes: 0,
+      invoices: 0,
     };
   }
 

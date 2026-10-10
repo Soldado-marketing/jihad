@@ -61,9 +61,13 @@ export class FileVersionsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Loads the parent asset, scoped to the tenant. Returns null when absent. */
-  getFileAsset(tenantId: string, fileAssetId: string): Promise<FileAssetForVersioning | null> {
+  getFileAsset(
+    tenantId: string,
+    fileAssetId: string,
+    scope: Prisma.FileAssetWhereInput = {},
+  ): Promise<FileAssetForVersioning | null> {
     return this.prisma.fileAsset.findFirst({
-      where: { id: fileAssetId, tenantId },
+      where: { id: fileAssetId, tenantId, AND: [scope] },
       select: {
         id: true,
         tenantId: true,
