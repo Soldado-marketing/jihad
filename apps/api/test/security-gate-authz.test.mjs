@@ -198,6 +198,13 @@ describe('Gate 2 - self-scoped routes', { skip }, () => {
     });
   }
 
+  it('/devices returns the caller\'s own device list, not a placeholder', async () => {
+    const res = await as('employee', request(server).get('/api/devices'));
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.items), JSON.stringify(res.body));
+    assert.doesNotMatch(JSON.stringify(res.body), /placeholder/);
+  });
+
   it('/users/me returns the caller, not another user', async () => {
     const res = await as('client', request(server).get('/api/users/me'));
     assert.equal(res.status, 200);
@@ -372,12 +379,14 @@ describe('Gate 2 - deliberately public routes', { skip }, () => {
     assert.doesNotMatch(body, /postgres:\/\/|postgresql:\/\/|password|@/i);
   });
 
-  it('keeps invite acceptance reachable before authentication', async () => {
+  // MAOS-T38: the invite-acceptance route was a placeholder that answered with a
+  // fake success. It is removed until a real token-verified flow exists.
+  it('has no fake invite-acceptance endpoint', async () => {
     const res = await request(server)
       .post('/api/invites/accept')
       .send({ email: `invitee-${RUN}@example.test`, token: 'not-a-real-token' });
 
-    assert.notEqual(res.status, 401, 'invite acceptance must work before a session exists');
+    assert.equal(res.status, 404, JSON.stringify(res.body));
   });
 
   it('keeps public registration closed and creates no account from an invite call', async () => {

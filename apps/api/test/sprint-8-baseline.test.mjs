@@ -31,16 +31,14 @@ describe('Sprint 8 voice notes and voice-to-task API baseline', () => {
     assert.match(schema, /CONFIRMED/);
   });
 
-  it('adds voice, transcription, AI placeholder, and voice-to-task modules', () => {
+  // The unused transcription and AI-extraction placeholders were removed in
+  // MAOS-T38; no provider integration exists.
+  it('adds voice and voice-to-task modules', () => {
     const requiredFiles = [
       'src/modules/voice-notes/voice-notes.controller.ts',
       'src/modules/voice-notes/voice-notes.service.ts',
       'src/modules/voice-notes/voice-notes.repository.ts',
       'src/modules/voice-notes/voice-notes.module.ts',
-      'src/modules/transcription/transcription-provider.placeholder.ts',
-      'src/modules/transcription/transcription.module.ts',
-      'src/modules/ai-provider/ai-extraction.placeholder.ts',
-      'src/modules/ai-provider/ai-provider.module.ts',
       'src/modules/voice-to-task/voice-to-task.controller.ts',
       'src/modules/voice-to-task/voice-to-task.service.ts',
       'src/modules/voice-to-task/voice-to-task.repository.ts',
@@ -54,8 +52,7 @@ describe('Sprint 8 voice notes and voice-to-task API baseline', () => {
     const appModule = readApi('src/app.module.ts');
     assert.match(appModule, /VoiceNotesModule/);
     assert.match(appModule, /VoiceToTaskModule/);
-    assert.match(appModule, /TranscriptionModule/);
-    assert.match(appModule, /AiProviderModule/);
+    assert.doesNotMatch(appModule, /TranscriptionModule|AiProviderModule/);
   });
 
   it('adds REST-first voice note and voice-to-task endpoint skeletons', () => {
@@ -100,17 +97,14 @@ describe('Sprint 8 voice notes and voice-to-task API baseline', () => {
     assert.doesNotMatch(repositories, /prisma\./);
   });
 
-  it('keeps transcription and AI provider calls placeholder-only', () => {
-    const transcriptionProvider = readApi('src/modules/transcription/transcription-provider.placeholder.ts');
-    const aiPlaceholder = readApi('src/modules/ai-provider/ai-extraction.placeholder.ts');
-
-    assert.match(transcriptionProvider, /externalProviderCalled: false/);
-    assert.match(transcriptionProvider, /unauthorizedTrainingAllowed: false/);
-    assert.match(transcriptionProvider, /supportedLanguages: \['ar', 'en', 'de', 'mixed'\]/);
-    assert.match(transcriptionProvider, /retentionReviewRequired: true/);
-    assert.match(aiPlaceholder, /externalProviderCalled: false/);
-    assert.match(aiPlaceholder, /humanConfirmationRequired: true/);
-    assert.match(aiPlaceholder, /taskCreatedAutomatically: false/);
+  // MAOS-T38 removed the transcription/AI placeholders. The safety property they
+  // stood for still holds and is checked here: no provider module exists, so
+  // no external transcription or AI provider can be called.
+  it('makes no transcription or AI provider calls', () => {
+    assert.equal(existsApi('src/modules/transcription'), false);
+    assert.equal(existsApi('src/modules/ai-provider'), false);
+    const appModule = readApi('src/app.module.ts');
+    assert.doesNotMatch(appModule, /TranscriptionModule|AiProviderModule/);
   });
 
   it('requires human confirmation and does not automatically create tasks', () => {

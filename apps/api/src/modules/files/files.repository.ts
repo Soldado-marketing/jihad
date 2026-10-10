@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateFileDto } from './dto/create-file.dto';
 import { UpdateFileDto } from './dto/update-file.dto';
 
-// Minimal type used by SignedUrlService and other callers that only need id + tenantId
+// Minimal type for callers that only need id + tenantId
 export type FileAssetRecord = { id: string; tenantId: string; name?: string };
 
 /**
