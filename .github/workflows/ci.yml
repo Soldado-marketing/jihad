@@ -80,7 +80,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (239 tests).
+      # Blocking gate: the suites that are fully green today (281 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -94,10 +94,13 @@ jobs:
             test/security-gate-file-deletion.test.mjs \
             test/mail-config.test.mjs \
             test/invoice-send-privacy.test.mjs \
-            test/backup-restore-scripts.test.mjs
+            test/backup-restore-scripts.test.mjs \
+            test/nightly-backup-script.test.mjs \
+            test/restore-rehearsal-script.test.mjs \
+            test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (107/107), so it blocks.
+      # service above and drives it over HTTP. Green (153/153), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -105,6 +108,15 @@ jobs:
       # inside the same tenant, and - just as important - that each client can
       # still reach its own, which a broken portal would otherwise pass.
       # visibility-scope proves approval stores only an enforced scope.
+      # finance-payment-rules proves payments respect invoice status, currency
+      # and client scope.
+      # security-gate-foreign-ids proves IDs sent in a body or path (project,
+      # assignee, parent task) must belong to the caller's tenant.
+      # login-history proves login attempts are recorded (IP hashed only) and
+      # that each user can read their own history and nobody else's.
+      # security-gate-session-revocation proves a suspended or non-active user
+      # loses access immediately: existing access and refresh tokens stop working.
+      # throttle-per-client proves rate limits apply per client behind the proxy.
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -120,7 +132,12 @@ jobs:
           node --test \
             test/security-gate-authz.test.mjs \
             test/security-gate-client-isolation.test.mjs \
-            test/visibility-scope.test.mjs
+            test/visibility-scope.test.mjs \
+            test/finance-payment-rules.test.mjs \
+            test/security-gate-foreign-ids.test.mjs \
+            test/login-history.test.mjs \
+            test/security-gate-session-revocation.test.mjs \
+            test/throttle-per-client.test.mjs
 
       # Informational: the sprint-*-baseline suites describe features that were
       # specified but never built. They carry 43 known failures. Reported so the
@@ -162,6 +179,8 @@ jobs:
       - name: Web contract tests
         working-directory: apps/web
         run: node --test test/invoice-send-result.test.mjs test/access-scope.test.mjs
+      # Blocking: every route carries the security headers (MAOS-T33).
+        run: node --test test/invoice-send-result.test.mjs test/security-headers.test.mjs
 
       # Informational: 3 known failures.
       - name: Web tests (informational - 3 known failures)

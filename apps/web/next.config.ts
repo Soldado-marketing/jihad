@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { buildSecurityHeaders } from './src/security/security-headers';
 
 /**
  * Optional same-origin API proxy.
@@ -18,6 +19,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Required for Docker production build — generates minimal standalone server
   output: 'standalone',
+  // MAOS-T33: security headers on every route (CSP report-only for now).
+  async headers() {
+    return [{ source: '/:path*', headers: buildSecurityHeaders(process.env.NEXT_PUBLIC_API_URL) }];
+  },
   ...(apiProxyTarget
     ? {
         async rewrites() {
