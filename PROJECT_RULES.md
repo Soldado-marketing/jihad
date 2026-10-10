@@ -2,25 +2,21 @@
 
 ## Project Identity
 
-- Project name: codex marketing platform
-- Project path: `/Users/jihadhilal/Documents/codex marketing platform`
+- Project name: MAOS — Soldado Marketing Platform
+- Project path: `~/Developer/MAOS/claude` (all MAOS-owned material stays under `~/Developer/MAOS/`)
 - Main active architecture: `apps/web` for the frontend and `apps/api` for the backend API.
 
 ## Active Project Boundary
 
-- All future Codex work must stay inside the existing project folder:
-  `/Users/jihadhilal/Documents/codex marketing platform`
+- All future work must stay inside the existing project folder:
+  `~/Developer/MAOS/claude`
 - Do not create a new project folder.
 - Do not rename the project folder.
 - Do not save generated files, temporary files, downloads, exports, or task files outside this project path.
 
-## Existing Root App Protection
+## No Root Application
 
-- The existing old root Next.js app folders must not be moved, deleted, renamed, or modified unless explicitly approved:
-  - `app`
-  - `components`
-  - `lib`
-  - `styles`
+- The old root Next.js app was removed. Do not recreate root-level `app`, `components`, `lib` or `styles` folders.
 - The active MAOS implementation remains under:
   - `apps/web`
   - `apps/api`
@@ -35,11 +31,8 @@
   - `updated`
   - `fixed`
   - `new project`
-  - `codex marketing platform final`
-  - `codex marketing platform copy`
-  - `codex marketing platform backup`
-  - `codex marketing platform v2`
-  - `codex marketing platform updated`
+  - `claude final`, `claude copy`, `claude backup`, `claude v2`, `claude updated`
+  - any second MAOS checkout outside `~/Developer/MAOS/`
 
 ## File Placement Rules
 
@@ -56,17 +49,10 @@
 ## Root Directory Rules
 
 - The root directory must not receive random files.
-- Root-level files are allowed only when they are standard project-level files, such as:
-  - `README.md`
-  - `package.json`
-  - `package-lock.json`
-  - `tsconfig.json`
-  - `next.config.ts`
-  - `tailwind.config.ts`
-  - `postcss.config.js`
-  - `.gitignore`
-  - `.env.example`
-  - `PROJECT_RULES.md`
+- Root-level files are allowed only when they are standard project-level files. Today these are:
+  - `README.md`, `CLAUDE.md`, `PROJECT_RULES.md`, `.gitignore`
+  - `docker-compose.yml`, `docker-compose.dev.yml`, `setup.sh`, `run_migrations.sh`
+- There is no root `package.json`; `apps/api` and `apps/web` each have their own.
 
 ## Existing File Update Rule
 
@@ -84,12 +70,13 @@
 
 Before making changes, Codex must:
 
-1. Work only inside `/Users/jihadhilal/Documents/codex marketing platform`.
-2. Identify the existing related folders and files.
-3. Prefer updating existing files over creating new ones.
-4. Confirm the correct location before adding any necessary new file.
-5. Avoid touching unrelated files.
-6. Avoid moving, deleting, or renaming files unless explicitly approved.
+1. Work only inside the canonical MAOS repository `~/Developer/MAOS/claude`.
+2. Read `docs/MAOS_PRODUCT_BLUEPRINT.md` and validate the task against it (§30). On a conflict with a Blueprint invariant, STOP and return `BLUEPRINT_CONFLICT`. Never change the Blueprint inside an unrelated implementation task. One MAOS task at a time.
+3. Identify the existing related folders and files.
+4. Prefer updating existing files over creating new ones.
+5. Confirm the correct location before adding any necessary new file.
+6. Avoid touching unrelated files.
+7. Avoid moving, deleting, or renaming files unless explicitly approved.
 
 ## Required File-Change Report
 
