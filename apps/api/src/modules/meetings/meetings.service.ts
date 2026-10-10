@@ -1,14 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MeetingStatus } from '@prisma/client';
+import { assertLeadInTenant, assertOpportunityInTenant } from '../../common/tenant/tenant-references';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { MeetingsRepository } from './meetings.repository';
 
 @Injectable()
 export class MeetingsService {
-  constructor(private readonly repo: MeetingsRepository) {}
+  constructor(
+    private readonly repo: MeetingsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
-  create(tenantId: string, actorId: string, dto: CreateMeetingDto) { return this.repo.create(tenantId, actorId, dto); }
+  async create(tenantId: string, actorId: string, dto: CreateMeetingDto) {
+    await assertLeadInTenant(this.prisma, tenantId, dto.leadId);
+    await assertOpportunityInTenant(this.prisma, tenantId, dto.opportunityId);
+    return this.repo.create(tenantId, actorId, dto);
+  }
 
   async get(tenantId: string, id: string) {
     const item = await this.repo.getById(tenantId, id);

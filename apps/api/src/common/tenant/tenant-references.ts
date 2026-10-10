@@ -118,3 +118,25 @@ export async function assertResourceInTenant(
       invalidReference('resourceType');
   }
 }
+
+export async function assertLeadInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  leadId: Reference,
+  field = 'leadId',
+): Promise<void> {
+  if (leadId === undefined || leadId === null) return;
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, tenantId }, select: { id: true } });
+  if (!lead) invalidReference(field);
+}
+
+export async function assertOpportunityInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  opportunityId: Reference,
+  field = 'opportunityId',
+): Promise<void> {
+  if (opportunityId === undefined || opportunityId === null) return;
+  const opportunity = await prisma.opportunity.findFirst({ where: { id: opportunityId, tenantId }, select: { id: true } });
+  if (!opportunity) invalidReference(field);
+}

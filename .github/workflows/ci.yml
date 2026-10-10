@@ -101,7 +101,7 @@ jobs:
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (186/186), so it blocks.
+      # service above and drives it over HTTP. Green (194/194), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -122,7 +122,8 @@ jobs:
       # throttle-per-client proves rate limits apply per client behind the proxy.
       # security-gate-sessions proves session list/revoke act on own sessions only.
       # security-gate-foreign-ids-content extends that to files, approvals, chat,
-      # voice notes and internal notes.
+      # voice notes and internal notes; -crm-finance to leads, opportunities,
+      # meetings, follow-ups, invoices and payments.
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -143,6 +144,7 @@ jobs:
             test/finance-payment-rules.test.mjs \
             test/security-gate-foreign-ids.test.mjs \
             test/security-gate-foreign-ids-content.test.mjs \
+            test/security-gate-foreign-ids-crm-finance.test.mjs \
             test/login-history.test.mjs \
             test/security-gate-session-revocation.test.mjs \
             test/throttle-per-client.test.mjs \

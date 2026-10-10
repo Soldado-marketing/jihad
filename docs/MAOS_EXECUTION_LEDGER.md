@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `a7c5246` (T24 #28 merged 2026-10-10) |
+| CURRENT_MAIN | `6277b26` (T28 #29 merged 2026-10-10) |
 | CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | MAOS-T28 Foreign-ID tenant validation — files, approvals, chat, voice, collaboration |
+| ACTIVE_TASK | MAOS-T29 Foreign-ID tenant validation — CRM and finance |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | fix/foreign-id-content |
+| CURRENT_BRANCH | fix/foreign-id-crm-finance |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | security-gate-foreign-ids-content 18/18; 8 mutations caught; T27 suite 12/12 |
+| TESTS_PASSED | security-gate-foreign-ids-crm-finance 8/8; 5 mutations caught |
 | TESTS_PENDING | — |
-| PR_URL | open: T28 (this branch), #26 (migration-gated) |
+| PR_URL | open: T29 (this branch), #26 (migration-gated) |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T28; then MAOS-T29 (foreign-ID validation: CRM and finance) from current main; then T35 → D16 overpayment → T39 → F-1 → F-2 → T40 (stops at migration gate). |
+| EXACT_NEXT_ACTION | Land T29; then MAOS-T35 (contractor assigned-item scope) from current main; then D16 overpayment → T39 → F-1 → F-2 → F-3 → T40 (stops at migration gate). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -68,6 +68,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
 | F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | OPEN |
 | F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | OPEN |
+| F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | OPEN |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
@@ -142,7 +143,8 @@ Compared by test identity, never by count.
 | MAOS-T38 | Remove fake-success placeholders + unused placeholder code (non-session) | fix/remove-placeholder-endpoints | #25 MERGED (`c828abe`) | callers traced; gate 239/239; integration 102/102; obsolete assertions updated | 0 | COMPLETE_MERGED |
 | MAOS-T19 | Backup failure and staleness alerting | ops/backup-alerting | #27 MERGED (`75d30ac`) | 16 tests macOS + Linux; 4 mutations; gate 297/297 | 0 | COMPLETE_MERGED |
 | MAOS-T24 | Real session endpoints (list, current, revoke own) | fix/real-session-endpoints | #28 MERGED (`a7c5246`) | suite 9/9; 5 mutations | 0 | COMPLETE_MERGED |
-| MAOS-T28 | Foreign-ID tenant validation — files, approvals, chat, voice, collaboration | fix/foreign-id-content | (this PR) | suite 18/18; 8 mutations | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T28 | Foreign-ID tenant validation — files, approvals, chat, voice, collaboration | fix/foreign-id-content | #29 MERGED (`6277b26`) | suite 18/18; 8 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T29 | Foreign-ID tenant validation — CRM and finance | fix/foreign-id-crm-finance | (this PR) | suite 8/8; 5 mutations | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -493,3 +495,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T19 | Backup failure and staleness alerting | ops/backup-alerting | PR | 16/16, gate 297/297, integration 159/159, full 43 known | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T24 | Real session endpoints | fix/real-session-endpoints | PR | 9/9, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T28 | Foreign-ID validation — content domains | fix/foreign-id-content | PR | 18/18, 8 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T29 | Foreign-ID validation — CRM and finance | fix/foreign-id-crm-finance | PR | 8/8, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
