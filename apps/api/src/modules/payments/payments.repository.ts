@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
+import { UNCOUNTED_PAYMENT_STATUSES } from '../invoices/invoice-totals';
 import { PrismaService } from '../prisma/prisma.service';
+
+/** Thrown when a payment would take an invoice above its total (D16). */
+export class OverpaymentError extends Error {
+  constructor(readonly remainingCents: number) {
+    super('payment exceeds the remaining invoice balance');
+  }
+}
 
 export interface CreatePaymentInput {
   invoiceId?: string;
@@ -73,22 +81,56 @@ export class PaymentsRepository {
     });
   }
 
-  create(tenantId: string, actorId: string, dto: CreatePaymentInput) {
-    return this.prisma.payment.create({
-      data: {
-        tenantId,
-        invoiceId: dto.invoiceId,
-        amountCents: dto.amountCents,
-        currency: (dto.currency ?? 'EUR').toUpperCase(),
-        method: dto.method ?? PaymentMethod.MANUAL,
-        status: dto.status ?? PaymentStatus.RECORDED,
-        clientScopeKey: dto.clientScopeKey,
-        // A manual entry records money that has already arrived, so the default
-        // is now rather than null.
-        receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
-        recordedByUserId: actorId,
-      },
+  /**
+   * Records a payment against an invoice without ever exceeding its total.
+   *
+   * The invoice row is locked (SELECT ... FOR UPDATE) for the transaction, so
+   * concurrent payments on the same invoice are checked one after another:
+   * two requests can never both see the same remaining balance and together
+   * overpay it. Payments in an uncounted status (failed, refunded, cancelled)
+   * do not reduce the balance and are not limited by it.
+   */
+  createWithinInvoiceBalance(tenantId: string, actorId: string, dto: CreatePaymentInput & { invoiceId: string }) {
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ totalCents: number }[]>`
+        SELECT "totalCents" FROM "Invoice"
+        WHERE "id" = ${dto.invoiceId} AND "tenantId" = ${tenantId}
+        FOR UPDATE`;
+      const totalCents = Number(locked[0]?.totalCents ?? 0);
+
+      const status = dto.status ?? PaymentStatus.RECORDED;
+      const counts = !(UNCOUNTED_PAYMENT_STATUSES as readonly string[]).includes(status);
+      if (counts) {
+        const paid = await tx.payment.aggregate({
+          where: { tenantId, invoiceId: dto.invoiceId, status: { notIn: [...UNCOUNTED_PAYMENT_STATUSES] } },
+          _sum: { amountCents: true },
+        });
+        const remainingCents = Math.max(0, totalCents - (paid._sum.amountCents ?? 0));
+        if (dto.amountCents > remainingCents) throw new OverpaymentError(remainingCents);
+      }
+
+      return tx.payment.create({ data: this.paymentData(tenantId, actorId, dto) });
     });
+  }
+
+  create(tenantId: string, actorId: string, dto: CreatePaymentInput) {
+    return this.prisma.payment.create({ data: this.paymentData(tenantId, actorId, dto) });
+  }
+
+  private paymentData(tenantId: string, actorId: string, dto: CreatePaymentInput) {
+    return {
+      tenantId,
+      invoiceId: dto.invoiceId,
+      amountCents: dto.amountCents,
+      currency: (dto.currency ?? 'EUR').toUpperCase(),
+      method: dto.method ?? PaymentMethod.MANUAL,
+      status: dto.status ?? PaymentStatus.RECORDED,
+      clientScopeKey: dto.clientScopeKey,
+      // A manual entry records money that has already arrived, so the default
+      // is now rather than null.
+      receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
+      recordedByUserId: actorId,
+    };
   }
 
   getById(tenantId: string, id: string) {

@@ -9,6 +9,10 @@
  * prove each rule, that a refused payment writes nothing and changes nothing,
  * and that a valid payment still works.
  *
+ * D16 (owner decision 2026-10-10): a payment may not take an invoice above its
+ * total. The check and the insert run under a row lock on the invoice, so
+ * concurrent payments cannot together overpay it.
+ *
  * Prerequisites (otherwise the whole suite skips rather than failing):
  *   npm run build; migrated PostgreSQL; DATABASE_URL + JWT_SECRET; MAOS_INTEGRATION=1.
  * Seeds its own tenant directly, so it shares a database with the other suites.
@@ -163,5 +167,87 @@ describe('payment rules', { skip }, () => {
     const s = await state(inv.id);
     assert.equal(s.invoice.status, 'PAID');
     assert.equal(s.revenue, 1);
+  });
+});
+
+describe('overpayment (D16)', { skip }, () => {
+  it('refuses a payment above the remaining balance with 409 and the remaining amount', async () => {
+    const inv = await invoice('SENT');
+    assert.equal((await pay({ invoiceId: inv.id, amountCents: 6000, currency: 'EUR' })).status, 201);
+    const res = await pay({ invoiceId: inv.id, amountCents: 4001, currency: 'EUR' });
+    assert.equal(res.status, 409, JSON.stringify(res.body));
+    assert.match(JSON.stringify(res.body), /OVERPAYMENT/);
+    assert.match(JSON.stringify(res.body), /"remainingCents":4000/);
+    const s = await state(inv.id);
+    assert.deepEqual(s, { invoice: { status: 'PARTIALLY_PAID', paidCents: 6000 }, payments: 1, revenue: 0 });
+  });
+
+  it('accepts exactly the remaining balance (control)', async () => {
+    const inv = await invoice('SENT');
+    assert.equal((await pay({ invoiceId: inv.id, amountCents: 6000, currency: 'EUR' })).status, 201);
+    assert.equal((await pay({ invoiceId: inv.id, amountCents: 4000, currency: 'EUR' })).status, 201);
+    const s = await state(inv.id);
+    assert.equal(s.invoice.status, 'PAID');
+    assert.equal(s.invoice.paidCents, 10000);
+  });
+
+  it('refuses any further payment on a fully paid invoice and posts no extra revenue', async () => {
+    const inv = await invoice('SENT');
+    assert.equal((await pay({ invoiceId: inv.id, amountCents: 10000, currency: 'EUR' })).status, 201);
+    const res = await pay({ invoiceId: inv.id, amountCents: 1, currency: 'EUR' });
+    assert.equal(res.status, 409);
+    assert.match(JSON.stringify(res.body), /"remainingCents":0/);
+    assert.deepEqual(await state(inv.id), { invoice: { status: 'PAID', paidCents: 10000 }, payments: 1, revenue: 1 });
+  });
+
+  it('lets only one of two concurrent payments for the full remainder through', async () => {
+    const inv = await invoice('SENT');
+    const results = await Promise.all([
+      pay({ invoiceId: inv.id, amountCents: 10000, currency: 'EUR' }),
+      pay({ invoiceId: inv.id, amountCents: 10000, currency: 'EUR' }),
+      pay({ invoiceId: inv.id, amountCents: 10000, currency: 'EUR' }),
+    ]);
+    const codes = results.map((r) => r.status).sort();
+    assert.deepEqual(codes, [201, 409, 409], JSON.stringify(results.map((r) => r.body)));
+    const s = await state(inv.id);
+    assert.equal(s.payments, 1);
+    assert.equal(s.invoice.paidCents, 10000);
+    assert.equal(s.revenue, 1);
+  });
+
+  it('waits for an in-flight payment on the same invoice, then refuses the overpayment', async () => {
+    // Deterministic race: this transaction plays a concurrent request that has
+    // passed its balance check and inserted a full payment but not committed.
+    // With the row lock the API request blocks until the commit, then sees the
+    // payment and refuses. Without it, the request would not see the
+    // uncommitted row and would record a second full payment.
+    const inv = await invoice('SENT');
+    let pending;
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Invoice" WHERE "id" = ${inv.id} FOR UPDATE`;
+        await tx.payment.create({
+          data: { tenantId, invoiceId: inv.id, amountCents: 10000, currency: 'EUR', receivedAt: new Date() },
+        });
+        pending = pay({ invoiceId: inv.id, amountCents: 10000, currency: 'EUR' }).then((r) => r);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      },
+      { timeout: 10000 },
+    );
+    const res = await pending;
+    assert.equal(res.status, 409, JSON.stringify(res.body));
+    assert.equal((await state(inv.id)).payments, 1);
+  });
+
+  it('does not limit a payment recorded as FAILED (it never counts towards the balance)', async () => {
+    const inv = await invoice('SENT');
+    assert.equal((await pay({ invoiceId: inv.id, amountCents: 10000, currency: 'EUR' })).status, 201);
+    const res = await pay({ invoiceId: inv.id, amountCents: 5000, currency: 'EUR', status: 'FAILED' });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal((await state(inv.id)).invoice.paidCents, 10000);
+  });
+
+  it('leaves payments without an invoice unlimited (control)', async () => {
+    assert.equal((await pay({ amountCents: 999999, currency: 'EUR' })).status, 201);
   });
 });

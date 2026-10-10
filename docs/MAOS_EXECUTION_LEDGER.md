@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `fa1b218` (T29 #30 merged 2026-10-10) |
+| CURRENT_MAIN | `0073b6b` (T35 #31 merged 2026-10-10) |
 | CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | MAOS-T35 Contractor assigned-item scope |
+| ACTIVE_TASK | MAOS-D16a Reject overpayments (code, no migration) |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | fix/contractor-assigned-scope |
+| CURRENT_BRANCH | fix/reject-overpayment |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | security-gate-contractor-scope 20/20; 10 mutations caught |
+| TESTS_PASSED | finance-payment-rules 15/15 (7 new); integration-api 35/35; 5 mutations caught incl. lock removal |
 | TESTS_PENDING | — |
-| PR_URL | open: T35 (this branch), #26 (migration-gated) |
+| PR_URL | open: D16a (this branch), #26 (migration-gated) |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T35; then D16 overpayment rejection (code) from current main; then T39 → F-1 → F-2 → F-3 → T40 (stops at migration gate). |
+| EXACT_NEXT_ACTION | Land D16a; then MAOS-T39 (stale test triage) from current main; then F-1 → F-2 → F-3 → T40 + D16b idempotency (migration gate). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -145,7 +145,8 @@ Compared by test identity, never by count.
 | MAOS-T24 | Real session endpoints (list, current, revoke own) | fix/real-session-endpoints | #28 MERGED (`a7c5246`) | suite 9/9; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T28 | Foreign-ID tenant validation — files, approvals, chat, voice, collaboration | fix/foreign-id-content | #29 MERGED (`6277b26`) | suite 18/18; 8 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T29 | Foreign-ID tenant validation — CRM and finance | fix/foreign-id-crm-finance | #30 MERGED (`fa1b218`) | suite 8/8; 5 mutations | 0 | COMPLETE_MERGED |
-| MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | (this PR) | suite 20/20; 10 mutations | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | #31 MERGED (`0073b6b`) | suite 20/20; 10 mutations | 0 | COMPLETE_MERGED |
+| MAOS-D16a | Reject overpayments (row-locked balance check) | fix/reject-overpayment | (this PR) | finance 15/15; 5 mutations | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -498,3 +499,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T28 | Foreign-ID validation — content domains | fix/foreign-id-content | PR | 18/18, 8 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T29 | Foreign-ID validation — CRM and finance | fix/foreign-id-crm-finance | PR | 8/8, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | PR | 20/20, 10 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-D16a | Reject overpayments | fix/reject-overpayment | PR | finance 15/15, integration-api 35/35, 5 mutations | 0 | COMPLETE_AWAITING_MERGE (D16b idempotency needs a migration: gated)

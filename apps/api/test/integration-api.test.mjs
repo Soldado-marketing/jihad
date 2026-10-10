@@ -327,12 +327,13 @@ describe('invoicing', { skip }, () => {
     assert.equal(res.body.invoice.paidCents, 250000);
     assert.equal(res.body.invoice.status, 'PAID');
 
-    // A further payment must not post revenue a second time.
-    await auth(request(server).post('/api/payments')).send({
+    // A further payment is an overpayment (D16): refused, and no second revenue.
+    const extra = await auth(request(server).post('/api/payments')).send({
       invoiceId,
       amountCents: 1,
       currency: 'EUR',
     });
+    assert.equal(extra.status, 409, JSON.stringify(extra.body));
 
     const revenue = await auth(request(server).get('/api/finance/revenue'));
     assert.equal(revenue.status, 200);
