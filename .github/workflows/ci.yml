@@ -19,7 +19,11 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # Same image as docker.io/library/postgres:16-alpine (identical digest),
+        # pulled from the AWS ECR Public mirror of the Docker Official Images:
+        # concurrent PR runs hit Docker Hub's anonymous pull rate limit and
+        # failed before any test ran (MAOS-T146).
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: maos
           POSTGRES_PASSWORD: maos_password
