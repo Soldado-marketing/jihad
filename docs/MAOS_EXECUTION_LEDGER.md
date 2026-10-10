@@ -14,11 +14,11 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `df08135` (verified 2026-10-10: origin = GitHub) |
+| CURRENT_MAIN | `9dd7047` (#13 merged 2026-10-10; main CI green; no deploy — watch paths; prod health 200/200) |
 | CURRENT_WAVE | W2 — Security without migrations (W1 remainder waits: T19 on #9; T18/T20/T21/T22 owner-gated; T24 on #10; T28/T29 on #14) |
-| ACTIVE_TASK | none |
-| TASK_STATUS | — (last task MAOS-T34 COMPLETE_AWAITING_MERGE) |
-| CURRENT_BRANCH | — |
+| ACTIVE_TASK | MAOS-T36 — visibilityScope restriction |
+| TASK_STATUS | ACTIVE |
+| CURRENT_BRANCH | `fix/visibility-scope-restriction` |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
@@ -26,12 +26,12 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | TESTS_PASSED | — |
 | TESTS_PENDING | — |
 | PR_URL | — (open PRs #4–#15 listed below) |
-| CI_STATUS | #13 PASS; #4–#12 and #14–#19 API job blocked by CI-1 (Docker Hub rate limit) until #13 is merged |
-| BLOCKERS | All remaining dependency-ready work needs a merge or an owner decision (see OWNER_GATE_PENDING) |
+| CI_STATUS | #13 merged. #4–#12, #14–#19 closed+reopened 2026-10-10 for fresh CI on the new merge refs; results pending |
+| BLOCKERS | none for T36 |
 | OWNER_GATE_PENDING | (1) merge #13, then review/merge #4–#19; (2) decisions: T35 contractor scope, T36 visibilityScope, D4 (T37), T38 removals, T39 test retirements, D6 (T41/T42), D9 (T44/T45), D16 overpayment/idempotency, T18 Keychain secret, D2 off-Mac target, D3, D1 |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — T34 pushed (#19); all work committed and pushed; no uncommitted state |
-| EXACT_NEXT_ACTION | Stopped: every remaining task is merge- or owner-gated. On any merge or decision, start the first task it unblocks (T19 after #9, T24 after #10, T28/T29 after #14, T40 after #19 + migration approval). When #13 is merged: rerun the failed API job on #4–#19 and record CI. Local `apps/web/node_modules` is on Next 15.5.27: run `npm ci` in apps/web after switching branches. |
+| EXACT_NEXT_ACTION | T36 (W2), then T37 (W2), then T38 non-session placeholders; record PR CI results; merge #4 when green. Remaining W2/W3 work waits on PR merges (T19←#9, T24←#10, T28/T29/T35←#14, T40/D16←#19, T18←#9). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
