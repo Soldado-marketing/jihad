@@ -5,11 +5,13 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { assertProjectInTenant, assertTaskInTenant } from '../../common/tenant/tenant-references';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import {
   UnsafeObjectKeyError,
   assertKeyBelongsToTenant,
 } from '../storage/object-key';
+import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateFileDto } from './dto/create-file.dto';
 import { UpdateFileDto } from './dto/update-file.dto';
@@ -23,6 +25,7 @@ export class FilesService {
     private readonly repo: FilesRepository,
     private readonly storage: StorageService,
     private readonly clientScope: ClientScopeService,
+    private readonly prisma: PrismaService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
@@ -33,7 +36,9 @@ export class FilesService {
     return this.repo.listForClient(tenantId, scope);
   }
 
-  create(tenantId: string, actorId: string, dto: CreateFileDto) {
+  async create(tenantId: string, actorId: string, dto: CreateFileDto) {
+    await assertProjectInTenant(this.prisma, tenantId, dto.projectId);
+    await assertTaskInTenant(this.prisma, tenantId, dto.taskId);
     return this.repo.create(tenantId, actorId, dto);
   }
 

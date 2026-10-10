@@ -6,6 +6,7 @@ import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { CollaborationService } from './collaboration.service';
+import { CreateInternalNoteDto, UpdateInternalNoteDto } from './dto/create-internal-note.dto';
 
 @Controller('collaboration/notes')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -20,7 +21,7 @@ export class CollaborationController {
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.INTERNAL_NOTE })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: { body: string; resourceType?: string; resourceId?: string; threadKey?: string }) {
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateInternalNoteDto) {
     return this.svc.createNote(user.tenantId, user.sub, dto.body, dto.resourceType, dto.resourceId, dto.threadKey);
   }
 
@@ -30,7 +31,7 @@ export class CollaborationController {
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.INTERNAL_NOTE })
-  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: { body: string }) {
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateInternalNoteDto) {
     return this.svc.updateNote(user.tenantId, id, dto.body);
   }
 

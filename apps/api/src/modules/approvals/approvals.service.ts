@@ -1,14 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { assertFileAssetInTenant, assertFileVersionInTenant } from '../../common/tenant/tenant-references';
+import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalsRepository } from './approvals.repository';
 import { CreateApprovalRequestDto } from './dto/create-approval-request.dto';
 import { CreateApprovalDecisionDto } from './dto/create-approval-decision.dto';
 
 @Injectable()
 export class ApprovalsService {
-  constructor(private readonly repo: ApprovalsRepository) {}
+  constructor(
+    private readonly repo: ApprovalsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
-  create(tenantId: string, actorId: string, dto: CreateApprovalRequestDto) {
+  async create(tenantId: string, actorId: string, dto: CreateApprovalRequestDto) {
+    await assertFileAssetInTenant(this.prisma, tenantId, dto.fileAssetId);
+    await assertFileVersionInTenant(this.prisma, tenantId, dto.fileVersionId, dto.fileAssetId);
     return this.repo.create(tenantId, actorId, dto);
   }
 
