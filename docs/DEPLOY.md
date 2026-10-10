@@ -275,6 +275,23 @@ missing, `3` database URL not obtainable (for example an expired Railway
 login), `4` time limit exceeded, `75` another run in progress. Invoke it with
 `/bin/bash`.
 
+### Backup alerts
+
+Backup problems are never silent. `scripts/backup-alert.sh <message>` shows a
+macOS notification and appends a line to `$MAOS_BACKUP_HOME/logs/alerts.log`
+(connection strings redacted, one line, at most 200 characters).
+
+- `nightly-backup.sh` raises an alert on every failure (exit `1`–`4` and the
+  backup's own status). A skipped run (`75`) and a successful run stay silent.
+- `scripts/backup-staleness-check.sh` alerts when the newest dump whose
+  `.sha256` matches is missing or older than `MAOS_BACKUP_MAX_AGE_HOURS`
+  (default 26). It exits `0` when the backup is fresh and `1` after alerting.
+  Run it on its own schedule (for example hourly), separate from the nightly
+  backup, so a run that never started is also caught.
+
+Alerts go to the Mac running the scripts. Email or chat delivery is not
+built in.
+
 ### Restore
 
 ```bash

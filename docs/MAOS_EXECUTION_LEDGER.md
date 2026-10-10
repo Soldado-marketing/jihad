@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `c828abe` (2026-10-10: #21, #22, #23, #7, #6, #16, #15, #8, #9, #10, #11, #12, #14, #17, #18, #19, #20, #24, #25 merged in that order; main CI green, Railway SUCCESS and prod health 200/200 after every merge) |
+| CURRENT_MAIN | `7e7c4df` (2026-10-10: #21 #22 #23 #7 #6 #16 #15 #8 #9 #10 #11 #12 #14 #17 #18 #19 #20 #24 #25 then #5 merged; main CI green, Railway SUCCESS and prod health 200/200 after every merge) |
 | CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | none (next: MAOS-T19) |
-| TASK_STATUS | — (merge batch complete) |
-| CURRENT_BRANCH | — |
+| ACTIVE_TASK | MAOS-T19 Backup failure and staleness alerting |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
+| CURRENT_BRANCH | ops/backup-alerting |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | — |
+| TESTS_PASSED | backup-alerting 16/16 (macOS + Linux); 4 mutations caught; gate 297/297; integration 159/159; full API 43 known failures, NEW_REGRESSIONS=0 |
 | TESTS_PENDING | — |
-| PR_URL | open: #5 (this ledger), #26 (migration-gated) |
+| PR_URL | open: T19 (this branch), #26 (migration-gated) |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Start MAOS-T19 (backup failure/staleness alerting) on a new branch from `c828abe`; then T24 → T28 → T29 → T35 → D16 overpayment → T39 → F-1 → F-2 → T40 (stops at migration gate). |
+| EXACT_NEXT_ACTION | Land T19; then MAOS-T24 (real session endpoints) from current main; then T28 → T29 → T35 → D16 overpayment → T39 → F-1 → F-2 → T40 (stops at migration gate). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -140,6 +140,7 @@ Compared by test identity, never by count.
 | MAOS-T11 | Blueprint v1.1 (approved product structure) | docs/blueprint-v1-1 | #23 MERGED (`c0bbc72`) | 43 sections, tables valid | 0 | COMPLETE_MERGED |
 | MAOS-T37 | Default invoice recipients: own active client (D4) | fix/invoice-default-recipients | #24 MERGED (`7fce1ac`) | suite 5/5; 4 mutations; integration 106/106 | 0 | COMPLETE_MERGED |
 | MAOS-T38 | Remove fake-success placeholders + unused placeholder code (non-session) | fix/remove-placeholder-endpoints | #25 MERGED (`c828abe`) | callers traced; gate 239/239; integration 102/102; obsolete assertions updated | 0 | COMPLETE_MERGED |
+| MAOS-T19 | Backup failure and staleness alerting | ops/backup-alerting | (this PR) | 16 tests macOS + Linux; 4 mutations; gate 297/297 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -487,3 +488,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T38 | Remove placeholders (non-session) | fix/remove-placeholder-endpoints | #25 (open) | gate 239/239, integration 102/102 | 0 | COMPLETE_AWAITING_MERGE
 - 2026-10-10 merge batch | #21 #22 #23 #7 #6 #16 #15 #8 #9 #10 #11 #12 #14 #17 #18 #19 #20 #24 #25 merged → main `c828abe` | ci.yml conflicts union-resolved and re-measured per PR; DEPLOY.md conflict (#17) kept both rows; duplicate `run:` key (#20) fixed | gate 281/281, integration 159/159 | 0 | COMPLETE_MERGED
 - MAOS-T44 | Email delivery tracking (migration) | feat/email-delivery-tracking | #26 (open) | gate 243/243, integration 104/104 | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
+- MAOS-T19 | Backup failure and staleness alerting | ops/backup-alerting | PR | 16/16, gate 297/297, integration 159/159, full 43 known | 0 | COMPLETE_AWAITING_MERGE
