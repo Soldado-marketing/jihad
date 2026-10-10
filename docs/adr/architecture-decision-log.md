@@ -21,6 +21,7 @@ This log tracks Sprint 0 architecture decisions required before implementation b
 | ADR-013 | Backup and recovery strategy | DevOps Architect / Database Architect | Approved | Day 5 | PostgreSQL and storage direction | Backup/restore baseline approved with RPO/RTO placeholders and launch readiness gate |
 | ADR-014 | Security baseline and audit strategy | Security Architect | Approved | Day 4 | Tenant hardening baseline | Invite-only, RBAC/custom permission foundation, permission guard, service scope validation, audit logging, and audit redaction baseline approved |
 | ADR-015 | Hotfix and rollback strategy | Release Manager / CTO | Approved | Day 5 | Release governance | Hotfix classification, approval owners, minimum tests, rollback triggers, post-hotfix audit, and communication expectations approved |
+| ADR-016 | Release control: staging, preview and feature flags | Owner | Proposed | 2026-10-09 (MAOS-T14) | ADR-011, ADR-015 | Records that only production exists; recommends restored-dump rehearsal for high-risk changes, minimal server-side flags, and an owner decision (D10) on a Railway staging environment |
 
 ## Status Definitions
 
