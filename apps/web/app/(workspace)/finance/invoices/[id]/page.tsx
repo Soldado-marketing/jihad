@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import { InvoiceDetail, type InvoiceDetailData } from '@/components/finance/invoice-detail';
 import { formatCents, toCents } from '@/components/finance/invoice-line-editor';
+import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { PageHeader } from '@/components/ui/page-header';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 import { describeInvoiceSend, type InvoiceSendResponse } from '@/lib/invoice-send-result';
@@ -286,6 +287,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </ul>
         )}
       </section>
+
+      <ActivityTimeline resourceType="invoice" resourceId={id} />
     </div>
   );
 }
