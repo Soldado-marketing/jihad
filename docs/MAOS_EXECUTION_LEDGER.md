@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `f43a0fc` (T18 #40 merged 2026-10-11) |
+| CURRENT_MAIN | `5a04391` (T47 #41 merged 2026-10-11) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T47 Notification writers |
+| ACTIVE_TASK | MAOS-T48 Notification bell in the shell |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/notification-writers |
+| CURRENT_BRANCH | feat/notification-bell |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | notification-writers 8/8; invoice-send-privacy 5/5; 5 mutations caught |
+| TESTS_PASSED | web notification-bell 3/3; web 86/86; web build OK |
 | TESTS_PENDING | — |
-| PR_URL | open: T47 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
+| PR_URL | open: T48 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T47; then MAOS-T48 (notification bell in the shell) from current main. |
+| EXACT_NEXT_ACTION | Land T48; next W4 task per Execution order is T59 (check registry); T49 Customer ADR is an owner product gate - prepare the draft only. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -144,7 +144,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-F5 | Payment amounts as integer cents (payments page used a float) | fix/payment-amount-cents | #37 MERGED (`457cd59`) | web 83/83 | 0 | COMPLETE_MERGED |
 | MAOS-T18 | Keychain database credential for backups (code; owner stores the item) | ops/backup-keychain-credential | #40 MERGED (`f43a0fc`) | 37/37 macOS + Linux; 3 mutations | 0 | COMPLETE_MERGED (activation: owner stores the Keychain item) |
 | MAOS-D16b | Payment idempotency key (Idempotency-Key header, unique per tenant) | schema/payment-idempotency | #38 (open, gated) | API 6/6, web 86/86; 4 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION; migrate before deploy) |
-| MAOS-T47 | Notification writers (re-applied from feat/v2-a1-notifications) | feat/notification-writers | (this PR) | 8/8 + unit 5/5; 5 mutations | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T47 | Notification writers (re-applied from feat/v2-a1-notifications) | feat/notification-writers | #41 MERGED (`5a04391`) | 8/8 + unit 5/5; 5 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T48 | Notification bell in the workspace top bar | feat/notification-bell | (this PR) | web 3/3, 86/86 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -506,3 +507,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-D16b | Payment idempotency key (migration) | schema/payment-idempotency | #38 | API 6/6, web 86/86, 4 mutations | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
 - MAOS-T18 | Keychain database credential for backups (code) | ops/backup-keychain-credential | PR | 37/37, 3 mutations | 0 | COMPLETE_AWAITING_MERGE (owner stores the Keychain item)
 - MAOS-T47 | Notification writers | feat/notification-writers | PR | 8/8, unit 5/5, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T48 | Notification bell in the shell | feat/notification-bell | PR | web 86/86 | 0 | COMPLETE_AWAITING_MERGE
