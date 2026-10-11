@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FollowUpStatus } from '@prisma/client';
 import { assertLeadInTenant, assertOpportunityInTenant } from '../../common/tenant/tenant-references';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
+import { UpdateFollowUpDto } from './dto/update-follow-up.dto';
 import { FollowUpsRepository } from './follow-ups.repository';
 
 @Injectable()
@@ -25,7 +25,7 @@ export class FollowUpsService {
     return item;
   }
 
-  async update(tenantId: string, id: string, dto: Partial<CreateFollowUpDto> & { status?: FollowUpStatus }) {
+  async update(tenantId: string, id: string, dto: UpdateFollowUpDto) {
     await this.get(tenantId, id);
     return this.repo.update(tenantId, id, dto);
   }

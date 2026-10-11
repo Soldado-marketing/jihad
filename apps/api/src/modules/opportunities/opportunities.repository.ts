@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { CrmPipelineStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 
 @Injectable()
 export class OpportunitiesRepository {
@@ -43,7 +43,7 @@ export class OpportunitiesRepository {
     });
   }
 
-  update(tenantId: string, id: string, dto: Partial<CreateOpportunityDto> & { status?: CrmPipelineStatus }) {
+  update(tenantId: string, id: string, dto: UpdateOpportunityDto) {
     return this.prisma.opportunity.update({
       where: { id, tenantId },
       data: {

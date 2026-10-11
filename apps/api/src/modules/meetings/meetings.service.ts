@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { MeetingStatus } from '@prisma/client';
 import { assertLeadInTenant, assertOpportunityInTenant } from '../../common/tenant/tenant-references';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
+import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { MeetingsRepository } from './meetings.repository';
 
 @Injectable()
@@ -25,7 +25,7 @@ export class MeetingsService {
     return item;
   }
 
-  async update(tenantId: string, id: string, dto: Partial<CreateMeetingDto> & { status?: MeetingStatus }) {
+  async update(tenantId: string, id: string, dto: UpdateMeetingDto) {
     await this.get(tenantId, id);
     return this.repo.update(tenantId, id, dto);
   }
