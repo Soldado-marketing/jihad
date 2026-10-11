@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `31622ad` (F-3 #35 merged 2026-10-11) |
-| CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | MAOS-F5 Payment amounts as integer cents (web) |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | fix/payment-amount-cents |
+| CURRENT_MAIN | `bde94b0` (T109 #57 merged 2026-10-11) |
+| CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
+| ACTIVE_TASK | none |
+| TASK_STATUS | — (all dependency-ready, non-gated work landed) |
+| CURRENT_BRANCH | — |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | web money-input 3/3 (fails 2 on old code); web 83/83 |
+| TESTS_PASSED | main: full API and web suites blocking and green; integration suites per ci.yml |
 | TESTS_PENDING | — |
-| PR_URL | open: F-5 (this branch); gated: #36 T40, #26 T44 |
+| PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
-| OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 and T40 (and D16b when prepared): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; T40 also needs the duplicate pre-check query in its PR to return 0 rows; (2) F-2 invite flow (product decision); (3) T18 Keychain item; (4) T21/T22 owner actions; (5) D2, D3, D6 deferred |
+| OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land F-5; then prepare D16b (payment idempotency key, migration) — do not merge or apply; then the W1–W3 safety status and W4 T47 if no real gate applies. |
+| EXACT_NEXT_ACTION | Wait for owner decisions (OWNER_GATE_PENDING). Each unlocks work: migration gates (#26/#36/#38; then T50/T51/T56/T71/T77/T87/T89/T93/T97/T101/T105/T110/T114/T116 schema tasks), ADR-017/ADR-018 acceptance (T50+, T71+), T15 branch cleanup (52 merged remote branches; docs/consolidate and feat/v2-a1-notifications superseded), F-2 invite flow, D7 dashboard IA (T121), D8 scheduler (T125), T18 Keychain item, T21/T22, D2/D3/D6. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -71,6 +71,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | FIXED in F-3 PR (+ follow-ups page sent invalid DONE status) |
 | F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
 | CI-2 | Local-only intermittent integration failures (about 1 in 6 parallel runs on the Mac): the response body `{"error":"Not found"}` is not produced by MAOS and the API logged no such request — supertest re-listens on an ephemeral port per request and another local process answered. Not seen in GitHub CI. If it appears there: bind each test app once (`app.listen(0, '127.0.0.1')`) in the harnesses | integration tests | OBSERVED (no action yet) |
+| GIT-1 | GitHub email privacy now blocks pushes with the private address. Owner chose (2026-10-11) the repo-local no-reply identity `272799577+Soldado-marketing@users.noreply.github.com` for MAOS commits; global git identity unchanged; only the unpushed T48 commit was re-authored | git | RESOLVED |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
@@ -141,10 +142,29 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-F1 | Client onboarding assigns the client scope (+ contractor access label) | fix/client-onboarding-scope | #34 MERGED (`6447299`) | suite 5/5; web 78/78 | 0 | COMPLETE_MERGED |
 | MAOS-F3 | CRM update and report body validation (+ follow-ups status fix) | fix/crm-update-validation | #35 MERGED (`31622ad`) | suite 4/4; web 80/80 | 0 | COMPLETE_MERGED |
 | MAOS-T40 | Revenue posting uniqueness (unique RevenueRecord(tenantId, invoiceId)) | schema/revenue-posting-unique | #36 (open, gated) | suite 5/5; 2 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
-| MAOS-F5 | Payment amounts as integer cents (payments page used a float) | fix/payment-amount-cents | (this PR) | web 83/83 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-F5 | Payment amounts as integer cents (payments page used a float) | fix/payment-amount-cents | #37 MERGED (`457cd59`) | web 83/83 | 0 | COMPLETE_MERGED |
+| MAOS-T18 | Keychain database credential for backups (code; owner stores the item) | ops/backup-keychain-credential | #40 MERGED (`f43a0fc`) | 37/37 macOS + Linux; 3 mutations | 0 | COMPLETE_MERGED (activation: owner stores the Keychain item) |
+| MAOS-D16b | Payment idempotency key (Idempotency-Key header, unique per tenant) | schema/payment-idempotency | #38 (open, gated) | API 6/6, web 86/86; 4 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION; migrate before deploy) |
+| MAOS-T47 | Notification writers (re-applied from feat/v2-a1-notifications) | feat/notification-writers | #41 MERGED (`5a04391`) | 8/8 + unit 5/5; 5 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T48 | Notification bell in the workspace top bar | feat/notification-bell | #42 MERGED (`0ee5beb`) | web 3/3, 86/86 | 0 | COMPLETE_MERGED |
+| MAOS-T59 | Shared DataTable (sorting, pagination; pilot: leads) | feat/data-table | #43 MERGED (`ca227fd`) | web 8/8 | 0 | COMPLETE_MERGED |
+| MAOS-T61 | Primitives: unified StatusBadge, ErrorState, DetailPanel, KpiCard | feat/ui-primitives | #44 MERGED (`21f9f7f`) | web 7/7 | 0 | COMPLETE_MERGED |
+| MAOS-T65 | Activity timeline API over AuditEvent | feat/activity-timeline-api | #45 MERGED (`c83372c`) | 7/7; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
+| MAOS-T62 | CRM pipeline board (7 stages, count + per-currency value) | feat/crm-pipeline-board | #46 MERGED (`8a138d4`) | web 5/5 | 0 | COMPLETE_MERGED |
+| MAOS-T67 | My Work aggregation API | feat/my-work-api | #47 MERGED (`99c00d7`) | my-work 5/5; 6 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T68 | My Work page | feat/my-work-ui | #48 MERGED (`cbe1ef0`) | web my-work 4/4 | 0 | COMPLETE_MERGED |
+| MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | #49 MERGED (`b85e371`) | web filter-bar 6/6 | 0 | COMPLETE_MERGED |
+| MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | #50 MERGED (`c55d131`) | web activity-timeline 4/4 | 0 | COMPLETE_MERGED |
+| MAOS-T132 | Audit log API and owner-only Audit UI | feat/audit-ui | #51 MERGED (`2709dca`) | audit-log 4/4, web 2/2; 3 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T49 | ADR-017 Customer entity and client-scope mapping (Proposed) | docs/adr-017-customer | #52 MERGED (`c9c7988`) | docs | 0 | COMPLETE_MERGED |
+| MAOS-T70 | ADR-018 Time entries and rate resolution (Proposed) | docs/adr-018-time-and-rates | #53 MERGED (`e6d7b59`) | docs | 0 | COMPLETE_MERGED |
+| MAOS-T103 | Calendar aggregation API | feat/calendar-api | #54 MERGED (`88b3aa5`) | calendar 6/6; 5 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | #55 MERGED (`0086453`) | web calendar 7/7 | 0 | COMPLETE_MERGED |
+| MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | #56 MERGED (`dcab6d7`) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
+| MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | #57 MERGED (`bde94b0`) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
 
-Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
+Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
 ---
 
@@ -500,3 +520,23 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-F3 | CRM update and report body validation | fix/crm-update-validation | PR | 4/4, web 80/80, 3 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T40 | Revenue posting uniqueness (migration) | schema/revenue-posting-unique | PR | 5/5, 2 mutations | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
 - MAOS-F5 | Payment amounts as integer cents (web) | fix/payment-amount-cents | PR | money-input 3/3, web 83/83 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-D16b | Payment idempotency key (migration) | schema/payment-idempotency | #38 | API 6/6, web 86/86, 4 mutations | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
+- MAOS-T18 | Keychain database credential for backups (code) | ops/backup-keychain-credential | PR | 37/37, 3 mutations | 0 | COMPLETE_AWAITING_MERGE (owner stores the Keychain item)
+- MAOS-T47 | Notification writers | feat/notification-writers | PR | 8/8, unit 5/5, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T48 | Notification bell in the shell | feat/notification-bell | PR | web 86/86 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T59 | Shared DataTable | feat/data-table | PR | web 8/8 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T61 | UI primitives | feat/ui-primitives | PR | web 7/7 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T65 | Activity timeline API | feat/activity-timeline-api | PR | 7/7, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T62 | CRM pipeline board (7 stages, count + per-currency value) | feat/crm-pipeline-board | PR | web 5/5 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T67 | My Work aggregation API | feat/my-work-api | PR | my-work 5/5; 6 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T68 | My Work page | feat/my-work-ui | PR | web my-work 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | PR | web filter-bar 6/6 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | PR | web activity-timeline 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T132 | Audit log API and owner-only Audit UI | feat/audit-ui | PR | audit-log 4/4, web 2/2; 3 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T49 | ADR-017 Customer entity and client-scope mapping (Proposed) | docs/adr-017-customer | PR | docs | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T70 | ADR-018 Time entries and rate resolution (Proposed) | docs/adr-018-time-and-rates | PR | docs | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T103 | Calendar aggregation API | feat/calendar-api | PR | calendar 6/6; 5 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | PR | web calendar 7/7 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | PR | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | PR | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
+- 2026-10-11 W4–W7 landing | #42–#57 merged (T48, T59, T61, T65, T62, T67, T68, T60, T66, T132, T49, T70, T103, T104, T108, T109); main CI, Railway and health verified after each | 0 | COMPLETE_MERGED

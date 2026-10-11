@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { MeetingPanel } from '@/components/crm/meeting-panel';
 
-type Meeting = { id: string; title: string; status: string; scheduledAt?: string; lead?: { name: string }; opportunity?: { title: string } };
+type Meeting = { id: string; title: string; status: string; scheduledAt?: string; notes?: string | null; lead?: { name: string }; opportunity?: { title: string } };
 
 export default function MeetingsPage() {
   const [items, setItems] = useState<Meeting[]>([]);
@@ -11,6 +12,7 @@ export default function MeetingsPage() {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', scheduledAt: '' });
+  const [open, setOpen] = useState<Meeting | null>(null);
 
   useEffect(() => { load(); }, []);
   async function load() {
@@ -60,7 +62,7 @@ export default function MeetingsPage() {
           {items.map(m => (
             <li key={m.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
               <div>
-                <p className="text-sm font-medium text-ink">{m.title}</p>
+                <button type="button" onClick={() => setOpen(m)} className="text-left text-sm font-medium text-ink hover:underline">{m.title}</button>
                 <p className="text-xs text-muted mt-0.5">
                   {m.lead?.name || m.opportunity?.title || 'No linked record'} ·
                   {m.scheduledAt ? new Date(m.scheduledAt).toLocaleString() : 'No date'}
@@ -74,6 +76,7 @@ export default function MeetingsPage() {
           ))}
         </ul>
       )}
+      <MeetingPanel meeting={open} onClose={() => { setOpen(null); load(); }} />
     </div>
   );
 }
