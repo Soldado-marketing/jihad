@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `dcab6d7` (#56 merged) |
-| CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T109 Meeting notes, decisions and tasks |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/meeting-decisions |
+| CURRENT_MAIN | `bde94b0` (T109 #57 merged 2026-10-11) |
+| CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
+| ACTIVE_TASK | none |
+| TASK_STATUS | — (all dependency-ready, non-gated work landed) |
+| CURRENT_BRANCH | — |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | foreign-ids-content 19/19, web 4/4; 1 mutation |
+| TESTS_PASSED | main: full API and web suites blocking and green; integration suites per ci.yml |
 | TESTS_PENDING | — |
-| PR_URL | open: T59 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
+| PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Queue landed. Remaining registry work is owner-gated; give the final status. |
+| EXACT_NEXT_ACTION | Wait for owner decisions (OWNER_GATE_PENDING). Each unlocks work: migration gates (#26/#36/#38; then T50/T51/T56/T71/T77/T87/T89/T93/T97/T101/T105/T110/T114/T116 schema tasks), ADR-017/ADR-018 acceptance (T50+, T71+), T15 branch cleanup (52 merged remote branches; docs/consolidate and feat/v2-a1-notifications superseded), F-2 invite flow, D7 dashboard IA (T121), D8 scheduler (T125), T18 Keychain item, T21/T22, D2/D3/D6. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -162,7 +162,7 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T103 | Calendar aggregation API | feat/calendar-api | #54 MERGED (`88b3aa5`) | calendar 6/6; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | #55 MERGED (`0086453`) | web calendar 7/7 | 0 | COMPLETE_MERGED |
 | MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | #56 MERGED (`dcab6d7`) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
-| MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | (this PR) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | #57 MERGED (`bde94b0`) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -539,3 +539,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | PR | web calendar 7/7 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | PR | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | PR | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
+- 2026-10-11 W4–W7 landing | #42–#57 merged (T48, T59, T61, T65, T62, T67, T68, T60, T66, T132, T49, T70, T103, T104, T108, T109); main CI, Railway and health verified after each | 0 | COMPLETE_MERGED
