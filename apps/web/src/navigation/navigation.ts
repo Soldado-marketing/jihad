@@ -39,6 +39,14 @@ export const workspaceNavigation: NavigationItem[] = [
     sprint2Status: 'active',
     clientSafe: false,
   },
+  {
+    id: 'audit',
+    label: 'Audit Log',
+    href: '/audit',
+    allowedRoles: ['OWNER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
   // ── Delivery ────────────────────────────────────────────────────────────
   {
     id: 'projects',
