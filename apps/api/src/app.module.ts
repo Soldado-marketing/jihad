@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { RequestIdMiddleware } from './common/http/request-id.middleware';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { CalendarModule } from './modules/calendar/calendar.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientPortalModule } from './modules/client-portal/client-portal.module';
@@ -66,6 +67,7 @@ import { MailModule } from './modules/mail/mail.module';
     FileVersionsModule,
     ApprovalsModule,
     ChatModule,
+    CalendarModule,
     MyWorkModule,
     NotificationsModule,
     VoiceNotesModule,
