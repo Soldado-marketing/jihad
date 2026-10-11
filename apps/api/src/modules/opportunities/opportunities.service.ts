@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CrmPipelineStatus } from '@prisma/client';
 import { assertLeadInTenant } from '../../common/tenant/tenant-references';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { OpportunitiesRepository } from './opportunities.repository';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class OpportunitiesService {
     return item;
   }
 
-  async update(tenantId: string, id: string, dto: Partial<CreateOpportunityDto> & { status?: CrmPipelineStatus }) {
+  async update(tenantId: string, id: string, dto: UpdateOpportunityDto) {
     await this.get(tenantId, id);
     return this.repo.update(tenantId, id, dto);
   }

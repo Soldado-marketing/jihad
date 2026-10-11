@@ -1,5 +1,4 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { CrmPipelineStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
@@ -7,6 +6,7 @@ import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { OpportunitiesService } from './opportunities.service';
 
 @Controller('opportunities')
@@ -28,7 +28,7 @@ export class OpportunitiesController {
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.OPPORTUNITY })
-  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: Partial<CreateOpportunityDto> & { status?: CrmPipelineStatus }) { return this.svc.update(user.tenantId, id, dto); }
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateOpportunityDto) { return this.svc.update(user.tenantId, id, dto); }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

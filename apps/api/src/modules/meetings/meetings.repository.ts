@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { MeetingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
+import { UpdateMeetingDto } from './dto/update-meeting.dto';
 
 @Injectable()
 export class MeetingsRepository {
@@ -40,7 +40,7 @@ export class MeetingsRepository {
     });
   }
 
-  update(tenantId: string, id: string, dto: Partial<CreateMeetingDto> & { status?: MeetingStatus }) {
+  update(tenantId: string, id: string, dto: UpdateMeetingDto) {
     return this.prisma.meeting.update({
       where: { id, tenantId },
       data: {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { FollowUpStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
+import { UpdateFollowUpDto } from './dto/update-follow-up.dto';
 
 @Injectable()
 export class FollowUpsRepository {
@@ -40,7 +40,7 @@ export class FollowUpsRepository {
     });
   }
 
-  update(tenantId: string, id: string, dto: Partial<CreateFollowUpDto> & { status?: FollowUpStatus }) {
+  update(tenantId: string, id: string, dto: UpdateFollowUpDto) {
     return this.prisma.followUp.update({
       where: { id, tenantId },
       data: {
