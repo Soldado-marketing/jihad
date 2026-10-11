@@ -165,12 +165,14 @@ describe('approval decisions', { skip }, () => {
     }
   });
 
-  it('records exactly one of several concurrent decisions', async () => {
+  it('records exactly one of several concurrent final decisions', async () => {
+    // Only decisions that close the approval: REQUEST_CHANGES keeps it open by
+    // design, so a REQUEST_CHANGES followed by APPROVE is legitimately two.
     const id = await newApproval();
     const results = await Promise.all([
       decide('owner', id, 'APPROVE'),
       decide('manager', id, 'REJECT'),
-      decide('owner', id, 'REQUEST_CHANGES'),
+      decide('owner', id, 'CANCEL'),
     ]);
     const codes = results.map((r) => r.status).sort();
     assert.deepEqual(codes, [201, 409, 409], JSON.stringify(results.map((r) => r.body)));
