@@ -98,7 +98,7 @@ export async function assertFileVersionInTenant(
  * name. A reference can only be checked when its type is known, so any other
  * type is refused rather than stored unchecked.
  */
-export const LINKABLE_RESOURCE_TYPES = ['project', 'task', 'file'] as const;
+export const LINKABLE_RESOURCE_TYPES = ['project', 'task', 'file', 'meeting'] as const;
 
 export async function assertResourceInTenant(
   prisma: PrismaService,
@@ -114,6 +114,8 @@ export async function assertResourceInTenant(
       return assertTaskInTenant(prisma, tenantId, resourceId, 'resourceId');
     case 'file':
       return assertFileAssetInTenant(prisma, tenantId, resourceId, 'resourceId');
+    case 'meeting':
+      return assertMeetingInTenant(prisma, tenantId, resourceId, 'resourceId');
     default:
       invalidReference('resourceType');
   }
@@ -139,4 +141,16 @@ export async function assertOpportunityInTenant(
   if (opportunityId === undefined || opportunityId === null) return;
   const opportunity = await prisma.opportunity.findFirst({ where: { id: opportunityId, tenantId }, select: { id: true } });
   if (!opportunity) invalidReference(field);
+}
+
+/** A meeting of the caller's tenant (MAOS-T109: decisions are notes on a meeting). */
+export async function assertMeetingInTenant(
+  prisma: PrismaService,
+  tenantId: string,
+  meetingId: Reference,
+  field = 'meetingId',
+): Promise<void> {
+  if (meetingId === undefined || meetingId === null) return;
+  const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, tenantId }, select: { id: true } });
+  if (!meeting) invalidReference(field);
 }
