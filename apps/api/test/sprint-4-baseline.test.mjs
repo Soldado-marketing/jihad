@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { assertGuardedController } from './support/source-assertions.mjs';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readApi = (relativePath) => readFileSync(join(apiRoot, relativePath), 'utf8');
@@ -46,19 +47,25 @@ describe('Sprint 4 client portal API boundary baseline', () => {
     const controller = readApi('src/modules/client-portal/client-portal.controller.ts');
     const permissionService = readApi('src/modules/permissions/permission.service.ts');
 
-    assert.match(controller, /@UseGuards\(PermissionGuard\)/);
-    assert.match(controller, /RequirePermission/);
-    assert.match(controller, /scope: 'client-portal'/);
-    assert.match(permissionService, /isClientPortalRead/);
-    assert.match(permissionService, /client_own_client_visible_scope_placeholder/);
+    // MAOS-T39: authentication first, then the client-portal read grant;
+    // a CLIENT is denied every non-portal route.
+    assertGuardedController(assert, controller, 'client-portal.controller.ts');
+    const routes = controller.match(/@RequirePermission\([^)]*\)/g) ?? [];
+    assert.equal(routes.length, 4);
+    for (const route of routes) assert.match(route, /scope: 'client-portal'/);
+    assert.match(permissionService, /requirement\.scope === 'client-portal' && action === PermissionAction\.READ && !sensitive/);
+    assert.match(permissionService, /client_non_portal_deny/);
   });
 
   it('keeps client-safe return types free from internal-only fields', () => {
+    // MAOS-T39: the ClientSafeProject/ClientSafeTask types no longer exist, so
+    // this check used to pass on empty strings. It now inspects the selects
+    // the portal actually returns.
     const service = readApi('src/modules/client-portal/client-portal.service.ts');
-    const projectType = service.match(/export type ClientSafeProject = \{([\s\S]*?)\n\};/)?.[1] ?? '';
-    const taskType = service.match(/export type ClientSafeTask = \{([\s\S]*?)\n\};/)?.[1] ?? '';
+    const selects = service.match(/select: \{[^}]*\}/g) ?? [];
+    assert.equal(selects.length, 4, 'every portal query uses an explicit select');
 
-    for (const typeBlock of [projectType, taskType]) {
+    for (const typeBlock of selects) {
       assert.doesNotMatch(typeBlock, /audit/i);
       assert.doesNotMatch(typeBlock, /finance/i);
       assert.doesNotMatch(typeBlock, /payroll/i);
@@ -69,15 +76,12 @@ describe('Sprint 4 client portal API boundary baseline', () => {
     }
   });
 
-  it('adds audit placeholders for client portal access and views without returning audit data', () => {
+  it('returns no audit data from the client portal', () => {
     const service = readApi('src/modules/client-portal/client-portal.service.ts');
-
-    assert.match(service, /client\.portal\.accessed/);
-    assert.match(service, /client\.project\.viewed/);
-    assert.match(service, /client\.task\.viewed/);
-    assert.match(service, /createAuditEventPlaceholder/);
-    assert.doesNotMatch(service, /return \{[^}]*auditEvent/s);
+    assert.doesNotMatch(service, /auditEvent/i);
   });
+
+  it.todo('writes audit events for client portal access and views (specified in Sprint 4, never built; backlog F-4)');
 
   it('keeps client routes separate from internal project and task controllers', () => {
     const projectsController = readApi('src/modules/projects/projects.controller.ts');

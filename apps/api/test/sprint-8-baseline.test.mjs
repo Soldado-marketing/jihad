@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { assertGuardedController, assertTenantScopedRepository } from './support/source-assertions.mjs';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readApi = (relativePath) => readFileSync(join(apiRoot, relativePath), 'utf8');
@@ -63,23 +64,24 @@ describe('Sprint 8 voice notes and voice-to-task API baseline', () => {
     assert.match(voiceController, /@Get\(\)/);
     assert.match(voiceController, /@Post\(\)/);
     assert.match(voiceController, /@Get\(':id'\)/);
-    assert.match(voiceController, /@Patch\(':id'\)/);
-    assert.match(voiceController, /@Post\(':id\/transcribe'\)/);
-    assert.match(voiceController, /@Get\(':id\/transcript'\)/);
+    assert.match(voiceController, /@Delete\(':id'\)/);
+    // MAOS-T38/T39: transcription was a placeholder and was removed; no route
+    // may pretend to transcribe until a real provider is built.
+    assert.doesNotMatch(voiceController, /transcri/i);
     assert.match(draftController, /@Post\('voice-notes\/:id\/task-draft'\)/);
     assert.match(draftController, /@Get\('voice-to-task-drafts'\)/);
     assert.match(draftController, /@Post\('voice-to-task-drafts\/:id\/confirm'\)/);
   });
 
   it('uses permission guard and Sprint 8 permission resources on protected routes', () => {
-    const controllers = [
-      readApi('src/modules/voice-notes/voice-notes.controller.ts'),
-      readApi('src/modules/voice-to-task/voice-to-task.controller.ts'),
-    ].join('\n');
+    for (const path of [
+      'src/modules/voice-notes/voice-notes.controller.ts',
+      'src/modules/voice-to-task/voice-to-task.controller.ts',
+    ]) {
+      assertGuardedController(assert, readApi(path), path);
+    }
     const permissionTypes = readApi('src/modules/permissions/permission.types.ts');
 
-    assert.match(controllers, /@UseGuards\(PermissionGuard\)/);
-    assert.match(controllers, /RequirePermission/);
     assert.match(permissionTypes, /VOICE_NOTE/);
     assert.match(permissionTypes, /VOICE_TRANSCRIPT/);
     assert.match(permissionTypes, /VOICE_TO_TASK_DRAFT/);
@@ -87,14 +89,13 @@ describe('Sprint 8 voice notes and voice-to-task API baseline', () => {
   });
 
   it('keeps voice repositories tenant-aware and avoids direct unscoped access', () => {
-    const repositories = [
-      readApi('src/modules/voice-notes/voice-notes.repository.ts'),
-      readApi('src/modules/voice-to-task/voice-to-task.repository.ts'),
-    ].join('\n');
-
-    assert.match(repositories, /extends TenantAwareRepository/);
-    assert.match(repositories, /requireTenantContext/);
-    assert.doesNotMatch(repositories, /prisma\./);
+    // MAOS-T39: every query carries a tenantId boundary (see support helper).
+    for (const path of [
+      'src/modules/voice-notes/voice-notes.repository.ts',
+      'src/modules/voice-to-task/voice-to-task.repository.ts',
+    ]) {
+      assertTenantScopedRepository(assert, readApi(path), path);
+    }
   });
 
   // MAOS-T38 removed the transcription/AI placeholders. The safety property they
@@ -111,28 +112,21 @@ describe('Sprint 8 voice notes and voice-to-task API baseline', () => {
     const draftRepository = readApi('src/modules/voice-to-task/voice-to-task.repository.ts');
     const draftService = readApi('src/modules/voice-to-task/voice-to-task.service.ts');
 
-    assert.match(draftRepository, /humanConfirmationRequired: true/);
-    assert.match(draftRepository, /taskCreatedAutomatically: false/);
-    assert.match(draftService, /taskCreated: false/);
-    assert.match(draftService, /placeholder-only-no-automatic-task/);
-    assert.doesNotMatch(draftService, /tasksService\.create/i);
+    // MAOS-T39: confirmation is an explicit human request on its own route,
+    // and it only marks the draft CONFIRMED - no task is created by it.
+    const draftController = readApi('src/modules/voice-to-task/voice-to-task.controller.ts');
+    assert.match(draftController, /@Post\('voice-to-task-drafts\/:id\/confirm'\)/);
+    assert.match(draftRepository, /data: \{ status: 'CONFIRMED' \}/);
+    assert.doesNotMatch(`${draftService}\n${draftRepository}`, /tasksService|task\.create\(|createTask\(/i);
   });
 
-  it('adds Sprint 8 audit placeholders and preserves client boundary', () => {
-    const voiceService = readApi('src/modules/voice-notes/voice-notes.service.ts');
-    const draftService = readApi('src/modules/voice-to-task/voice-to-task.service.ts');
+  it('keeps voice out of the client portal', () => {
     const clientController = readApi('src/modules/client-portal/client-portal.controller.ts');
-
-    assert.match(voiceService, /voice_note\.created/);
-    assert.match(voiceService, /voice_note\.updated/);
-    assert.match(voiceService, /voice_note\.transcription_requested/);
-    assert.match(voiceService, /voice_transcript\.created/);
-    assert.match(draftService, /voice_to_task_draft\.created/);
-    assert.match(draftService, /voice_to_task_draft\.confirmed/);
-    assert.match(draftService, /ai\.extraction\.placeholder_used/);
     assert.doesNotMatch(clientController, /voice/i);
     assert.doesNotMatch(clientController, /transcript/i);
   });
+
+  it.todo('writes audit events for voice notes and voice-to-task drafts (specified in Sprint 8, never built; backlog F-4)');
 
   it('keeps post-Sprint-8 deferred modules absent from apps/api modules', () => {
     const appModule = readApi('src/app.module.ts');

@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `0073b6b` (T35 #31 merged 2026-10-10) |
+| CURRENT_MAIN | `423ef38` (D16a #32 merged 2026-10-10) |
 | CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | MAOS-D16a Reject overpayments (code, no migration) |
+| ACTIVE_TASK | MAOS-T39 Stale test triage; full suites blocking |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | fix/reject-overpayment |
+| CURRENT_BRANCH | test/stale-baseline-triage |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | finance-payment-rules 15/15 (7 new); integration-api 35/35; 5 mutations caught incl. lock removal |
+| TESTS_PASSED | API full 397 pass / 0 fail / 10 todo; web 75/75; gate 297/297; integration 221/221 |
 | TESTS_PENDING | — |
-| PR_URL | open: D16a (this branch), #26 (migration-gated) |
+| PR_URL | open: T39 (this branch), #26 (migration-gated) |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land D16a; then MAOS-T39 (stale test triage) from current main; then F-1 → F-2 → F-3 → T40 + D16b idempotency (migration gate). |
+| EXACT_NEXT_ACTION | Land T39; then F-1 (client approval sets clientScopeKey) from current main; then F-2 → F-3 → T40 + D16b (migration gate). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -69,43 +69,32 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | OPEN |
 | F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | OPEN |
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | OPEN |
+| F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
 
 Each schema task also needs OWNER_GATE_MIGRATION before production apply (see Database safety in the protocol).
 
-## Test baseline (`df08135`, 2026-10-09)
+## Test baseline (MAOS-T39, 2026-10-11)
 
 | Check | Result |
 |---|---|
-| API full (`npm test`) | 342 tests / 299 pass / 43 fail (known) |
-| API blocking gate (ci.yml list) | 239 / 239 on `main`; 258 / 258 on T16 branch |
-| Integration (integration-api, then security pair) | 34/34 + 67/67 = 101 / 101 |
-| Web full (`npm test`) | 64 tests / 61 pass / 3 fail (known) |
-| Web contract | 5 / 5 |
-| API typecheck (`tsconfig.build.json`) / build | PASS / PASS |
-| Web typecheck / build | PASS / PASS |
-| NEW_REGRESSIONS | 0 |
+| API full (`npm test`) — **blocking in CI** | 407 tests / 397 pass / 0 fail / 10 todo |
+| API blocking gate (ci.yml list) | 297 / 297 |
+| Integration (integration-api first, then the security suites) | 221 / 221 |
+| Web full (`npm test`) — **blocking in CI** | 75 / 75 |
+| Web contract | in the full web suite (also run separately) |
+| API / web typecheck and build | PASS |
+| NEW_REGRESSIONS | 0 — any failure is now a regression; there are no known failures |
 
-### Known pre-existing failures
+### Todo entries (not failures)
 
-Compared by test identity, never by count.
+The 10 `todo` tests are features the early sprint specs described but that were never built: CRUD audit events for work, CRM, files/approvals, chat/notifications, voice, finance and dashboards/reports, and report hidden-total suppression. They are tracked as **F-4** and stay visible in every run. Turning one into a real test is part of building that feature.
 
-**API (43)** — stale source-text assertions from old sprint specs:
+### History
 
-- sprint-1b-baseline: includes restricted placeholders for Manager, Employee, and Client scopes; keeps the MVP role foundation to Owner, Manager, Employee, and Client
-- sprint-3-baseline: creates audit placeholders for project, task, and subtask changes; requires tenant context in Sprint 3 repositories; uses permission guard and project/task/subtask permission resources on protected routes
-- sprint-4-baseline: adds audit placeholders for client portal access and views without returning audit data; uses permission guard and client-portal scoped read permissions
-- sprint-5-baseline: adds CRM and collaboration modules with REST-first endpoint skeletons; adds audit placeholders for CRM and internal collaboration actions; keeps CRM and collaboration repositories tenant-aware without direct unscoped access; keeps CRM out of client portal routes and collaboration internal-only; uses permission guard and Sprint 5 permission resources on protected routes
-- sprint-6-baseline: adds file, file version, and approval modules with REST-first endpoint skeletons; adds signed URL placeholder safeguards and audit placeholders; keeps file and approval repositories tenant-aware without direct unscoped access; preserves client-visible file boundary and approval-safe payloads; uses permission guard and Sprint 6 permission resources on protected routes
-- sprint-7-baseline: adds REST-first chat and notification endpoint skeletons; adds audit placeholders for chat, notification, and realtime actions; keeps chat and notification repositories tenant-aware without direct unscoped access; preserves internal and client channel separation plus realtime authorization placeholders; uses permission guard and Sprint 7 permission resources on protected routes
-- sprint-8-baseline: adds REST-first voice note and voice-to-task endpoint skeletons; adds Sprint 8 audit placeholders and preserves client boundary; keeps voice repositories tenant-aware and avoids direct unscoped access; requires human confirmation and does not automatically create tasks; uses permission guard and Sprint 8 permission resources on protected routes
-- sprint-9-baseline: adds client-safe invoice and payment placeholders without cost or payroll exposure; adds finance audit placeholders and keeps provider integration deferred; adds the required Sprint 9 endpoint skeletons; keeps finance repositories tenant-aware without direct unscoped access; uses owner-only finance controls and permission resources on protected routes
-- sprint-10-baseline: adds dashboard/report audit placeholders and keeps advanced BI deferred; keeps client dashboard summaries client-safe (**real defect: T26**); keeps dashboard and report repositories tenant-aware without direct unscoped access; suppresses hidden counts and protects owner-only finance summary data; uses permission guards and safe Manager dashboard/report placeholders
-- sprint-11-mvp-hardening: confirms deferred external integrations and post-MVP modules remain absent; keeps protected MVP controllers guarded with permission requirements; keeps tenant-aware repository access for MVP business modules; preserves AI and voice safety placeholders without external provider calls or automatic task creation; preserves client portal, signed URL, chat/realtime, and report leakage controls; preserves owner-only finance and client-safe invoice/payment boundaries
-
-**Web (3):** keeps Sprint 8 safety messaging and avoids deferred feature implementation; keeps non-Sprint-4 features absent from client portal pages; keeps owner-only finance widget separate from client dashboard summaries.
+Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale source-text assertions from the sprint skeleton design). T39 rewrote each to the current invariant (guards, tenant-scoped queries, client-safe selects, removed placeholders asserted absent) or marked it `todo` (F-4); one hollow assertion that passed on an empty string now checks the real portal selects.
 
 ## Completed / merged / blocked
 
@@ -146,7 +135,8 @@ Compared by test identity, never by count.
 | MAOS-T28 | Foreign-ID tenant validation — files, approvals, chat, voice, collaboration | fix/foreign-id-content | #29 MERGED (`6277b26`) | suite 18/18; 8 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T29 | Foreign-ID tenant validation — CRM and finance | fix/foreign-id-crm-finance | #30 MERGED (`fa1b218`) | suite 8/8; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | #31 MERGED (`0073b6b`) | suite 20/20; 10 mutations | 0 | COMPLETE_MERGED |
-| MAOS-D16a | Reject overpayments (row-locked balance check) | fix/reject-overpayment | (this PR) | finance 15/15; 5 mutations | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-D16a | Reject overpayments (row-locked balance check) | fix/reject-overpayment | #32 MERGED (`423ef38`) | finance 15/15; 5 mutations | 0 | COMPLETE_MERGED |
+| MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | (this PR) | API 397/0/10 todo; web 75/75 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -500,3 +490,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T29 | Foreign-ID validation — CRM and finance | fix/foreign-id-crm-finance | PR | 8/8, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | PR | 20/20, 10 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-D16a | Reject overpayments | fix/reject-overpayment | PR | finance 15/15, integration-api 35/35, 5 mutations | 0 | COMPLETE_AWAITING_MERGE (D16b idempotency needs a migration: gated)
+- MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | PR | API 397 pass/0 fail/10 todo, web 75/75 | 0 | COMPLETE_AWAITING_MERGE
