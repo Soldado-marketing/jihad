@@ -101,7 +101,7 @@ jobs:
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (260/260), so it blocks.
+      # service above and drives it over HTTP. Green (265/265), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -132,6 +132,7 @@ jobs:
       # my-work proves the My Work view holds only the caller's permitted items (T67).
       # audit-log proves the audit log is OWNER-only and pages correctly (T132).
       # calendar proves the calendar shows each type only to permitted roles (T103).
+      # approval-decisions proves only open approvals can be decided, once (T108).
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -157,6 +158,7 @@ jobs:
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
+            test/approval-decisions.test.mjs \
             test/calendar.test.mjs \
             test/audit-log.test.mjs \
             test/my-work.test.mjs \
