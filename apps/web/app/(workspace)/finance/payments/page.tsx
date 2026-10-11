@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
+import { ErrorState } from '@/components/states/error-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { toCents } from '@/lib/money';
 
@@ -63,7 +64,7 @@ export default function PaymentsPage() {
         </form>
       )}
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <ErrorState title="Could not load payments" message={error} onRetry={() => { setError(''); setLoading(true); void load(); }} />}
       {!loading && items.length === 0 && !error && <p className="text-center text-sm text-muted py-8">No payments recorded yet.</p>}
       {items.length > 0 && (
         <table className="w-full rounded-xl border border-line overflow-hidden bg-white">
