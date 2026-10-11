@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `6447299` (F-1 #34 merged 2026-10-11) |
+| CURRENT_MAIN | `31622ad` (F-3 #35 merged 2026-10-11) |
 | CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | MAOS-F3 CRM update and report body validation |
+| ACTIVE_TASK | MAOS-F5 Payment amounts as integer cents (web) |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | fix/crm-update-validation |
+| CURRENT_BRANCH | fix/payment-amount-cents |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | crm-update-validation 4/4; 3 mutations caught; web 80/80 |
+| TESTS_PASSED | web money-input 3/3 (fails 2 on old code); web 83/83 |
 | TESTS_PENDING | — |
-| PR_URL | open: F-3 (this branch), #26 (migration-gated) |
+| PR_URL | open: F-5 (this branch); gated: #36 T40, #26 T44 |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
-| OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
+| OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 and T40 (and D16b when prepared): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; T40 also needs the duplicate pre-check query in its PR to return 0 rows; (2) F-2 invite flow (product decision); (3) T18 Keychain item; (4) T21/T22 owner actions; (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land F-3; then prepare T40 (RevenueRecord uniqueness) and D16b (payment idempotency) migration PRs on disposable DBs only — do not merge or apply (OWNER_GATE_MIGRATION); then W1–W3 safety status. |
+| EXACT_NEXT_ACTION | Land F-5; then prepare D16b (payment idempotency key, migration) — do not merge or apply; then the W1–W3 safety status and W4 T47 if no real gate applies. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -70,6 +70,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | FIXED in F-1 PR (approval/role change require clientScopeKey for CLIENT) |
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | FIXED in F-3 PR (+ follow-ups page sent invalid DONE status) |
 | F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
+| CI-2 | Local-only intermittent integration failures (about 1 in 6 parallel runs on the Mac): the response body `{"error":"Not found"}` is not produced by MAOS and the API logged no such request — supertest re-listens on an ephemeral port per request and another local process answered. Not seen in GitHub CI. If it appears there: bind each test app once (`app.listen(0, '127.0.0.1')`) in the harnesses | integration tests | OBSERVED (no action yet) |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
@@ -138,7 +139,9 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-D16a | Reject overpayments (row-locked balance check) | fix/reject-overpayment | #32 MERGED (`423ef38`) | finance 15/15; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | #33 MERGED (`317fc10`) | API 397/0/10 todo; web 75/75 | 0 | COMPLETE_MERGED |
 | MAOS-F1 | Client onboarding assigns the client scope (+ contractor access label) | fix/client-onboarding-scope | #34 MERGED (`6447299`) | suite 5/5; web 78/78 | 0 | COMPLETE_MERGED |
-| MAOS-F3 | CRM update and report body validation (+ follow-ups status fix) | fix/crm-update-validation | (this PR) | suite 4/4; web 80/80 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-F3 | CRM update and report body validation (+ follow-ups status fix) | fix/crm-update-validation | #35 MERGED (`31622ad`) | suite 4/4; web 80/80 | 0 | COMPLETE_MERGED |
+| MAOS-T40 | Revenue posting uniqueness (unique RevenueRecord(tenantId, invoiceId)) | schema/revenue-posting-unique | #36 (open, gated) | suite 5/5; 2 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
+| MAOS-F5 | Payment amounts as integer cents (payments page used a float) | fix/payment-amount-cents | (this PR) | web 83/83 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -495,3 +498,5 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | PR | API 397 pass/0 fail/10 todo, web 75/75 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-F1 | Client onboarding assigns the client scope | fix/client-onboarding-scope | PR | 5/5, web 78/78, 4 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-F3 | CRM update and report body validation | fix/crm-update-validation | PR | 4/4, web 80/80, 3 mutations | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T40 | Revenue posting uniqueness (migration) | schema/revenue-posting-unique | PR | 5/5, 2 mutations | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
+- MAOS-F5 | Payment amounts as integer cents (web) | fix/payment-amount-cents | PR | money-input 3/3, web 83/83 | 0 | COMPLETE_AWAITING_MERGE
