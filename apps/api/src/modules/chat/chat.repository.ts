@@ -35,6 +35,11 @@ export class ChatRepository {
     });
   }
 
+  async channelExists(tenantId: string, channelId: string): Promise<boolean> {
+    const channel = await this.prisma.chatChannel.findFirst({ where: { id: channelId, tenantId }, select: { id: true } });
+    return channel !== null;
+  }
+
   createMessage(tenantId: string, channelId: string, actorId: string, body: string) {
     return this.prisma.chatMessage.create({
       data: { tenantId, channelId, body, createdByUserId: actorId },

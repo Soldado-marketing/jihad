@@ -1,5 +1,4 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { FollowUpStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
@@ -7,6 +6,7 @@ import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
+import { UpdateFollowUpDto } from './dto/update-follow-up.dto';
 import { FollowUpsService } from './follow-ups.service';
 
 @Controller('follow-ups')
@@ -28,7 +28,7 @@ export class FollowUpsController {
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.FOLLOW_UP })
-  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: Partial<CreateFollowUpDto> & { status?: FollowUpStatus }) { return this.svc.update(user.tenantId, id, dto); }
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateFollowUpDto) { return this.svc.update(user.tenantId, id, dto); }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

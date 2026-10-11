@@ -50,7 +50,7 @@ export class LabelsRepository {
     }
 
     return this.prisma.label.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.color !== undefined && { color: dto.color }),
@@ -62,7 +62,7 @@ export class LabelsRepository {
   async delete(tenantId: string, id: string) {
     const label = await this.prisma.label.findFirst({ where: { id, tenantId } });
     if (!label) throw new NotFoundException('Label not found');
-    await this.prisma.label.delete({ where: { id } });
+    await this.prisma.label.delete({ where: { id, tenantId } });
   }
 
   // ─── Task-label assignment ────────────────────────────────────────────────

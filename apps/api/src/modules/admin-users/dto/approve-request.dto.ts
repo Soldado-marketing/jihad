@@ -3,10 +3,12 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CLIENT_SCOPE_KEY_PATTERN } from '../../permissions/client-scope-assignment';
 
 export enum ApprovalRole {
   MANAGER = 'MANAGER',
@@ -37,8 +39,14 @@ export class ApproveRequestDto {
   })
   role!: ApprovalRole;
 
+  /**
+   * Accepted for compatibility with older clients but not used: the stored
+   * scope is derived from the role (see effectiveVisibilityScope), because the
+   * backend enforces no narrower scope (MAOS-T36).
+   */
+  @IsOptional()
   @IsEnum(ApprovalVisibilityScope)
-  visibilityScope!: ApprovalVisibilityScope;
+  visibilityScope?: ApprovalVisibilityScope;
 
   @IsOptional()
   @IsArray()
@@ -50,4 +58,15 @@ export class ApproveRequestDto {
   @IsString()
   @MaxLength(500)
   adminNote?: string;
+
+  /**
+   * Required for the CLIENT role, refused for every other role (F-1): the key
+   * that ties the client membership to its client's projects, files and
+   * invoices.
+   */
+  @IsOptional()
+  @Matches(CLIENT_SCOPE_KEY_PATTERN, {
+    message: 'clientScopeKey: 1-120 letters, digits, dot, underscore or hyphen',
+  })
+  clientScopeKey?: string;
 }

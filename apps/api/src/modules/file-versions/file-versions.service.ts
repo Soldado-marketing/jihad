@@ -36,6 +36,7 @@ import {
   buildObjectKey,
   sanitizeOriginalName,
 } from '../storage/object-key';
+import { ResourceScopeService } from '../permissions/resource-scope.service';
 import { StorageService } from '../storage/storage.service';
 import {
   FileVersionsRepository,
@@ -79,6 +80,7 @@ export class FileVersionsService {
     private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly clientScope: ClientScopeService,
+    private readonly resourceScope: ResourceScopeService,
   ) {}
 
   /** Per-file upload ceiling, surfaced so the controller can advertise it. */
@@ -86,16 +88,18 @@ export class FileVersionsService {
     return this.storage.getMaxUploadBytes();
   }
 
-  private async requireFileAsset(tenantId: string, fileAssetId: string) {
-    const asset = await this.repo.getFileAsset(tenantId, fileAssetId);
+  /** The asset must be in the tenant and, for a CONTRACTOR, one of their assigned files. */
+  private async requireFileAsset(tenantId: string, fileAssetId: string, actorId: string) {
+    const scope = await this.resourceScope.resolveWorkScope(tenantId, actorId);
+    const asset = await this.repo.getFileAsset(tenantId, fileAssetId, this.resourceScope.fileWhere(scope));
     // A row belonging to another tenant is reported as 404, not 403, so the
     // response cannot be used to probe for ids across tenants.
     if (!asset) throw new NotFoundException('File not found');
     return asset;
   }
 
-  async list(tenantId: string, fileAssetId: string): Promise<PublicFileVersion[]> {
-    await this.requireFileAsset(tenantId, fileAssetId);
+  async list(tenantId: string, fileAssetId: string, actorId: string): Promise<PublicFileVersion[]> {
+    await this.requireFileAsset(tenantId, fileAssetId, actorId);
     return this.repo.listVersions(tenantId, fileAssetId);
   }
 
@@ -103,8 +107,9 @@ export class FileVersionsService {
     tenantId: string,
     fileAssetId: string,
     versionId: string,
+    actorId: string,
   ): Promise<PublicFileVersion> {
-    await this.requireFileAsset(tenantId, fileAssetId);
+    await this.requireFileAsset(tenantId, fileAssetId, actorId);
     const version = await this.repo.getPublicVersion(tenantId, fileAssetId, versionId);
     if (!version) throw new NotFoundException('File version not found');
     return version;
@@ -122,7 +127,7 @@ export class FileVersionsService {
     file: UploadedFileInput,
   ): Promise<PublicFileVersion> {
     const { tenantId } = actor;
-    const asset = await this.requireFileAsset(tenantId, fileAssetId);
+    const asset = await this.requireFileAsset(tenantId, fileAssetId, actor.actorId);
 
     if (!file || !Buffer.isBuffer(file.buffer)) {
       throw new BadRequestException({
@@ -264,7 +269,7 @@ export class FileVersionsService {
     requestedDisposition: 'inline' | 'attachment',
   ): Promise<DownloadResult> {
     const { tenantId } = actor;
-    await this.requireFileAsset(tenantId, fileAssetId);
+    await this.requireFileAsset(tenantId, fileAssetId, actor.actorId);
 
     const version = await this.repo.getVersionWithKey(tenantId, fileAssetId, versionId);
     if (!version) throw new NotFoundException('File version not found');

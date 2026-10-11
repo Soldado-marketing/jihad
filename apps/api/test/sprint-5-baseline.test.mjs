@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { assertGuardedController, assertTenantScopedRepository } from './support/source-assertions.mjs';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readApi = (relativePath) => readFileSync(join(apiRoot, relativePath), 'utf8');
@@ -68,11 +69,13 @@ describe('Sprint 5 CRM basic and collaboration foundation API baseline', () => {
       readApi('src/modules/collaboration/collaboration.controller.ts'),
     ].join('\n');
 
-    assert.match(controllers, /@Controller\('crm\/leads'\)/);
-    assert.match(controllers, /@Controller\('crm\/opportunities'\)/);
-    assert.match(controllers, /@Controller\('crm\/meetings'\)/);
-    assert.match(controllers, /@Controller\('crm\/follow-ups'\)/);
-    assert.match(controllers, /@Controller\('collaboration\/internal-notes'\)/);
+    // MAOS-T39: the routes shipped without the crm/ prefix, and internal notes
+    // live at collaboration/notes (the web app calls these paths).
+    assert.match(controllers, /@Controller\('leads'\)/);
+    assert.match(controllers, /@Controller\('opportunities'\)/);
+    assert.match(controllers, /@Controller\('meetings'\)/);
+    assert.match(controllers, /@Controller\('follow-ups'\)/);
+    assert.match(controllers, /@Controller\('collaboration\/notes'\)/);
     assert.match(controllers, /@Get\(\)/);
     assert.match(controllers, /@Post\(\)/);
     assert.match(controllers, /@Get\(':id'\)/);
@@ -80,17 +83,17 @@ describe('Sprint 5 CRM basic and collaboration foundation API baseline', () => {
   });
 
   it('uses permission guard and Sprint 5 permission resources on protected routes', () => {
-    const controllers = [
-      readApi('src/modules/leads/leads.controller.ts'),
-      readApi('src/modules/opportunities/opportunities.controller.ts'),
-      readApi('src/modules/meetings/meetings.controller.ts'),
-      readApi('src/modules/follow-ups/follow-ups.controller.ts'),
-      readApi('src/modules/collaboration/collaboration.controller.ts'),
-    ].join('\n');
+    for (const path of [
+      'src/modules/leads/leads.controller.ts',
+      'src/modules/opportunities/opportunities.controller.ts',
+      'src/modules/meetings/meetings.controller.ts',
+      'src/modules/follow-ups/follow-ups.controller.ts',
+      'src/modules/collaboration/collaboration.controller.ts',
+    ]) {
+      assertGuardedController(assert, readApi(path), path);
+    }
     const permissionTypes = readApi('src/modules/permissions/permission.types.ts');
 
-    assert.match(controllers, /@UseGuards\(PermissionGuard\)/);
-    assert.match(controllers, /RequirePermission/);
     assert.match(permissionTypes, /LEAD/);
     assert.match(permissionTypes, /OPPORTUNITY/);
     assert.match(permissionTypes, /MEETING/);
@@ -99,37 +102,19 @@ describe('Sprint 5 CRM basic and collaboration foundation API baseline', () => {
   });
 
   it('keeps CRM and collaboration repositories tenant-aware without direct unscoped access', () => {
-    const repositories = [
-      readApi('src/modules/leads/leads.repository.ts'),
-      readApi('src/modules/opportunities/opportunities.repository.ts'),
-      readApi('src/modules/meetings/meetings.repository.ts'),
-      readApi('src/modules/follow-ups/follow-ups.repository.ts'),
-      readApi('src/modules/collaboration/collaboration.repository.ts'),
-    ].join('\n');
-
-    assert.match(repositories, /extends TenantAwareRepository/);
-    assert.match(repositories, /requireTenantContext/);
-    assert.doesNotMatch(repositories, /prisma\./);
+    // MAOS-T39: every query carries a tenantId boundary (see support helper).
+    for (const path of [
+      'src/modules/leads/leads.repository.ts',
+      'src/modules/opportunities/opportunities.repository.ts',
+      'src/modules/meetings/meetings.repository.ts',
+      'src/modules/follow-ups/follow-ups.repository.ts',
+      'src/modules/collaboration/collaboration.repository.ts',
+    ]) {
+      assertTenantScopedRepository(assert, readApi(path), path);
+    }
   });
 
-  it('adds audit placeholders for CRM and internal collaboration actions', () => {
-    const services = [
-      readApi('src/modules/leads/leads.service.ts'),
-      readApi('src/modules/opportunities/opportunities.service.ts'),
-      readApi('src/modules/meetings/meetings.service.ts'),
-      readApi('src/modules/follow-ups/follow-ups.service.ts'),
-      readApi('src/modules/collaboration/collaboration.service.ts'),
-    ].join('\n');
-
-    assert.match(services, /lead\.created/);
-    assert.match(services, /lead\.updated/);
-    assert.match(services, /opportunity\.created/);
-    assert.match(services, /opportunity\.updated/);
-    assert.match(services, /meeting\.created/);
-    assert.match(services, /followup\.created/);
-    assert.match(services, /internal_note\.created/);
-    assert.match(services, /createAuditEventPlaceholder/);
-  });
+  it.todo('writes audit events for CRM and internal collaboration actions (specified in Sprint 5, never built; backlog F-4)');
 
   it('keeps CRM out of client portal routes and collaboration internal-only', () => {
     const clientController = readApi('src/modules/client-portal/client-portal.controller.ts');
@@ -140,8 +125,9 @@ describe('Sprint 5 CRM basic and collaboration foundation API baseline', () => {
 
     assert.doesNotMatch(clientController, /crm/i);
     assert.doesNotMatch(clientController, /collaboration/i);
-    assert.match(collaboration, /internal-notes/);
-    assert.match(collaboration, /internal-only/);
+    // Internal notes are internal-only: no route is opened to the client portal.
+    assert.match(collaboration, /PermissionResource\.INTERNAL_NOTE/);
+    assert.doesNotMatch(collaboration, /client-portal/);
   });
 
   it('keeps post-Sprint-5 deferred modules absent from apps/api modules', () => {

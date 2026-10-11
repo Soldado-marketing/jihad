@@ -16,6 +16,12 @@ export class InvoiceAmountError extends Error {
 }
 
 /** Guards against overflow and nonsense before anything is persisted. */
+/**
+ * Payment statuses that do not count towards an invoice's paid amount. Shared
+ * by the paid recalculation and the overpayment check so both agree.
+ */
+export const UNCOUNTED_PAYMENT_STATUSES = ['FAILED', 'REFUNDED', 'CANCELED'] as const;
+
 export const MAX_AMOUNT_CENTS = 1_000_000_000_00; // 1 billion units
 export const MAX_LINE_QUANTITY = 1_000_000;
 

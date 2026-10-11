@@ -1,14 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CrmPipelineStatus } from '@prisma/client';
+import { assertLeadInTenant } from '../../common/tenant/tenant-references';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateOpportunityDto } from './dto/create-opportunity.dto';
+import { UpdateOpportunityDto } from './dto/update-opportunity.dto';
 import { OpportunitiesRepository } from './opportunities.repository';
 
 @Injectable()
 export class OpportunitiesService {
-  constructor(private readonly repo: OpportunitiesRepository) {}
+  constructor(
+    private readonly repo: OpportunitiesRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
-  create(tenantId: string, actorId: string, dto: CreateOpportunityDto) { return this.repo.create(tenantId, actorId, dto); }
+  async create(tenantId: string, actorId: string, dto: CreateOpportunityDto) {
+    await assertLeadInTenant(this.prisma, tenantId, dto.leadId);
+    return this.repo.create(tenantId, actorId, dto);
+  }
 
   async get(tenantId: string, id: string) {
     const item = await this.repo.getById(tenantId, id);
@@ -16,7 +24,7 @@ export class OpportunitiesService {
     return item;
   }
 
-  async update(tenantId: string, id: string, dto: Partial<CreateOpportunityDto> & { status?: CrmPipelineStatus }) {
+  async update(tenantId: string, id: string, dto: UpdateOpportunityDto) {
     await this.get(tenantId, id);
     return this.repo.update(tenantId, id, dto);
   }

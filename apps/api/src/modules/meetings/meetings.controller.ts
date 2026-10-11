@@ -1,5 +1,4 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { MeetingStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
@@ -7,6 +6,7 @@ import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
+import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { MeetingsService } from './meetings.service';
 
 @Controller('meetings')
@@ -28,7 +28,7 @@ export class MeetingsController {
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.MEETING })
-  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: Partial<CreateMeetingDto> & { status?: MeetingStatus }) { return this.svc.update(user.tenantId, id, dto); }
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateMeetingDto) { return this.svc.update(user.tenantId, id, dto); }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

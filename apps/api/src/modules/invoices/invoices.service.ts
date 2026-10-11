@@ -14,12 +14,15 @@ import { InvoiceStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
+import { assertProjectInTenant } from '../../common/tenant/tenant-references';
 import { MailService } from '../mail/mail.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { SendInvoiceDto } from './dto/send-invoice.dto';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoiceAmountError, formatMoney } from './invoice-totals';
 import { InvoicesRepository } from './invoices.repository';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface InvoiceActor {
   actorId: string;
@@ -53,6 +56,8 @@ export class InvoicesService {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly clientScope: ClientScopeService,
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
@@ -71,9 +76,10 @@ export class InvoicesService {
     return invoice;
   }
 
-  create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
+  async create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
+    await assertProjectInTenant(this.prisma, tenantId, dto.projectId);
     try {
-      return this.repo.create(tenantId, actorId, dto);
+      return await this.repo.create(tenantId, actorId, dto);
     } catch (error) {
       if (error instanceof InvoiceAmountError) {
         throw new BadRequestException({ code: 'INVALID_INVOICE_AMOUNT', reason: error.message });
@@ -163,12 +169,17 @@ export class InvoicesService {
       });
     }
 
-    const recipients = await this.resolveRecipients(tenantId, invoice.projectId, dto.recipients);
+    const recipients = await this.resolveRecipients(
+      tenantId,
+      invoice.projectId,
+      invoice.clientScopeKey,
+      dto.recipients,
+    );
     if (recipients.length === 0) {
       throw new BadRequestException({
         code: 'NO_RECIPIENT',
         reason:
-          'No recipient. Pass "recipients", or add a CLIENT member to the invoice project.',
+          "No recipient. Pass \"recipients\", or add an active CLIENT member of the invoice's client to the invoice project.",
       });
     }
 
@@ -216,6 +227,20 @@ export class InvoicesService {
       },
     });
 
+    // Staff who may read invoices. No amount and no recipient address in the
+    // body: the notification names the invoice, the invoice holds the money.
+    await this.notifications.notify({
+      tenantId,
+      recipientRoles: [MembershipRole.OWNER, MembershipRole.MANAGER],
+      audience: 'INTERNAL',
+      actorUserId: actor.actorId,
+      dedupeKey: `invoice.sent:${id}`,
+      title: 'Invoice sent',
+      body: `Invoice ${invoice.invoiceNumber} was sent to the client.`,
+      resourceType: 'invoice',
+      resourceId: id,
+    });
+
     return {
       invoice: updated,
       recipientCount: delivery.recipientCount,
@@ -226,18 +251,19 @@ export class InvoicesService {
   }
 
   /**
-   * Explicit recipients win. Otherwise the CLIENT members of the invoice's
-   * project are used, so a normal send needs no address at all.
+   * Explicit recipients win. Otherwise the active CLIENT members of the
+   * invoice's own client on its project are used (MAOS-T37).
    */
   private async resolveRecipients(
     tenantId: string,
     projectId: string | null,
+    clientScopeKey: string | null,
     explicit?: string[],
   ): Promise<string[]> {
     if (explicit && explicit.length > 0) return explicit;
     if (!projectId) return [];
 
-    const users = await this.repo.findProjectClientEmails(tenantId, projectId);
+    const users = await this.repo.findProjectClientEmails(tenantId, projectId, clientScopeKey);
     return users.map((user) => user.email);
   }
 

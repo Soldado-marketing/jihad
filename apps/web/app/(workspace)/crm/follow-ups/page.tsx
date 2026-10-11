@@ -30,12 +30,12 @@ export default function FollowUpsPage() {
   }
 
   async function complete(id: string) {
-    try { await apiFetch(`/follow-ups/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'DONE' }) }); load(); }
+    try { await apiFetch(`/follow-ups/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'COMPLETED' }) }); load(); }
     catch (e: any) { alert(e.message); }
   }
 
   const STATUS_COLORS: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-700', DONE: 'bg-green-100 text-green-700', CANCELED: 'bg-slate-100 text-slate-600',
+    OPEN: 'bg-amber-100 text-amber-700', OVERDUE: 'bg-red-100 text-red-700', COMPLETED: 'bg-green-100 text-green-700',
   };
 
   return (
@@ -70,7 +70,7 @@ export default function FollowUpsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[f.status] ?? 'bg-slate-100 text-slate-600'}`}>{f.status}</span>
-                {f.status === 'PENDING' && (
+                {f.status !== 'COMPLETED' && (
                   <button onClick={() => complete(f.id)} className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
                     Mark Done
                   </button>

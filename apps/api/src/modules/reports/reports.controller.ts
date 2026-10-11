@@ -5,6 +5,7 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
+import { CreateReportDefinitionDto } from './dto/create-report-definition.dto';
 import { ReportsService } from './reports.service';
 
 @Controller('reports')
@@ -18,7 +19,7 @@ export class ReportsController {
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.REPORT })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: { name: string }) {
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateReportDefinitionDto) {
     return this.svc.create(user.tenantId, user.sub, dto.name);
   }
 

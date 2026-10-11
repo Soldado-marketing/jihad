@@ -2,11 +2,13 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { validateEnv } from './common/config/env-validation';
 import { validateStorageEnv } from './modules/storage/storage.config';
 import { AllExceptionsFilter } from './common/http/all-exceptions.filter';
+import { configureTrustProxy } from './common/http/trust-proxy';
 import { logStructured } from './common/logging/structured-logger';
 
 /**
@@ -35,7 +37,11 @@ async function bootstrap() {
     logStructured('warn', 'storage_warning', { detail: warning });
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // S-03/T32: read the client address from X-Forwarded-For behind Railway's
+  // proxy (TRUST_PROXY_HOPS, default 1), so throttling is per client.
+  const trustProxyHops = configureTrustProxy(app);
 
   // Phase 2: consistent, non-leaking error responses + structured error logs.
   app.useGlobalFilters(new AllExceptionsFilter());
@@ -79,7 +85,7 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
-  logStructured('info', 'api_started', { port, corsOrigins: allowedOrigins.length });
+  logStructured('info', 'api_started', { port, corsOrigins: allowedOrigins.length, trustProxyHops });
 }
 
 void bootstrap();

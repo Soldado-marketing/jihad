@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
+import { LoginHistoryService } from '../login-history/login-history.service';
 import {
   AuditOutcome,
   AuditPermissionResult,
@@ -41,6 +42,13 @@ export interface AuthTokens {
 // Generic neutral error so registration doesn't leak tenant existence
 const REGISTRATION_NEUTRAL_ERROR = 'Registration could not be completed. Please check your details and try again.';
 
+/**
+ * User statuses that may hold a session. Checked at login, on every request
+ * (validateSession) and on refresh, so a user who stops being in one of these
+ * states loses access at once instead of when their tokens expire.
+ */
+const allowedStatuses: readonly string[] = ['APPROVED', 'ACTIVE'];
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -51,6 +59,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly auditService: AuditService,
     private readonly mailService: MailService,
+    private readonly loginHistory: LoginHistoryService,
   ) {}
 
   // ── Public Registration ────────────────────────────────────────────────────
@@ -159,6 +168,7 @@ export class AuthService {
     tokens: AuthTokens;
   }> {
     const { email, passwordOrMagicCode, tenantSlug } = dto;
+    const attempt = { email, ip: ipAddress, userAgent: userAgent };
 
     type LoginUser = {
       id: string;
@@ -187,13 +197,18 @@ export class AuthService {
     }) as LoginUser | null;
 
     if (!user || !user.passwordHash) {
+      await this.loginHistory.record({ ...attempt, outcome: 'FAILURE', reason: 'INVALID_CREDENTIALS', userId: user?.id });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordValid = await bcrypt.compare(passwordOrMagicCode, user.passwordHash);
     if (!passwordValid) {
+      await this.loginHistory.record({ ...attempt, outcome: 'FAILURE', reason: 'INVALID_CREDENTIALS', userId: user.id });
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    const blocked = (reason: string) =>
+      this.loginHistory.record({ ...attempt, outcome: 'BLOCKED', reason, userId: user.id });
 
     const userStatus = user.status as string;
 
@@ -208,6 +223,7 @@ export class AuthService {
         failureCategory: LoginBlockReason.PENDING_APPROVAL,
         payload: { email: user.email },
       });
+      await blocked('PENDING_APPROVAL');
       throw new ForbiddenException('Your account is waiting for approval.');
     }
 
@@ -221,6 +237,7 @@ export class AuthService {
         failureCategory: LoginBlockReason.REJECTED,
         payload: { email: user.email },
       });
+      await blocked('REJECTED');
       throw new ForbiddenException('Your account request was rejected. Please contact support.');
     }
 
@@ -234,17 +251,19 @@ export class AuthService {
         failureCategory: LoginBlockReason.SUSPENDED,
         payload: { email: user.email },
       });
+      await blocked('SUSPENDED');
       throw new ForbiddenException('Your account has been suspended. Please contact support.');
     }
 
     // DISABLED / ARCHIVED (legacy path) and any unknown status
     if (userStatus === 'DISABLED' || userStatus === 'ARCHIVED') {
+      await blocked(userStatus);
       throw new ForbiddenException('Account is disabled');
     }
 
     // APPROVED and ACTIVE are both valid for login
-    const allowedStatuses: string[] = ['APPROVED', 'ACTIVE'];
     if (!allowedStatuses.includes(userStatus)) {
+      await blocked('STATUS_NOT_ALLOWED');
       throw new ForbiddenException('Account access denied');
     }
 
@@ -257,11 +276,15 @@ export class AuthService {
     }
 
     if (!membership) {
+      await blocked('NO_ACTIVE_MEMBERSHIP');
       throw new ForbiddenException(
         'Your account is approved but has no active workspace membership. Contact your administrator.',
       );
     }
-    if (membership.tenant.status !== 'ACTIVE') throw new ForbiddenException('Tenant is suspended');
+    if (membership.tenant.status !== 'ACTIVE') {
+      await this.loginHistory.record({ ...attempt, outcome: 'BLOCKED', reason: 'TENANT_SUSPENDED', userId: user.id, tenantId: membership.tenantId });
+      throw new ForbiddenException('Tenant is suspended');
+    }
 
     const tokens = await this.createSession(
       user.id,
@@ -270,6 +293,8 @@ export class AuthService {
       membership.tenant.slug,
       membership.role,
     );
+
+    await this.loginHistory.record({ ...attempt, outcome: 'SUCCESS', userId: user.id, tenantId: membership.tenantId });
 
     return {
       user: {
@@ -400,7 +425,13 @@ export class AuthService {
     }
 
     const membership = session.user.memberships.find((m) => m.tenantId === session.tenantId);
-    if (!membership) throw new UnauthorizedException('Membership not found');
+    if (!membership || !allowedStatuses.includes(session.user.status as string)) {
+      await this.prisma.session.updateMany({
+        where: { id: session.id, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Invalid or expired session');
+    }
 
     const newRefreshToken = crypto.randomBytes(48).toString('hex');
     const newHash = this.hashToken(newRefreshToken);
@@ -445,9 +476,24 @@ export class AuthService {
   async validateSession(sessionId: string): Promise<boolean> {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
-      select: { status: true, expiresAt: true },
+      select: {
+        status: true,
+        expiresAt: true,
+        tenantId: true,
+        user: { select: { status: true, memberships: { select: { tenantId: true, status: true } } } },
+      },
     });
     if (!session || session.status !== 'ACTIVE' || session.expiresAt < new Date()) {
+      return false;
+    }
+    // A session is only as valid as the user and the membership behind it:
+    // a suspended, disabled or archived user, or a membership that is no
+    // longer ACTIVE in the session's tenant, loses access on the next request.
+    if (!allowedStatuses.includes(session.user.status as string)) {
+      return false;
+    }
+    const membership = session.user.memberships.find((m) => m.tenantId === session.tenantId);
+    if (!membership || membership.status !== 'ACTIVE') {
       return false;
     }
     void this.prisma.session.update({

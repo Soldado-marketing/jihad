@@ -117,7 +117,7 @@ Save the returned token — this is the Owner account.
 - [ ] Login with owner account works
 - [ ] Register a test user → appears in admin approval screen
 - [ ] Approve test user → login works
-- [ ] SMTP configured → test by inviting a user
+- [ ] `RESEND_API_KEY` set → test by inviting a user
 - [ ] S3 configured → test file upload
 
 ---
@@ -150,7 +150,8 @@ DATABASE_URL='<your production DATABASE_URL>' npx prisma migrate deploy
 | `JWT_REFRESH_SECRET` | ✅ | Min 32 chars, random, different from JWT_SECRET |
 | `REDIS_URL` | ✅ | Redis connection string |
 | `WEB_URL` | ✅ | Frontend URL for CORS |
-| `SMTP_HOST` | Recommended | For invites and notifications |
+| `TRUST_PROXY_HOPS` | Optional | Proxy hops trusted for the client IP (`X-Forwarded-For`). Default `1` (Railway). Set `0` when the API is reachable without a proxy. Integer 0–5; anything else stops startup. |
+| `RESEND_API_KEY` | Recommended | Resend API key for invites and notifications. See "Email" below. |
 | `S3_BUCKET` | For files | Bucket name. See "Object storage" below. |
 | `S3_REGION` | For files | e.g. `eu-central-1` |
 | `S3_ACCESS_KEY_ID` | For files | Access key |
@@ -207,6 +208,22 @@ Object keys are generated server-side and namespaced per tenant:
 
 ---
 
+## Email (Resend)
+
+The API sends mail through the Resend HTTPS API, not SMTP. Outbound SMTP is not
+available on Railway Hobby (blocked on every port), so there is no SMTP
+configuration at all.
+
+- `RESEND_API_KEY` is the only mail variable the API reads. Set it as a Railway
+  secret variable. Without it the API still starts; sends are skipped and
+  reported as not configured.
+- The sender is fixed in code as `MAIL_FROM` = `no-reply@soldado-marketing.de`
+  (`apps/api/src/modules/mail/mail.service.ts`). It is an owner decision, not
+  configuration: a `MAIL_FROM` or `RESEND_ENDPOINT` environment variable is not
+  read and cannot change it.
+
+---
+
 ## Database migrations
 
 Only ever run:
@@ -240,6 +257,70 @@ A nightly cron entry:
 0 3 * * * cd /srv/maos && DATABASE_URL=postgresql://... ./scripts/backup-db.sh /srv/maos/backups >> /var/log/maos-backup.log 2>&1
 ```
 
+### Scheduled runner (backup Mac)
+
+`scripts/nightly-backup.sh` is the scheduled entry point. It takes no
+arguments, fetches `DATABASE_PUBLIC_URL` from the Railway project linked to the
+repository (`railway variables --service Postgres --kv`), runs
+`backup-db.sh` into `$MAOS_BACKUP_HOME/production` (default
+`~/MAOS_BACKUPS/production`) and appends to `$MAOS_BACKUP_HOME/logs/backup.log`,
+with any connection string redacted. When the host has no PostgreSQL client
+tools it uses `scripts/pg-dump-docker.sh` (pg_dump inside `postgres:18`) as
+`pg_dump`.
+
+It allows one run at a time and stops a run after
+`MAOS_BACKUP_MAX_SECONDS` (default 7200), removing partial dumps. Exit codes:
+`0` success, the backup's own status on failure, `2` Docker or Railway CLI
+missing, `3` database URL not obtainable (for example an expired Railway
+login), `4` time limit exceeded, `75` another run in progress. Invoke it with
+`/bin/bash`.
+
+#### Database credential from the Keychain (recommended)
+
+A Railway CLI login expires, and a scheduled run cannot log in again; two
+nightly backups failed that way. The runner therefore reads the connection
+string from the macOS Keychain first and uses the Railway CLI only as a
+fallback (`MAOS_BACKUP_CREDENTIAL_SOURCE`: `auto` default, `keychain` to
+require the item, `railway` to skip it).
+
+Store the item once, on the backup Mac, as the user that runs the backups.
+Put `-w` last so `security` **prompts** for the value: it then never appears
+in the command line, the shell history or the process list.
+
+```bash
+security add-generic-password -a maos -s maos-backup-database-url -U -w
+```
+
+Paste the production `DATABASE_PUBLIC_URL` at the prompt (from the Railway
+dashboard; do not paste it anywhere else). Check that the item exists without
+printing it:
+
+```bash
+security find-generic-password -a maos -s maos-backup-database-url >/dev/null && echo "item present"
+```
+
+The runner logs only which source it used (`credential source: keychain`),
+never the value, and refuses a value that is not a PostgreSQL URL. If the
+credential is rotated in Railway, run the `add-generic-password` command again
+(`-U` updates the item).
+
+### Backup alerts
+
+Backup problems are never silent. `scripts/backup-alert.sh <message>` shows a
+macOS notification and appends a line to `$MAOS_BACKUP_HOME/logs/alerts.log`
+(connection strings redacted, one line, at most 200 characters).
+
+- `nightly-backup.sh` raises an alert on every failure (exit `1`–`4` and the
+  backup's own status). A skipped run (`75`) and a successful run stay silent.
+- `scripts/backup-staleness-check.sh` alerts when the newest dump whose
+  `.sha256` matches is missing or older than `MAOS_BACKUP_MAX_AGE_HOURS`
+  (default 26). It exits `0` when the backup is fresh and `1` after alerting.
+  Run it on its own schedule (for example hourly), separate from the nightly
+  backup, so a run that never started is also caught.
+
+Alerts go to the Mac running the scripts. Email or chat delivery is not
+built in.
+
 ### Restore
 
 ```bash
@@ -257,6 +338,20 @@ step, on purpose:
 
 **Test a restore before you need one.** A backup you have never restored is a
 hypothesis, not a backup.
+
+### Restore rehearsal
+
+```bash
+./scripts/restore-rehearsal.sh ./backups/maos-20260901T030000Z.dump
+```
+
+Requires Docker. The rehearsal verifies the dump's `.sha256` (required), starts
+a throwaway `postgres:18` container with **no network and no published port**,
+restores the dump with `restore-db.sh` into a new database, and fails unless the
+restore has tables, at least one applied Prisma migration and no failed or
+unfinished migration. It prints table names and row counts only (no row data)
+and always removes the container. Set `REHEARSAL_PG_IMAGE` if the dump was made
+by a newer `pg_dump`, and `REHEARSAL_REPORT=<file>` to keep the report.
 
 ---
 

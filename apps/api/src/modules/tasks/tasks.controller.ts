@@ -38,7 +38,7 @@ export class TasksController {
     @Query('assignedToUserId') assignedToUserId?: string,
     @Query('labelId') labelId?: string,
   ) {
-    return this.tasksService.listTasks(user.tenantId, {
+    return this.tasksService.listTasks(user.tenantId, user.sub, {
       projectId,
       status: status as ListTaskFilters['status'],
       priority: priority as ListTaskFilters['priority'],
@@ -64,13 +64,13 @@ export class TasksController {
   @Patch('reorder')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.TASK })
   reorderTasks(@CurrentUser() user: JwtPayload, @Body() dto: ReorderTasksDto) {
-    return this.tasksService.reorderTasks(user.tenantId, dto);
+    return this.tasksService.reorderTasks(user.tenantId, user.sub, dto);
   }
 
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.TASK })
   getTask(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.tasksService.getTask(user.tenantId, id);
+    return this.tasksService.getTask(user.tenantId, id, user.sub);
   }
 
   @Patch(':id')
@@ -87,6 +87,6 @@ export class TasksController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission({ action: PermissionAction.DELETE, resource: PermissionResource.TASK })
   deleteTask(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.tasksService.deleteTask(user.tenantId, id);
+    return this.tasksService.deleteTask(user.tenantId, id, user.sub);
   }
 }

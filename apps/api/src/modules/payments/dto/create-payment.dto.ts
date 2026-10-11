@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsOptional()
@@ -11,6 +11,7 @@ export class CreatePaymentDto {
 
   @IsString()
   @MaxLength(3)
+  @Matches(/^[A-Za-z]{3}$/, { message: 'currency must be a 3-letter code' })
   currency!: string;
 
   @IsOptional()

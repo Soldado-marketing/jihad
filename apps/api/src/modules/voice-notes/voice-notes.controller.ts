@@ -5,6 +5,7 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
+import { CreateVoiceNoteDto } from './dto/create-voice-note.dto';
 import { VoiceNotesService } from './voice-notes.service';
 
 /**
@@ -28,7 +29,7 @@ export class VoiceNotesController {
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.VOICE_NOTE })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: { title: string; projectId?: string; taskId?: string }) {
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateVoiceNoteDto) {
     return this.svc.create(user.tenantId, user.sub, dto.title, dto.projectId, dto.taskId);
   }
 

@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
+import { ErrorState } from '@/components/states/error-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { toCents } from '@/lib/money';
 
 type Payment = { id: string; amountCents: number; currency: string; method: string; status?: string; receivedAt?: string; invoice?: { invoiceNumber: string } };
 
@@ -25,8 +27,15 @@ export default function PaymentsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    // Integer cents only: `Number(x) * 100` turns 19.99 into 1998.9999999999998,
+    // which the API rejects (and money must never pass through a float).
+    const amountCents = toCents(form.amountCents);
+    if (amountCents === null || amountCents <= 0) {
+      alert('Enter a positive amount with at most two decimals.');
+      return;
+    }
     try {
-      await apiFetch('/payments', { method: 'POST', body: JSON.stringify({ ...form, amountCents: Number(form.amountCents) * 100 }) });
+      await apiFetch('/payments', { method: 'POST', body: JSON.stringify({ ...form, amountCents }) });
       setForm({ amountCents: '', currency: 'EUR', method: 'MANUAL' }); setShowForm(false); load();
     } catch (e: any) { alert(e.message); }
   }
@@ -55,7 +64,7 @@ export default function PaymentsPage() {
         </form>
       )}
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <ErrorState title="Could not load payments" message={error} onRetry={() => { setError(''); setLoading(true); void load(); }} />}
       {!loading && items.length === 0 && !error && <p className="text-center text-sm text-muted py-8">No payments recorded yet.</p>}
       {items.length > 0 && (
         <table className="w-full rounded-xl border border-line overflow-hidden bg-white">

@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateFileDto } from './dto/create-file.dto';
 import { UpdateFileDto } from './dto/update-file.dto';
 
-// Minimal type used by SignedUrlService and other callers that only need id + tenantId
+// Minimal type for callers that only need id + tenantId
 export type FileAssetRecord = { id: string; tenantId: string; name?: string };
 
 /**
@@ -26,9 +26,9 @@ function visibilityFields(
 export class FilesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
+  list(tenantId: string, scope: Prisma.FileAssetWhereInput = {}) {
     return this.prisma.fileAsset.findMany({
-      where: { tenantId },
+      where: { tenantId, AND: [scope] },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, name: true, mimeType: true, sizeBytes: true, visibility: true,
@@ -105,9 +105,9 @@ export class FilesRepository {
     });
   }
 
-  getById(tenantId: string, id: string) {
+  getById(tenantId: string, id: string, scope: Prisma.FileAssetWhereInput = {}) {
     return this.prisma.fileAsset.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, AND: [scope] },
       include: {
         // storageKey is deliberately excluded: version content is reached only
         // through the authorised content route, never by key.

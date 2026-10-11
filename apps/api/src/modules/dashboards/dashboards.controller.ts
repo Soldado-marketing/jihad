@@ -21,6 +21,6 @@ export class DashboardsController {
   @Get('client-summary')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD, scope: 'client-portal' })
   getClientSummary(@CurrentUser() user: JwtPayload) {
-    return this.dashboardsService.getClientSummary(user.tenantId, user.sub);
+    return this.dashboardsService.getClientSummary(user.tenantId, user.sub, user.role);
   }
 }

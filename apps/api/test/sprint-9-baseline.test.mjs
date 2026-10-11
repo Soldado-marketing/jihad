@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { assertGuardedController, assertTenantScopedRepository } from './support/source-assertions.mjs';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readApi = (relativePath) => readFileSync(join(apiRoot, relativePath), 'utf8');
@@ -68,36 +69,42 @@ describe('Sprint 9 finance basic API baseline', () => {
     ].join('\n');
 
     assert.match(controllers, /@Controller\('finance'\)/);
+    // MAOS-T39: finance is read-only over HTTP. Revenue is posted by the
+    // system when an invoice is settled (never typed in), and profitability
+    // replaced the profitability-summary skeleton.
+    assert.match(controllers, /@Get\('summary'\)/);
     assert.match(controllers, /@Get\('revenue'\)/);
-    assert.match(controllers, /@Post\('revenue'\)/);
     assert.match(controllers, /@Get\('costs'\)/);
-    assert.match(controllers, /@Post\('costs'\)/);
-    assert.match(controllers, /@Get\('profitability-summary'\)/);
+    assert.match(controllers, /@Get\('profitability'\)/);
+    assert.doesNotMatch(controllers, /@Post\('revenue'\)/);
     assert.match(controllers, /@Controller\('invoices'\)/);
     assert.match(controllers, /@Get\(\)/);
     assert.match(controllers, /@Post\(\)/);
     assert.match(controllers, /@Get\(':id'\)/);
-    assert.match(controllers, /@Patch\(':id'\)/);
+    assert.match(controllers, /@Patch\(':id\/status'\)/);
+    assert.match(controllers, /@Post\(':id\/send'\)/);
     assert.match(controllers, /@Controller\('payments'\)/);
     assert.match(controllers, /@Controller\('client\/invoices'\)/);
     assert.match(controllers, /@Controller\('client\/payments'\)/);
   });
 
   it('uses owner-only finance controls and permission resources on protected routes', () => {
-    const controllers = [
-      readApi('src/modules/finance/finance.controller.ts'),
-      readApi('src/modules/invoices/invoices.controller.ts'),
-      readApi('src/modules/payments/payments.controller.ts'),
-    ].join('\n');
-    const financeService = readApi('src/modules/finance/finance.service.ts');
+    const paths = [
+      'src/modules/finance/finance.controller.ts',
+      'src/modules/invoices/invoices.controller.ts',
+      'src/modules/payments/payments.controller.ts',
+    ];
+    for (const path of paths) assertGuardedController(assert, readApi(path), path);
+    const financeController = readApi(paths[0]);
+    const permissionService = readApi('src/modules/permissions/permission.service.ts');
     const permissionTypes = readApi('src/modules/permissions/permission.types.ts');
 
-    assert.match(controllers, /@UseGuards\(PermissionGuard\)/);
-    assert.match(controllers, /RequirePermission/);
-    assert.match(controllers, /sensitive: true/);
-    assert.match(financeService, /assertOwnerOnlyFinanceAccess/);
-    assert.match(financeService, /MembershipRole\.OWNER/);
-    assert.match(financeService, /owner_only_finance_access_required/);
+    // MAOS-T39: owner-only finance is `sensitive: true` on every finance
+    // route, which PermissionService denies to every non-owner.
+    const financeRoutes = financeController.match(/@RequirePermission\([^)]*\)/g) ?? [];
+    assert.ok(financeRoutes.length >= 4);
+    for (const route of financeRoutes) assert.match(route, /sensitive: true/);
+    assert.match(permissionService, /sensitive_non_owner_deny/);
     assert.match(permissionTypes, /FINANCE/);
     assert.match(permissionTypes, /REVENUE_RECORD/);
     assert.match(permissionTypes, /COST_RECORD/);
@@ -106,15 +113,14 @@ describe('Sprint 9 finance basic API baseline', () => {
   });
 
   it('keeps finance repositories tenant-aware without direct unscoped access', () => {
-    const repositories = [
-      readApi('src/modules/finance/finance.repository.ts'),
-      readApi('src/modules/invoices/invoices.repository.ts'),
-      readApi('src/modules/payments/payments.repository.ts'),
-    ].join('\n');
-
-    assert.match(repositories, /extends TenantAwareRepository/);
-    assert.match(repositories, /requireTenantContext/);
-    assert.doesNotMatch(repositories, /prisma\./);
+    // MAOS-T39: every query carries a tenantId boundary (see support helper).
+    for (const path of [
+      'src/modules/finance/finance.repository.ts',
+      'src/modules/invoices/invoices.repository.ts',
+      'src/modules/payments/payments.repository.ts',
+    ]) {
+      assertTenantScopedRepository(assert, readApi(path), path);
+    }
   });
 
   it('adds client-safe invoice and payment placeholders without cost or payroll exposure', () => {
@@ -122,36 +128,32 @@ describe('Sprint 9 finance basic API baseline', () => {
       readApi('src/modules/invoices/client-invoices.controller.ts'),
       readApi('src/modules/payments/client-payments.controller.ts'),
     ].join('\n');
-    const clientServices = [
-      readApi('src/modules/invoices/invoices.service.ts'),
-      readApi('src/modules/payments/payments.service.ts'),
+    const clientRepositories = [
+      readApi('src/modules/invoices/invoices.repository.ts'),
+      readApi('src/modules/payments/payments.repository.ts'),
     ].join('\n');
 
+    // MAOS-T39: client reads go through dedicated client-safe selects.
     assert.match(clientControllers, /scope: 'client-portal'/);
-    assert.match(clientServices, /toClientInvoice/);
-    assert.match(clientServices, /toClientPayment/);
+    assert.match(clientRepositories, /select: CLIENT_INVOICE_SELECT/);
+    assert.match(clientRepositories, /select: CLIENT_PAYMENT_SELECT/);
     assert.doesNotMatch(clientControllers, /cost/i);
     assert.doesNotMatch(clientControllers, /payroll/i);
     assert.doesNotMatch(clientControllers, /audit/i);
   });
 
-  it('adds finance audit placeholders and keeps provider integration deferred', () => {
-    const services = [
-      readApi('src/modules/finance/finance.service.ts'),
-      readApi('src/modules/invoices/invoices.service.ts'),
+  it('audits invoice sending and revenue posting, and keeps payment providers out', () => {
+    const invoicesService = readApi('src/modules/invoices/invoices.service.ts');
+    assert.match(invoicesService, /recordAudit\(actor, 'invoice\.sent'/);
+    assert.match(invoicesService, /recordAudit\(actor, 'revenue\.created'/);
+    const payments = [
       readApi('src/modules/payments/payments.service.ts'),
+      readApi('src/modules/payments/payments.repository.ts'),
     ].join('\n');
-    const paymentRepository = readApi('src/modules/payments/payments.repository.ts');
-
-    assert.match(services, /revenue\.created/);
-    assert.match(services, /cost\.created/);
-    assert.match(services, /invoice\.created/);
-    assert.match(services, /invoice\.updated/);
-    assert.match(services, /payment\.recorded/);
-    assert.match(services, /finance\.access\.denied/);
-    assert.match(services, /client\.invoice\.viewed/);
-    assert.match(paymentRepository, /externalPaymentProviderIntegrated: false/);
+    assert.doesNotMatch(payments, /stripe|paypal|fetch\(/i);
   });
+
+  it.todo('writes audit events for invoice creation/updates, payments and finance denials (specified in Sprint 9, never built; backlog F-4)');
 
   it('keeps post-Sprint-9 deferred modules absent from apps/api modules', () => {
     const appModule = readApi('src/app.module.ts');

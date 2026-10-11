@@ -1,14 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FollowUpStatus } from '@prisma/client';
+import { assertLeadInTenant, assertOpportunityInTenant } from '../../common/tenant/tenant-references';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateFollowUpDto } from './dto/create-follow-up.dto';
+import { UpdateFollowUpDto } from './dto/update-follow-up.dto';
 import { FollowUpsRepository } from './follow-ups.repository';
 
 @Injectable()
 export class FollowUpsService {
-  constructor(private readonly repo: FollowUpsRepository) {}
+  constructor(
+    private readonly repo: FollowUpsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
-  create(tenantId: string, actorId: string, dto: CreateFollowUpDto) { return this.repo.create(tenantId, actorId, dto); }
+  async create(tenantId: string, actorId: string, dto: CreateFollowUpDto) {
+    await assertLeadInTenant(this.prisma, tenantId, dto.leadId);
+    await assertOpportunityInTenant(this.prisma, tenantId, dto.opportunityId);
+    return this.repo.create(tenantId, actorId, dto);
+  }
 
   async get(tenantId: string, id: string) {
     const item = await this.repo.getById(tenantId, id);
@@ -16,7 +25,7 @@ export class FollowUpsService {
     return item;
   }
 
-  async update(tenantId: string, id: string, dto: Partial<CreateFollowUpDto> & { status?: FollowUpStatus }) {
+  async update(tenantId: string, id: string, dto: UpdateFollowUpDto) {
     await this.get(tenantId, id);
     return this.repo.update(tenantId, id, dto);
   }

@@ -1,32 +1,36 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { JwtPayload } from '../auth/auth.service';
 import { RevokeSessionDto } from './dto/revoke-session.dto';
 import { SessionsService } from './sessions.service';
 
 /**
  * Authorisation boundary: SELF.
  *
- * Both routes describe the caller's own session, so authentication is the whole
- * gate - there is no cross-user or cross-tenant read here and PermissionGuard
- * would reduce "see your own session" to an owner-only action.
- *
- * The bodies are still Sprint 1A placeholders, but the route is reachable from
- * the internet today and would have been reachable by anyone; the guard is what
- * keeps it from becoming a live unauthenticated endpoint the moment the
- * placeholder is filled in.
+ * Every route acts on the caller's own sessions in the tenant of the access
+ * token, so authentication is the whole gate - the service filters by user
+ * and tenant, and PermissionGuard would reduce "manage your own sessions" to
+ * an owner-only action.
  */
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
+  @Get()
+  listSessions(@CurrentUser() user: JwtPayload) {
+    return this.sessionsService.listOwn(user);
+  }
+
   @Get('current')
-  getCurrentSession() {
-    return this.sessionsService.getCurrentSessionPlaceholder();
+  getCurrentSession(@CurrentUser() user: JwtPayload) {
+    return this.sessionsService.current(user);
   }
 
   @Post('revoke')
-  revokeSession(@Body() dto: RevokeSessionDto) {
-    return this.sessionsService.revokeSessionPlaceholder(dto);
+  @HttpCode(200)
+  revokeSession(@CurrentUser() user: JwtPayload, @Body() dto: RevokeSessionDto) {
+    return this.sessionsService.revokeOwn(user, dto.sessionId);
   }
 }

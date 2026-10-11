@@ -28,7 +28,7 @@ export class SubtasksController {
   @Get('tasks/:taskId/subtasks')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.SUBTASK })
   listForTask(@CurrentUser() user: JwtPayload, @Param('taskId') taskId: string) {
-    return this.subtasksService.listForTask(user.tenantId, taskId);
+    return this.subtasksService.listForTask(user.tenantId, user.sub, taskId);
   }
 
   @Post('tasks/:taskId/subtasks')
@@ -55,6 +55,6 @@ export class SubtasksController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission({ action: PermissionAction.DELETE, resource: PermissionResource.SUBTASK })
   async deleteSubtask(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    await this.subtasksService.deleteSubtask(user.tenantId, id);
+    await this.subtasksService.deleteSubtask(user.tenantId, user.sub, id);
   }
 }

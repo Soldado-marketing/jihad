@@ -55,7 +55,6 @@ describe('Sprint 1A identity foundation baseline', () => {
       'auth',
       'devices',
       'health',
-      'invites',
       'login-history',
       'memberships',
       'prisma',
@@ -77,10 +76,11 @@ describe('Sprint 1A identity foundation baseline', () => {
     assert.match(repository, /Tenant context is required/);
   });
 
-  it('includes endpoint skeletons for health, invite acceptance, sessions, and tenant context', () => {
+  // The invite-acceptance placeholder was removed in MAOS-T38 (it answered with a
+  // fake success); a real token-verified invite flow is a separate task.
+  it('includes endpoint skeletons for health, sessions, and tenant context', () => {
     const expectedFiles = [
       'src/modules/health/health.controller.ts',
-      'src/modules/invites/invites.controller.ts',
       'src/modules/sessions/sessions.controller.ts',
       'src/modules/tenant-context/tenant-context.controller.ts',
     ];

@@ -295,6 +295,13 @@ describe('invoicing', { skip }, () => {
     assert.equal(detail.status, 404);
   });
 
+  // A draft is not payable (MAOS-T34): the invoice is issued before payments.
+  it('issues the invoice (DRAFT -> SENT) before payments are recorded', async () => {
+    const res = await auth(request(server).patch(`/api/invoices/${invoiceId}/status`)).send({ status: 'SENT' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.status, 'SENT');
+  });
+
   it('marks the invoice PARTIALLY_PAID after a partial payment', async () => {
     const res = await auth(request(server).post('/api/payments')).send({
       invoiceId,
@@ -320,12 +327,13 @@ describe('invoicing', { skip }, () => {
     assert.equal(res.body.invoice.paidCents, 250000);
     assert.equal(res.body.invoice.status, 'PAID');
 
-    // A further payment must not post revenue a second time.
-    await auth(request(server).post('/api/payments')).send({
+    // A further payment is an overpayment (D16): refused, and no second revenue.
+    const extra = await auth(request(server).post('/api/payments')).send({
       invoiceId,
       amountCents: 1,
       currency: 'EUR',
     });
+    assert.equal(extra.status, 409, JSON.stringify(extra.body));
 
     const revenue = await auth(request(server).get('/api/finance/revenue'));
     assert.equal(revenue.status, 200);

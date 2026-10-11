@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { InvoiceStatusName, computeInvoiceTotals, resolveInvoiceStatus } from './invoice-totals';
+import {
+  InvoiceStatusName,
+  UNCOUNTED_PAYMENT_STATUSES,
+  computeInvoiceTotals,
+  resolveInvoiceStatus,
+} from './invoice-totals';
 
 /**
  * Client-safe projection.
@@ -194,7 +199,7 @@ export class InvoicesRepository {
       if (!invoice) return null;
 
       const paid = await tx.payment.aggregate({
-        where: { tenantId, invoiceId, status: { notIn: ['FAILED', 'REFUNDED', 'CANCELED'] } },
+        where: { tenantId, invoiceId, status: { notIn: [...UNCOUNTED_PAYMENT_STATUSES] } },
         _sum: { amountCents: true },
       });
 
@@ -256,10 +261,23 @@ export class InvoicesRepository {
   }
 
   /** Client recipients of a project, used to address the invoice email. */
-  findProjectClientEmails(tenantId: string, projectId: string): Promise<{ email: string }[]> {
+  /**
+   * Default invoice recipients (MAOS-T37): CLIENT members of the invoice's own
+   * client (matching clientScopeKey) with an ACTIVE membership and a user who
+   * may hold a session, who are members of the invoice's project. Another
+   * client on a shared project, suspended memberships and non-active users are
+   * never defaulted to. An invoice without a client scope has no default.
+   */
+  async findProjectClientEmails(
+    tenantId: string,
+    projectId: string,
+    clientScopeKey: string | null,
+  ): Promise<{ email: string }[]> {
+    if (!clientScopeKey) return [];
     return this.prisma.user.findMany({
       where: {
-        memberships: { some: { tenantId, role: 'CLIENT' } },
+        status: { in: ['APPROVED', 'ACTIVE'] },
+        memberships: { some: { tenantId, role: 'CLIENT', status: 'ACTIVE', clientScopeKey } },
         projectMemberships: { some: { tenantId, projectId } },
       },
       select: { email: true },

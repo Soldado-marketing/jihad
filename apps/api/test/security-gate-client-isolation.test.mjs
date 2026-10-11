@@ -428,3 +428,78 @@ describe('Gate 3 - internal roles are not narrowed', { skip }, () => {
     assert.equal(res.body.length, 6, 'three files per client should still be visible internally');
   });
 });
+
+// ── Dashboard client summary (MAOS-T26) ──────────────────────────────────────
+//
+// GET /api/dashboards/client-summary is a client-portal route. It used to count
+// projects, tasks and invoices across the whole tenant, so a CLIENT learned the
+// size of every other client's world. The counts must match exactly what the
+// caller's own portal lists show: client-visible, in the caller's scope, and
+// for invoices not DRAFT.
+
+describe('Gate 3 - dashboard client summary counts one client only', { skip }, () => {
+  before(async () => {
+    if (skip) return;
+    // Client B gets two more visible projects, so the two clients' counts differ.
+    for (const n of [2, 3]) {
+      await prisma.project.create({
+        data: { tenantId, name: `${SCOPE_B}-PROJECT-${n}`, clientVisible: true, clientScopeKey: SCOPE_B },
+      });
+    }
+    // Client A gets rows its portal never shows: an internal task and a draft invoice.
+    await prisma.task.create({
+      data: { tenantId, projectId: worldA.projectId, title: `${SCOPE_A}-INTERNAL-TASK`, clientVisible: false, clientScopeKey: SCOPE_A },
+    });
+    await prisma.invoice.create({
+      data: {
+        tenantId,
+        projectId: worldA.projectId,
+        invoiceNumber: `${SCOPE_A}-INV-DRAFT`,
+        status: 'DRAFT',
+        clientVisible: true,
+        clientScopeKey: SCOPE_A,
+        currency: 'EUR',
+        subtotalCents: 500,
+        totalCents: 500,
+      },
+    });
+  });
+
+  const summary = (token) => auth(token, request(server).get('/api/dashboards/client-summary'));
+
+  it('gives client A the counts of its own visible world only', async () => {
+    const res = await summary(A.token);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { projects: 1, tasks: 1, invoices: 1 });
+  });
+
+  it('gives client B its own, different counts', async () => {
+    const res = await summary(B.token);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { projects: 3, tasks: 1, invoices: 1 });
+  });
+
+  it('matches what each client portal list shows', async () => {
+    for (const who of [A, B]) {
+      const s = (await summary(who.token)).body;
+      const projects = (await auth(who.token, request(server).get('/api/client/projects'))).body;
+      const tasks = (await auth(who.token, request(server).get('/api/client/tasks'))).body;
+      const invoices = (await auth(who.token, request(server).get('/api/client/invoices'))).body;
+      assert.equal(s.projects, projects.length);
+      assert.equal(s.tasks, tasks.length);
+      assert.equal(s.invoices, (invoices.items ?? invoices).length);
+    }
+  });
+
+  it('fails closed for a CLIENT without a scope', async () => {
+    const res = await summary(NOSCOPE.token);
+    assert.equal(res.status, 403);
+  });
+
+  it('keeps tenant-wide counts for an internal role', async () => {
+    const res = await summary(ownerToken);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.projects >= 4, `owner should count every project, got ${res.body.projects}`);
+    assert.ok(res.body.invoices >= 3, `owner should count every invoice, got ${res.body.invoices}`);
+  });
+});

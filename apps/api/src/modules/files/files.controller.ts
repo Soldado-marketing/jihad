@@ -92,7 +92,7 @@ export class FilesController {
 
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE })
-  list(@CurrentUser() user: JwtPayload) { return this.svc.list(user.tenantId); }
+  list(@CurrentUser() user: JwtPayload) { return this.svc.list(user.tenantId, user.sub); }
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.FILE })
@@ -102,25 +102,25 @@ export class FilesController {
 
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE })
-  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.get(user.tenantId, id); }
+  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.get(user.tenantId, id, user.sub); }
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.FILE })
   update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateFileDto) {
-    return this.svc.update(user.tenantId, id, dto);
+    return this.svc.update(user.tenantId, id, dto, user.sub);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission({ action: PermissionAction.DELETE, resource: PermissionResource.FILE })
-  delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.delete(user.tenantId, id); }
+  delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.delete(user.tenantId, id, user.sub); }
 
   // ── Phase 3: versions backed by S3-compatible object storage ──────────────
 
   @Get(':id/versions')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE_VERSION })
   listVersions(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.versions.list(user.tenantId, id);
+    return this.versions.list(user.tenantId, id, user.sub);
   }
 
   @Post(':id/versions')
@@ -141,7 +141,7 @@ export class FilesController {
     @Param('id') id: string,
     @Param('versionId') versionId: string,
   ) {
-    return this.versions.getOne(user.tenantId, id, versionId);
+    return this.versions.getOne(user.tenantId, id, versionId, user.sub);
   }
 
   /**
