@@ -79,6 +79,10 @@ before(async () => {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ forbidNonWhitelisted: true, transform: true, whitelist: true }));
   await app.init();
+  // Listen once on IPv4 loopback (CI-2): supertest otherwise re-listens on a
+  // fresh ephemeral port per request, and on a developer machine another
+  // local process occasionally answered that port.
+  await app.listen(0, '127.0.0.1');
   server = app.getHttpServer();
   request = require('supertest');
   const { PrismaService } = require(join(apiRoot, 'dist/modules/prisma/prisma.service.js'));
