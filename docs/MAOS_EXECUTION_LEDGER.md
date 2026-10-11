@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `ca227fd` (T59 #43 merged 2026-10-11) |
+| CURRENT_MAIN | `21f9f7f` (T61 #44 merged 2026-10-11) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T61 Primitives: StatusBadge, ErrorState, DetailPanel, KpiCard |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing); T65 committed locally, lands next |
-| CURRENT_BRANCH | feat/ui-primitives |
+| ACTIVE_TASK | MAOS-T65 Activity timeline API |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing); T62 and T67 committed locally, land next |
+| CURRENT_BRANCH | feat/activity-timeline-api |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | web ui-primitives 7/7; web build OK |
+| TESTS_PASSED | activity-timeline 7/7; 5 mutations caught |
 | TESTS_PENDING | — |
 | PR_URL | open: T59 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T61; land T65 (feat/activity-timeline-api, committed); then T60 FilterBar, T62 CRM Kanban, T66 timeline component, T67 My Work API. |
+| EXACT_NEXT_ACTION | Land T65; land T62 (feat/crm-pipeline-board) and T67 (feat/my-work-api), both committed; then T60 FilterBar, T66 timeline component, T68 My Work UI. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -148,7 +148,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T47 | Notification writers (re-applied from feat/v2-a1-notifications) | feat/notification-writers | #41 MERGED (`5a04391`) | 8/8 + unit 5/5; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T48 | Notification bell in the workspace top bar | feat/notification-bell | #42 MERGED (`0ee5beb`) | web 3/3, 86/86 | 0 | COMPLETE_MERGED |
 | MAOS-T59 | Shared DataTable (sorting, pagination; pilot: leads) | feat/data-table | #43 MERGED (`ca227fd`) | web 8/8 | 0 | COMPLETE_MERGED |
-| MAOS-T61 | Primitives: unified StatusBadge, ErrorState, DetailPanel, KpiCard | feat/ui-primitives | (this PR) | web 7/7 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T61 | Primitives: unified StatusBadge, ErrorState, DetailPanel, KpiCard | feat/ui-primitives | #44 MERGED (`21f9f7f`) | web 7/7 | 0 | COMPLETE_MERGED |
+| MAOS-T65 | Activity timeline API over AuditEvent | feat/activity-timeline-api | (this PR) | 7/7; 5 mutations | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -513,3 +514,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T48 | Notification bell in the shell | feat/notification-bell | PR | web 86/86 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T59 | Shared DataTable | feat/data-table | PR | web 8/8 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T61 | UI primitives | feat/ui-primitives | PR | web 7/7 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T65 | Activity timeline API | feat/activity-timeline-api | PR | 7/7, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
