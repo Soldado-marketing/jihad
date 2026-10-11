@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
@@ -29,8 +29,12 @@ export class PaymentsController {
 
   @Post()
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.PAYMENT })
-  create(@CurrentUser() user: JwtPayload, @Body() dto: CreatePaymentDto) {
-    return this.svc.create(toActor(user), dto);
+  create(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreatePaymentDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return this.svc.create(toActor(user), dto, idempotencyKey);
   }
 
   @Get(':id')

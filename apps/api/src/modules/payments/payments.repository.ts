@@ -18,6 +18,14 @@ export interface CreatePaymentInput {
   status?: PaymentStatus;
   clientScopeKey?: string;
   receivedAt?: string;
+  /** Client-chosen key that makes a repeated submit return the first payment (D16). */
+  idempotencyKey?: string;
+}
+
+/** A recorded payment, or the earlier one recorded under the same idempotency key. */
+export interface RecordedPayment {
+  payment: Prisma.PaymentGetPayload<{}>;
+  replayed: boolean;
 }
 
 /** Client-safe projection: no recordedByUserId, no internal scope key. */
@@ -90,13 +98,24 @@ export class PaymentsRepository {
    * overpay it. Payments in an uncounted status (failed, refunded, cancelled)
    * do not reduce the balance and are not limited by it.
    */
-  createWithinInvoiceBalance(tenantId: string, actorId: string, dto: CreatePaymentInput & { invoiceId: string }) {
-    return this.prisma.$transaction(async (tx) => {
+  async createWithinInvoiceBalance(
+    tenantId: string,
+    actorId: string,
+    dto: CreatePaymentInput & { invoiceId: string },
+  ): Promise<RecordedPayment> {
+    return this.replayOnDuplicateKey(tenantId, dto.idempotencyKey, () => this.prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<{ totalCents: number }[]>`
         SELECT "totalCents" FROM "Invoice"
         WHERE "id" = ${dto.invoiceId} AND "tenantId" = ${tenantId}
         FOR UPDATE`;
       const totalCents = Number(locked[0]?.totalCents ?? 0);
+
+      // A repeat of an earlier submit returns that payment before any balance
+      // check: it must not be refused as an overpayment of itself.
+      if (dto.idempotencyKey) {
+        const earlier = await tx.payment.findFirst({ where: { tenantId, idempotencyKey: dto.idempotencyKey } });
+        if (earlier) return { payment: earlier, replayed: true };
+      }
 
       const status = dto.status ?? PaymentStatus.RECORDED;
       const counts = !(UNCOUNTED_PAYMENT_STATUSES as readonly string[]).includes(status);
@@ -109,12 +128,41 @@ export class PaymentsRepository {
         if (dto.amountCents > remainingCents) throw new OverpaymentError(remainingCents);
       }
 
-      return tx.payment.create({ data: this.paymentData(tenantId, actorId, dto) });
+      const payment = await tx.payment.create({ data: this.paymentData(tenantId, actorId, dto) });
+      return { payment, replayed: false };
+    }));
+  }
+
+  async create(tenantId: string, actorId: string, dto: CreatePaymentInput): Promise<RecordedPayment> {
+    return this.replayOnDuplicateKey(tenantId, dto.idempotencyKey, async () => {
+      if (dto.idempotencyKey) {
+        const earlier = await this.prisma.payment.findFirst({ where: { tenantId, idempotencyKey: dto.idempotencyKey } });
+        if (earlier) return { payment: earlier, replayed: true };
+      }
+      const payment = await this.prisma.payment.create({ data: this.paymentData(tenantId, actorId, dto) });
+      return { payment, replayed: false };
     });
   }
 
-  create(tenantId: string, actorId: string, dto: CreatePaymentInput) {
-    return this.prisma.payment.create({ data: this.paymentData(tenantId, actorId, dto) });
+  /**
+   * Two concurrent submits with one key can both miss the earlier-payment
+   * lookup; the unique (tenantId, idempotencyKey) constraint lets exactly one
+   * insert win, and the loser returns the winner's payment.
+   */
+  private async replayOnDuplicateKey(
+    tenantId: string,
+    idempotencyKey: string | undefined,
+    record: () => Promise<RecordedPayment>,
+  ): Promise<RecordedPayment> {
+    try {
+      return await record();
+    } catch (error) {
+      if (idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const earlier = await this.prisma.payment.findFirst({ where: { tenantId, idempotencyKey } });
+        if (earlier) return { payment: earlier, replayed: true };
+      }
+      throw error;
+    }
   }
 
   private paymentData(tenantId: string, actorId: string, dto: CreatePaymentInput) {
@@ -130,6 +178,7 @@ export class PaymentsRepository {
       // is now rather than null.
       receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
       recordedByUserId: actorId,
+      idempotencyKey: dto.idempotencyKey,
     };
   }
 

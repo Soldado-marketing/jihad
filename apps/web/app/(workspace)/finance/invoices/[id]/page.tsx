@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { InvoiceDetail, type InvoiceDetailData } from '@/components/finance/invoice-detail';
 import { formatCents, toCents } from '@/components/finance/invoice-line-editor';
 import { PageHeader } from '@/components/ui/page-header';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 import { describeInvoiceSend, type InvoiceSendResponse } from '@/lib/invoice-send-result';
+import { createIdempotencyKeys } from '@/lib/idempotency';
 
 type Line = {
   id: string;
@@ -55,6 +56,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [warning, setWarning] = useState<string | null>(null);
   const [recipients, setRecipients] = useState('');
   const [payment, setPayment] = useState({ amount: '', method: 'BANK_TRANSFER' });
+  const paymentKeys = useRef(createIdempotencyKeys());
 
   const load = useCallback(
     () =>
@@ -124,15 +126,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setNotice(null);
     setWarning(null);
     try {
+      const body = JSON.stringify({
+        invoiceId: id,
+        amountCents: cents,
+        currency: invoice.currency,
+        method: payment.method,
+      });
       await apiFetch('/payments', {
         method: 'POST',
-        body: JSON.stringify({
-          invoiceId: id,
-          amountCents: cents,
-          currency: invoice.currency,
-          method: payment.method,
-        }),
+        body,
+        headers: { 'Idempotency-Key': paymentKeys.current.keyFor(body) },
       });
+      paymentKeys.current.reset();
       setNotice('Payment recorded.');
       setPayment({ amount: '', method: 'BANK_TRANSFER' });
       await load();

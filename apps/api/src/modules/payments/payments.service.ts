@@ -12,6 +12,23 @@ import { InvoiceActor, InvoicesService } from '../invoices/invoices.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentInput, OverpaymentError, PaymentsRepository } from './payments.repository';
 
+/** Format of an Idempotency-Key: long enough to be unique per submit. */
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_.:-]{8,100}$/;
+
+/** A replay must describe the same payment as the one recorded first. */
+function samePayment(
+  recorded: { invoiceId: string | null; amountCents: number; currency: string; method: string; status: string },
+  input: CreatePaymentInput,
+): boolean {
+  return (
+    recorded.invoiceId === (input.invoiceId ?? null) &&
+    recorded.amountCents === input.amountCents &&
+    recorded.currency === input.currency.toUpperCase() &&
+    recorded.method === (input.method ?? 'MANUAL') &&
+    recorded.status === (input.status ?? 'RECORDED')
+  );
+}
+
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -38,9 +55,20 @@ export class PaymentsService {
    *
    * The invoice is looked up inside the tenant first: without that check a
    * caller could attach a payment to another tenant's invoice by id.
+   *
+   * `idempotencyKey` (the Idempotency-Key header, D16): a repeated submit with
+   * the same key returns the payment recorded the first time instead of
+   * recording it again; the same key with a different payment is refused.
    */
-  async create(actor: InvoiceActor, dto: CreatePaymentDto) {
+  async create(actor: InvoiceActor, dto: CreatePaymentDto, idempotencyKey?: string) {
     const { tenantId } = actor;
+
+    if (idempotencyKey !== undefined && !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+      throw new BadRequestException({
+        code: 'INVALID_IDEMPOTENCY_KEY',
+        reason: 'Idempotency-Key must be 8-100 letters, digits, ".", "_", ":" or "-".',
+      });
+    }
 
     if (dto.amountCents <= 0) {
       throw new BadRequestException({
@@ -83,15 +111,23 @@ export class PaymentsService {
       input = { ...input, clientScopeKey: invoice.clientScopeKey ?? undefined };
     }
 
-    const payment = dto.invoiceId
+    input = { ...input, idempotencyKey };
+    const { payment, replayed } = dto.invoiceId
       ? await this.createWithinBalance(tenantId, actor.actorId, { ...input, invoiceId: dto.invoiceId })
       : await this.repo.create(tenantId, actor.actorId, input);
+
+    if (replayed && !samePayment(payment, input)) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        reason: 'This Idempotency-Key was already used for a different payment.',
+      });
+    }
 
     const invoice = dto.invoiceId
       ? await this.invoices.syncAfterPayment(actor, dto.invoiceId)
       : null;
 
-    return { invoice, payment };
+    return { invoice, payment, replayed };
   }
 
   /** D16: a payment may not take an invoice above its total (409 OVERPAYMENT). */
