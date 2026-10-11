@@ -244,20 +244,31 @@ export class InvoicesRepository {
     });
     if (existing) return { created: false };
 
-    await this.prisma.revenueRecord.create({
-      data: {
-        tenantId: params.tenantId,
-        sourceType: 'invoice',
-        amountCents: params.amountCents,
-        currency: params.currency,
-        invoiceId: params.invoiceId,
-        projectId: params.projectId ?? undefined,
-        clientScopeKey: params.clientScopeKey ?? undefined,
-        createdByUserId: params.actorId,
-      },
-    });
-
-    return { created: true };
+    // The check above handles the ordinary case. Two concurrent settlements
+    // can both pass it; the unique (tenantId, invoiceId) constraint (MAOS-T40)
+    // then lets exactly one insert win, and the losing insert is the expected
+    // "already posted" outcome. Keeping the check makes this code safe to
+    // deploy before or after the migration.
+    try {
+      await this.prisma.revenueRecord.create({
+        data: {
+          tenantId: params.tenantId,
+          sourceType: 'invoice',
+          amountCents: params.amountCents,
+          currency: params.currency,
+          invoiceId: params.invoiceId,
+          projectId: params.projectId ?? undefined,
+          clientScopeKey: params.clientScopeKey ?? undefined,
+          createdByUserId: params.actorId,
+        },
+      });
+      return { created: true };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return { created: false };
+      }
+      throw error;
+    }
   }
 
   /** Client recipients of a project, used to address the invoice email. */
