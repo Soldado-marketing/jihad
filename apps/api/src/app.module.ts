@@ -19,6 +19,7 @@ import { HealthController } from './modules/health/health.controller';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { LoginHistoryModule } from './modules/login-history/login-history.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
+import { MyWorkModule } from './modules/my-work/my-work.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -65,6 +66,7 @@ import { MailModule } from './modules/mail/mail.module';
     FileVersionsModule,
     ApprovalsModule,
     ChatModule,
+    MyWorkModule,
     NotificationsModule,
     VoiceNotesModule,
     VoiceToTaskModule,
