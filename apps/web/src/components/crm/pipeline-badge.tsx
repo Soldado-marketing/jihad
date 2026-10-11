@@ -1,3 +1,5 @@
+import { StatusBadge } from '@/components/ui/status-badge';
+
 export type PipelineStatus =
   | 'LEAD'
   | 'CONTACTED'
@@ -17,10 +19,7 @@ const labels: Record<PipelineStatus, string> = {
   WON: 'Won',
 };
 
+/** Pipeline stage badge: the shared StatusBadge (MAOS-T61). */
 export function PipelineBadge({ status }: { status: PipelineStatus }) {
-  return (
-    <span className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-slate-600">
-      {labels[status]}
-    </span>
-  );
+  return <StatusBadge status={status} label={labels[status]} />;
 }

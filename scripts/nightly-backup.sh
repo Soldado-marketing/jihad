@@ -7,9 +7,11 @@
 # scripts/backup-db.sh (which stays authoritative for dumping, retries,
 # checksums and retention) and logs the outcome.
 #
-# No credential is stored here. The connection string is fetched from the
-# authenticated Railway CLI at run time, exists only in this process and its
-# children, and is redacted from everything written to the log.
+# No credential is stored here. The connection string comes from the macOS
+# Keychain (MAOS-T18; stored once by the owner) or, as a fallback, from the
+# authenticated Railway CLI at run time. It exists only in this process and
+# its children, never in an argument list, and is redacted from everything
+# written to the log.
 #
 # Guards:
 #   - one run at a time (lock directory with the owner's pid; a lock whose
@@ -21,7 +23,8 @@
 #   0   backup succeeded
 #   1+  backup-db.sh failed (its own exit status)
 #   2   tooling missing (Docker daemon, Railway CLI)
-#   3   database URL could not be obtained (for example an expired login)
+#   3   database URL could not be obtained (missing Keychain item, expired
+#       Railway login, or a Keychain value that is not a PostgreSQL URL)
 #   4   backup exceeded MAOS_BACKUP_MAX_SECONDS and was stopped
 #   75  another run holds the lock
 #
@@ -35,6 +38,12 @@
 #   BACKUP_RETENTION         passed to backup-db.sh, default 14
 #   DOCKER_BIN               default /usr/local/bin/docker
 #   RAILWAY_BIN              default $HOME/.npm-global/bin/railway
+#   MAOS_BACKUP_CREDENTIAL_SOURCE
+#                            auto (default: Keychain, then Railway CLI),
+#                            keychain (Keychain only) or railway (CLI only)
+#   MAOS_BACKUP_KEYCHAIN_SERVICE  default maos-backup-database-url
+#   MAOS_BACKUP_KEYCHAIN_ACCOUNT  default maos
+#   SECURITY_BIN             default /usr/bin/security
 #   MAOS_RAILWAY_DIR         directory linked to the Railway project; default
 #                            the repository root
 #   MAOS_BACKUP_PG_DUMP      docker (default: use scripts/pg-dump-docker.sh as
@@ -54,6 +63,10 @@ LOCK="$BACKUP_HOME/.nightly-backup.lock"
 MAX_SECONDS="${MAOS_BACKUP_MAX_SECONDS:-7200}"
 DOCKER_BIN="${DOCKER_BIN:-/usr/local/bin/docker}"
 RAILWAY_BIN="${RAILWAY_BIN:-$HOME/.npm-global/bin/railway}"
+CREDENTIAL_SOURCE="${MAOS_BACKUP_CREDENTIAL_SOURCE:-auto}"
+KEYCHAIN_SERVICE="${MAOS_BACKUP_KEYCHAIN_SERVICE:-maos-backup-database-url}"
+KEYCHAIN_ACCOUNT="${MAOS_BACKUP_KEYCHAIN_ACCOUNT:-maos}"
+SECURITY_BIN="${SECURITY_BIN:-/usr/bin/security}"
 RAILWAY_DIR="${MAOS_RAILWAY_DIR:-$REPO}"
 PG_DUMP_MODE="${MAOS_BACKUP_PG_DUMP:-docker}"
 BACKUP_SCRIPT="${MAOS_BACKUP_SCRIPT:-$SCRIPT_DIR/backup-db.sh}"
@@ -109,14 +122,37 @@ if ! "$DOCKER_BIN" info >/dev/null 2>&1; then
   finish "FAIL: Docker is not running — pg_dump is unavailable on this Mac without it" 2
 fi
 
-if [ ! -x "$RAILWAY_BIN" ]; then
-  finish "FAIL: railway CLI not found at $RAILWAY_BIN" 2
+case "$CREDENTIAL_SOURCE" in
+  auto|keychain|railway) ;;
+  *) finish "FAIL: MAOS_BACKUP_CREDENTIAL_SOURCE must be auto, keychain or railway" 3 ;;
+esac
+
+DATABASE_URL=""
+# Keychain first: non-interactive, unlike a Railway login that expires. The
+# value is read into a variable only; `security` receives just the item name.
+if [ "$CREDENTIAL_SOURCE" != railway ] && [ -x "$SECURITY_BIN" ]; then
+  DATABASE_URL="$("$SECURITY_BIN" find-generic-password -s "$KEYCHAIN_SERVICE" -a "$KEYCHAIN_ACCOUNT" -w 2>/dev/null || true)"
+  if [ -n "$DATABASE_URL" ]; then
+    case "$DATABASE_URL" in
+      postgres://*|postgresql://*) log "credential source: keychain" ;;
+      *) DATABASE_URL=""; finish "FAIL: the Keychain item $KEYCHAIN_SERVICE is not a PostgreSQL URL" 3 ;;
+    esac
+  fi
 fi
 
-DATABASE_URL="$(cd "$RAILWAY_DIR" && "$RAILWAY_BIN" variables --service Postgres --kv 2>/dev/null \
-  | grep '^DATABASE_PUBLIC_URL=' | cut -d= -f2-)"
 if [ -z "$DATABASE_URL" ]; then
-  finish "FAIL: could not obtain the database URL from Railway (login expired?)" 3
+  if [ "$CREDENTIAL_SOURCE" = keychain ]; then
+    finish "FAIL: no Keychain item $KEYCHAIN_SERVICE (account $KEYCHAIN_ACCOUNT)" 3
+  fi
+  if [ ! -x "$RAILWAY_BIN" ]; then
+    finish "FAIL: railway CLI not found at $RAILWAY_BIN" 2
+  fi
+  DATABASE_URL="$(cd "$RAILWAY_DIR" && "$RAILWAY_BIN" variables --service Postgres --kv 2>/dev/null \
+    | grep '^DATABASE_PUBLIC_URL=' | cut -d= -f2-)"
+  if [ -z "$DATABASE_URL" ]; then
+    finish "FAIL: could not obtain the database URL from Railway (login expired?)" 3
+  fi
+  log "credential source: railway"
 fi
 export DATABASE_URL
 export BACKUP_RETENTION="${BACKUP_RETENTION:-14}"

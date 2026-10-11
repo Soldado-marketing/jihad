@@ -1,62 +1,159 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { apiFetch } from '@/lib/fetch';
+
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import { ErrorState } from '@/components/states/error-state';
+import { DetailPanel } from '@/components/ui/detail-panel';
 import { PageHeader } from '@/components/ui/page-header';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { isOverdue, splitQueue, waitingText, type QueueApproval } from '@/lib/approval-queue';
+import { apiFetch } from '@/lib/fetch';
 
-type Approval = { id: string; status: string; clientVisible: boolean; createdAt: string; decisions?: any[] };
+type Decision = 'APPROVE' | 'REQUEST_CHANGES' | 'REJECT';
+const DECISIONS: { value: Decision; label: string; className: string }[] = [
+  { value: 'APPROVE', label: 'Approve', className: 'bg-accent text-white hover:opacity-90' },
+  { value: 'REQUEST_CHANGES', label: 'Request changes', className: 'border border-line bg-white text-ink hover:bg-slate-50' },
+  { value: 'REJECT', label: 'Reject', className: 'bg-danger text-white hover:opacity-90' },
+];
 
+/** Approval queue (MAOS-T108): what is waiting, most urgent first, and what was decided. */
 export default function ApprovalsPage() {
-  const [items, setItems] = useState<Approval[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<QueueApproval[] | null>(null);
+  const [error, setError] = useState('');
+  const [tab, setTab] = useState<'waiting' | 'decided'>('waiting');
+  const [selected, setSelected] = useState<QueueApproval | null>(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [decideError, setDecideError] = useState('');
 
-  useEffect(() => { load(); }, []);
-  async function load() {
-    try { setItems(await apiFetch<Approval[]>('/approvals')); }
-    catch { /* ignore */ }
-    finally { setLoading(false); }
-  }
-
-  async function decide(id: string, decision: 'APPROVE' | 'REJECT') {
+  const load = useCallback(async () => {
+    setError('');
     try {
-      await apiFetch(`/approvals/${id}/decision`, { method: 'POST', body: JSON.stringify({ decision, note: '' }) });
-      load();
-    } catch (e: any) { alert(e.message); }
+      setItems(await apiFetch<QueueApproval[]>('/approvals'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load approvals.');
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function decide(decision: Decision) {
+    if (!selected) return;
+    setBusy(true);
+    setDecideError('');
+    try {
+      await apiFetch(`/approvals/${selected.id}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({ decision, ...(note.trim() ? { note: note.trim() } : {}) }),
+      });
+      setSelected(null);
+      setNote('');
+      await load();
+    } catch (e) {
+      // 409: someone else decided it first; reload so the queue is current.
+      setDecideError(e instanceof Error ? e.message : 'The decision could not be saved.');
+      await load();
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const STATUS_COLORS: Record<string, string> = {
-    REQUESTED: 'bg-amber-100 text-amber-700', APPROVED: 'bg-green-100 text-green-700',
-    REJECTED: 'bg-red-100 text-red-700', CHANGES_REQUESTED: 'bg-orange-100 text-orange-700',
-  };
+  const { waiting, decided } = splitQueue(items ?? []);
+  const shown = tab === 'waiting' ? waiting : decided;
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Workspace" title="Approvals" description="Review and approve requests." />
-      {loading && <p className="text-sm text-muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="text-center text-sm text-muted py-8">No approval requests yet.</p>}
-      <ul className="divide-y divide-line rounded-xl border border-line bg-white overflow-hidden">
-        {items.map(a => (
-          <li key={a.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
-            <div>
-              <p className="text-sm font-medium text-ink">Approval #{a.id.slice(-6)}</p>
-              <p className="text-xs text-muted mt-0.5">
-                {a.clientVisible ? 'Client visible' : 'Internal'} · {new Date(a.createdAt).toLocaleDateString()}
-                {a.decisions?.length ? ` · ${a.decisions.length} decision(s)` : ''}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[a.status] ?? 'bg-slate-100 text-slate-600'}`}>{a.status}</span>
-              {a.status === 'REQUESTED' && (
-                <>
-                  <button onClick={() => decide(a.id, 'APPROVE')}
-                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">Approve</button>
-                  <button onClick={() => decide(a.id, 'REJECT')}
-                    className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600">Reject</button>
-                </>
-              )}
-            </div>
-          </li>
+      <PageHeader eyebrow="Workspace" title="Approvals" description="Decide what is waiting, most urgent first." />
+
+      <div role="tablist" aria-label="Approvals" className="flex gap-1 border-b border-line">
+        {(['waiting', 'decided'] as const).map((t) => (
+          <button
+            key={t}
+            role="tab"
+            type="button"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t ? 'border-brand font-medium text-ink' : 'border-transparent text-muted'}`}
+          >
+            {t === 'waiting' ? `Waiting (${waiting.length})` : `Decided (${decided.length})`}
+          </button>
         ))}
-      </ul>
+      </div>
+
+      {error && <ErrorState title="Could not load approvals" message={error} onRetry={() => void load()} />}
+      {!error && items === null && <p className="text-sm text-muted">Loading…</p>}
+      {!error && items !== null && shown.length === 0 && (
+        <p className="py-8 text-center text-sm text-muted">{tab === 'waiting' ? 'Nothing is waiting for a decision.' : 'No decisions yet.'}</p>
+      )}
+
+      {shown.length > 0 && (
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+          {shown.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div className="min-w-0">
+                <Link href={`/approvals/${a.id}`} className="block truncate text-sm font-medium text-ink hover:underline">
+                  {a.title}
+                </Link>
+                <p className="mt-0.5 text-xs text-muted">
+                  {a.fileAsset?.name ? `${a.fileAsset.name} · ` : ''}
+                  {isOverdue(a) ? (
+                    <span className="font-semibold text-danger">Overdue</span>
+                  ) : a.dueAt ? (
+                    `Due ${new Date(a.dueAt).toLocaleDateString()}`
+                  ) : (
+                    waitingText(a.createdAt)
+                  )}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <StatusBadge status={a.status} />
+                {tab === 'waiting' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected(a);
+                      setNote('');
+                      setDecideError('');
+                    }}
+                    className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                  >
+                    Decide
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <DetailPanel
+        open={selected !== null}
+        onClose={() => setSelected(null)}
+        title={selected?.title ?? 'Decision'}
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            {DECISIONS.map((d) => (
+              <button key={d.value} type="button" disabled={busy} onClick={() => void decide(d.value)} className={`rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50 ${d.className}`}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        {selected && (
+          <div className="space-y-4 text-sm">
+            {selected.fileAsset && <p className="text-muted">File: {selected.fileAsset.name}</p>}
+            <p className="text-muted">{waitingText(selected.createdAt)}</p>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Note (optional, recommended when rejecting or requesting changes)</span>
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} maxLength={2000} className="w-full rounded-lg border border-line px-3 py-2" />
+            </label>
+            {decideError && <p role="alert" className="text-sm text-danger">{decideError}</p>}
+          </div>
+        )}
+      </DetailPanel>
     </div>
   );
 }

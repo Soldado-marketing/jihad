@@ -62,6 +62,9 @@ afterEach(() => {
   else process.env.RESEND_API_KEY = savedKey;
 });
 
+/** Notifications emitted by send (MAOS-T47): staff are told, without amounts. */
+const notified = [];
+
 function makeInvoices() {
   const mail = new MailService();
   mail.logger = { error() {}, log() {}, warn() {} };
@@ -84,7 +87,8 @@ function makeInvoices() {
     },
   };
   const audit = { createAuditEvent: async () => undefined };
-  const service = new InvoicesService(repo, {}, mail, audit, {});
+  const notifications = { notify: async (input) => { notified.push(input); return 1; } };
+  const service = new InvoicesService(repo, {}, mail, audit, {}, {}, notifications);
   service.renderPdf = async () => ({ buffer: Buffer.from('%PDF-1.7 test'), filename: 'invoice-INV-1.pdf' });
   return service;
 }
@@ -136,5 +140,20 @@ describe('invoice send - partial and failed sends', () => {
       return true;
     });
     assert.deepEqual(marked, []);
+  });
+});
+
+describe('invoice send - staff notification (MAOS-T47)', () => {
+  it('tells OWNER and MANAGER the invoice was sent, naming it without any amount', async () => {
+    notified.length = 0;
+    await makeInvoices().send(actor, 'inv_1', {});
+    assert.equal(notified.length, 1);
+    const [n] = notified;
+    assert.equal(n.audience, 'INTERNAL');
+    assert.deepEqual(n.recipientRoles, ['OWNER', 'MANAGER']);
+    assert.equal(n.dedupeKey, 'invoice.sent:inv_1');
+    assert.equal(n.actorUserId, 'u_owner');
+    assert.doesNotMatch(`${n.title} ${n.body}`, /\d+[.,]\d{2}|120|EUR|cents?/i);
+    for (const email of CLIENTS) assert.ok(!`${n.title} ${n.body}`.includes(email), 'recipient address in notification');
   });
 });
