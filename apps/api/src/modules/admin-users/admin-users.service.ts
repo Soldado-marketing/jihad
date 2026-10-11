@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { clientScopeKeyForRole } from '../permissions/client-scope-assignment';
 import { effectiveVisibilityScope } from '../permissions/visibility-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -96,6 +97,7 @@ export class AdminUsersService {
       throw new ForbiddenException(`Request has already been ${regRequest.status.toLowerCase()}.`);
     }
 
+    const clientScopeKey = clientScopeKeyForRole(dto.role, dto.clientScopeKey);
     const reviewedAt = new Date();
 
     await this.prisma.$transaction(async (tx) => {
@@ -113,6 +115,7 @@ export class AdminUsersService {
           role: dto.role as any,
           status: 'ACTIVE',
           visibilityScope: effectiveVisibilityScope(dto.role),
+          clientScopeKey,
         },
       });
 
@@ -193,7 +196,7 @@ export class AdminUsersService {
           action: RegistrationAction.SCOPE_ASSIGNED,
           permissionResult: AuditPermissionResult.ALLOWED,
           outcome: AuditOutcome.SUCCESS,
-          payload: { visibilityScope: effectiveVisibilityScope(dto.role) },
+          payload: { visibilityScope: effectiveVisibilityScope(dto.role), clientScopeKey },
         }),
       ]);
     } catch (auditErr: unknown) {
@@ -386,6 +389,7 @@ export class AdminUsersService {
     tenantId: string,
   ) {
     await this.requireOwner(actorId, tenantId);
+    const clientScopeKey = clientScopeKeyForRole(dto.role, dto.clientScopeKey);
 
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
@@ -396,7 +400,7 @@ export class AdminUsersService {
 
     const targetMembership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId: targetUserId } },
-      select: { id: true, role: true },
+      select: { id: true, role: true, clientScopeKey: true },
     });
 
     if (!targetMembership) throw new ForbiddenException('User is not a member of this tenant.');
@@ -409,7 +413,7 @@ export class AdminUsersService {
 
     await this.prisma.tenantMembership.update({
       where: { tenantId_userId: { tenantId, userId: targetUserId } },
-      data: { role: dto.role as any },
+      data: { role: dto.role as any, clientScopeKey },
     });
 
     const actorMembership = await this.prisma.tenantMembership.findUnique({
@@ -426,7 +430,12 @@ export class AdminUsersService {
       action: RegistrationAction.ROLE_CHANGED,
       permissionResult: AuditPermissionResult.ALLOWED,
       outcome: AuditOutcome.SUCCESS,
-      payload: { previousRole, newRole: dto.role },
+      payload: {
+        previousRole,
+        newRole: dto.role,
+        previousClientScopeKey: targetMembership.clientScopeKey,
+        clientScopeKey,
+      },
     });
 
     return { message: 'Role updated.' };
