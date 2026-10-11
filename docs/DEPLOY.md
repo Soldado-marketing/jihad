@@ -275,6 +275,35 @@ missing, `3` database URL not obtainable (for example an expired Railway
 login), `4` time limit exceeded, `75` another run in progress. Invoke it with
 `/bin/bash`.
 
+#### Database credential from the Keychain (recommended)
+
+A Railway CLI login expires, and a scheduled run cannot log in again; two
+nightly backups failed that way. The runner therefore reads the connection
+string from the macOS Keychain first and uses the Railway CLI only as a
+fallback (`MAOS_BACKUP_CREDENTIAL_SOURCE`: `auto` default, `keychain` to
+require the item, `railway` to skip it).
+
+Store the item once, on the backup Mac, as the user that runs the backups.
+Put `-w` last so `security` **prompts** for the value: it then never appears
+in the command line, the shell history or the process list.
+
+```bash
+security add-generic-password -a maos -s maos-backup-database-url -U -w
+```
+
+Paste the production `DATABASE_PUBLIC_URL` at the prompt (from the Railway
+dashboard; do not paste it anywhere else). Check that the item exists without
+printing it:
+
+```bash
+security find-generic-password -a maos -s maos-backup-database-url >/dev/null && echo "item present"
+```
+
+The runner logs only which source it used (`credential source: keychain`),
+never the value, and refuses a value that is not a PostgreSQL URL. If the
+credential is rotated in Railway, run the `add-generic-password` command again
+(`-U` updates the item).
+
 ### Backup alerts
 
 Backup problems are never silent. `scripts/backup-alert.sh <message>` shows a
