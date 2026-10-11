@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `99c00d7` (#47 merged) |
+| CURRENT_MAIN | `cbe1ef0` (#48 merged) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T68 My Work page |
+| ACTIVE_TASK | MAOS-T60 FilterBar with URL-held filters and search |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/my-work-ui |
+| CURRENT_BRANCH | feat/filter-bar |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | web my-work 4/4 |
+| TESTS_PASSED | web filter-bar 6/6 |
 | TESTS_PENDING | — |
 | PR_URL | open: T59 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T68; then T60 (feat/filter-bar), T66 (feat/activity-timeline-ui), T49 ADR-017, T70 ADR-018, T103 calendar API (feat/calendar-api); then T104 calendar UI, T108, T109, T132. |
+| EXACT_NEXT_ACTION | Land T60; then T66, T49, T70, T103, T104, T108 (all committed); then T109, T132. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -153,7 +153,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 | MAOS-T62 | CRM pipeline board (7 stages, count + per-currency value) | feat/crm-pipeline-board | #46 MERGED (`8a138d4`) | web 5/5 | 0 | COMPLETE_MERGED |
 | MAOS-T67 | My Work aggregation API | feat/my-work-api | #47 MERGED (`99c00d7`) | my-work 5/5; 6 mutations | 0 | COMPLETE_MERGED |
-| MAOS-T68 | My Work page | feat/my-work-ui | (this PR) | web my-work 4/4 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T68 | My Work page | feat/my-work-ui | #48 MERGED (`cbe1ef0`) | web my-work 4/4 | 0 | COMPLETE_MERGED |
+| MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | (this PR) | web filter-bar 6/6 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -521,3 +522,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T62 | CRM pipeline board (7 stages, count + per-currency value) | feat/crm-pipeline-board | PR | web 5/5 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T67 | My Work aggregation API | feat/my-work-api | PR | my-work 5/5; 6 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T68 | My Work page | feat/my-work-ui | PR | web my-work 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | PR | web filter-bar 6/6 | 0 | COMPLETE_AWAITING_MERGE
