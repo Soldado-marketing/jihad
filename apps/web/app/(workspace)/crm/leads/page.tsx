@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
+import { DataTable } from '@/components/ui/data-table';
 import { PageHeader } from '@/components/ui/page-header';
 
 type Lead = { id: string; name: string; status: string; email?: string; company?: string };
@@ -54,28 +55,31 @@ export default function LeadsPage() {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {!loading && leads.length === 0 && !error && <p className="text-sm text-muted text-center py-8">No leads yet.</p>}
       {leads.length > 0 && (
-        <table className="w-full rounded-xl border border-line overflow-hidden bg-white">
-          <thead className="bg-slate-50 text-xs font-semibold text-muted uppercase">
-            <tr>
-              {['Name','Email','Company','Status',''].map(h => (
-                <th key={h} className="px-4 py-3 text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {leads.map(l => (
-              <tr key={l.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 text-sm font-medium text-ink">{l.name}</td>
-                <td className="px-4 py-3 text-sm text-muted">{l.email || '—'}</td>
-                <td className="px-4 py-3 text-sm text-muted">{l.company || '—'}</td>
-                <td className="px-4 py-3"><span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{l.status}</span></td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={() => deleteLead(l.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          label="Leads"
+          rows={leads}
+          rowKey={(l) => l.id}
+          initialSort={{ key: 'name', direction: 'asc' }}
+          columns={[
+            { key: 'name', header: 'Name', sortValue: (l) => l.name, render: (l) => <span className="font-medium text-ink">{l.name}</span> },
+            { key: 'email', header: 'Email', sortValue: (l) => l.email, render: (l) => <span className="text-muted">{l.email || '—'}</span> },
+            { key: 'company', header: 'Company', sortValue: (l) => l.company, render: (l) => <span className="text-muted">{l.company || '—'}</span> },
+            {
+              key: 'status',
+              header: 'Status',
+              sortValue: (l) => l.status,
+              render: (l) => <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{l.status}</span>,
+            },
+            {
+              key: 'actions',
+              header: '',
+              align: 'right',
+              render: (l) => (
+                <button onClick={() => deleteLead(l.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );
