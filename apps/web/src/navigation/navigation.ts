@@ -30,6 +30,14 @@ export const workspaceNavigation: NavigationItem[] = [
     sprint2Status: 'active',
     clientSafe: false,
   },
+  {
+    id: 'calendar',
+    label: 'Calendar',
+    href: '/calendar',
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
   // ── Admin (Owner only) ───────────────────────────────────────────────────
   {
     id: 'admin-users',
