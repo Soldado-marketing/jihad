@@ -17,6 +17,7 @@ import {
 import { ApproveRequestDto } from './dto/approve-request.dto';
 import { RejectRequestDto } from './dto/reject-request.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AdminUsersService {
@@ -26,6 +27,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly mailService: MailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -205,6 +207,19 @@ export class AdminUsersService {
         `Audit events failed after approval (user still approved): ${String(auditErr)}`,
       );
     }
+
+    // In-app version of the same news. DIRECT, because this recipient may well
+    // be a CLIENT and it is their own account event - nothing internal leaks.
+    await this.notifications.notify({
+      tenantId,
+      recipientUserIds: [regRequest.userId],
+      audience: 'DIRECT',
+      dedupeKey: `registration.approved:${requestId}`,
+      title: 'Your access request was approved',
+      body: 'You can now sign in to the workspace.',
+      resourceType: 'registrationRequest',
+      resourceId: requestId,
+    });
 
     // Notify requester — best-effort, fire-and-forget
     this.mailService.sendApprovalEmail({

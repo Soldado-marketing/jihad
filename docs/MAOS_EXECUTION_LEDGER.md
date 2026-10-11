@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `9ce65eb` (ledger #39 merged 2026-10-11) |
-| CURRENT_WAVE | W1–W3: all non-gated safety work merged; remaining W1–W3 items wait on owner gates (see OWNER_GATE_PENDING). Next: T18 code (Keychain credential source; owner stores the item), then W4 |
-| ACTIVE_TASK | MAOS-T18 Keychain database credential for backups (code part) |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing); activation waits on the owner storing the Keychain item |
-| CURRENT_BRANCH | ops/backup-keychain-credential |
+| CURRENT_MAIN | `f43a0fc` (T18 #40 merged 2026-10-11) |
+| CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
+| ACTIVE_TASK | MAOS-T47 Notification writers |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
+| CURRENT_BRANCH | feat/notification-writers |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | nightly-backup-script 21/21 + backup-alerting 16/16 (macOS + Linux); 3 mutations caught |
+| TESTS_PASSED | notification-writers 8/8; invoice-send-privacy 5/5; 5 mutations caught |
 | TESTS_PENDING | — |
-| PR_URL | open: T18 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
+| PR_URL | open: T47 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T18; give the W1–W3 safety status; then start W4 T47 (notification writers) from current main. |
+| EXACT_NEXT_ACTION | Land T47; then MAOS-T48 (notification bell in the shell) from current main. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -142,11 +142,12 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-F3 | CRM update and report body validation (+ follow-ups status fix) | fix/crm-update-validation | #35 MERGED (`31622ad`) | suite 4/4; web 80/80 | 0 | COMPLETE_MERGED |
 | MAOS-T40 | Revenue posting uniqueness (unique RevenueRecord(tenantId, invoiceId)) | schema/revenue-posting-unique | #36 (open, gated) | suite 5/5; 2 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 | MAOS-F5 | Payment amounts as integer cents (payments page used a float) | fix/payment-amount-cents | #37 MERGED (`457cd59`) | web 83/83 | 0 | COMPLETE_MERGED |
-| MAOS-T18 | Keychain database credential for backups (code; owner stores the item) | ops/backup-keychain-credential | (this PR) | 37/37 macOS + Linux; 3 mutations | 0 | COMPLETE_AWAITING_MERGE (activation: owner stores the Keychain item) |
+| MAOS-T18 | Keychain database credential for backups (code; owner stores the item) | ops/backup-keychain-credential | #40 MERGED (`f43a0fc`) | 37/37 macOS + Linux; 3 mutations | 0 | COMPLETE_MERGED (activation: owner stores the Keychain item) |
 | MAOS-D16b | Payment idempotency key (Idempotency-Key header, unique per tenant) | schema/payment-idempotency | #38 (open, gated) | API 6/6, web 86/86; 4 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION; migrate before deploy) |
+| MAOS-T47 | Notification writers (re-applied from feat/v2-a1-notifications) | feat/notification-writers | (this PR) | 8/8 + unit 5/5; 5 mutations | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
-Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
+Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
 ---
 
@@ -504,3 +505,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-F5 | Payment amounts as integer cents (web) | fix/payment-amount-cents | PR | money-input 3/3, web 83/83 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-D16b | Payment idempotency key (migration) | schema/payment-idempotency | #38 | API 6/6, web 86/86, 4 mutations | 0 | COMPLETE_AWAITING_MERGE + OWNER_GATE_MIGRATION
 - MAOS-T18 | Keychain database credential for backups (code) | ops/backup-keychain-credential | PR | 37/37, 3 mutations | 0 | COMPLETE_AWAITING_MERGE (owner stores the Keychain item)
+- MAOS-T47 | Notification writers | feat/notification-writers | PR | 8/8, unit 5/5, 5 mutations | 0 | COMPLETE_AWAITING_MERGE

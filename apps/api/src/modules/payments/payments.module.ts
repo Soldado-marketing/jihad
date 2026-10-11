@@ -6,12 +6,13 @@ import { ClientPaymentsController } from './client-payments.controller';
 import { PaymentsController } from './payments.controller';
 import { PaymentsRepository } from './payments.repository';
 import { PaymentsService } from './payments.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   // ClientPaymentsController was previously written but never registered, so
   // the /api/client/payments route did not exist at runtime.
   controllers: [PaymentsController, ClientPaymentsController],
-  imports: [InvoicesModule, MembershipsModule, PermissionsModule],
+  imports: [InvoicesModule, MembershipsModule, NotificationsModule, PermissionsModule],
   providers: [PaymentsRepository, PaymentsService],
   exports: [PaymentsService],
 })
