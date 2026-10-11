@@ -1,10 +1,10 @@
 # ADR-017: Customer Entity And Client-Scope Mapping
 
-Status: Proposed
+Status: Accepted
 
 ## Status
 
-Proposed (MAOS-T49, 2026-10-11). Accepting it is an owner decision (OWNER_GATE_PRODUCT_BEHAVIOR). The schema (T50) and the backfill (T51) it describes are separate tasks, each behind the migration gate. Nothing in this ADR changes the database or the API.
+Accepted by the owner on 2026-10-11 (proposed in MAOS-T49). Accepting it is an owner decision (OWNER_GATE_PRODUCT_BEHAVIOR). The schema (T50) and the backfill (T51) it describes are separate tasks, each behind the migration gate. Nothing in this ADR changes the database or the API.
 
 ## Context
 
