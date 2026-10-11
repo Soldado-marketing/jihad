@@ -94,6 +94,7 @@ before(async () => {
   home.otherFile = await prisma.fileAsset.create({ data: { tenantId: t1.id, name: `home-other-${RUN}.pdf` }, select: { id: true } });
   home.otherVersion = await prisma.fileVersion.create({ data: { tenantId: t1.id, fileAssetId: home.otherFile.id, versionNumber: 1 }, select: { id: true } });
   home.channel = await prisma.chatChannel.create({ data: { tenantId: t1.id, name: `Home channel ${RUN}` }, select: { id: true } });
+  home.meeting = await prisma.meeting.create({ data: { tenantId: t1.id, title: `Home meeting ${RUN}` }, select: { id: true } });
 
   const t2 = await seedTenant('foreign');
   foreign.tenantId = t2.id;
@@ -103,6 +104,7 @@ before(async () => {
   foreign.file = await prisma.fileAsset.create({ data: { tenantId: t2.id, name: `foreign-${RUN}.pdf` }, select: { id: true } });
   foreign.version = await prisma.fileVersion.create({ data: { tenantId: t2.id, fileAssetId: foreign.file.id, versionNumber: 1 }, select: { id: true } });
   foreign.channel = await prisma.chatChannel.create({ data: { tenantId: t2.id, name: `Foreign channel ${RUN}` }, select: { id: true } });
+  foreign.meeting = await prisma.meeting.create({ data: { tenantId: t2.id, title: `Foreign meeting ${RUN}` }, select: { id: true } });
 
   const res = await request(server).post('/api/auth/login').send({ email: owner.email, passwordOrMagicCode: PASSWORD, tenantSlug: t1.slug });
   assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -220,6 +222,14 @@ describe('Gate - internal notes', { skip }, () => {
     assert.equal(res.status, 201, JSON.stringify(res.body));
     const list = await as(request(server).get(`/api/collaboration/notes?resourceType=task&resourceId=${home.task.id}`));
     assert.equal(list.status, 200);
+  });
+
+  it('records a decision on a same-tenant meeting and refuses another tenant\'s meeting (MAOS-T109)', async () => {
+    const before = await count('internalNote', {});
+    assertInvalidReference(await create({ resourceType: 'meeting', resourceId: foreign.meeting.id, threadKey: 'decision' }), 'resourceId');
+    assert.equal(await count('internalNote', {}), before);
+    const ok = await create({ resourceType: 'meeting', resourceId: home.meeting.id, threadKey: 'decision' });
+    assert.equal(ok.status, 201, JSON.stringify(ok.body));
   });
 
   it('accepts a note without a resource (control)', async () => {
