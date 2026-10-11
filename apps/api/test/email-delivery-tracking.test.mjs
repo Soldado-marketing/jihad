@@ -72,7 +72,9 @@ function makeService({ trackingThrows = false } = {}) {
       recorded.push(args);
     },
   };
-  const service = new InvoicesService(repo, {}, mail, { createAuditEvent: async () => undefined }, {});
+  // prisma and notifications (T29, T47) are not used by send's tracking path.
+  const notifications = { notify: async () => 1 };
+  const service = new InvoicesService(repo, {}, mail, { createAuditEvent: async () => undefined }, {}, {}, notifications);
   service.logger = { error() {}, log() {}, warn() {} };
   service.renderPdf = async () => ({ buffer: Buffer.from('%PDF-1.7 test'), filename: 'invoice-INV-1.pdf' });
   return service;
