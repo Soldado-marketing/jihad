@@ -22,6 +22,14 @@ export const workspaceNavigation: NavigationItem[] = [
     sprint2Status: 'active',
     clientSafe: false,
   },
+  {
+    id: 'my-work',
+    label: 'My Work',
+    href: '/my-work',
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
   // ── Admin (Owner only) ───────────────────────────────────────────────────
   {
     id: 'admin-users',
