@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `5a04391` (T47 #41 merged 2026-10-11) |
+| CURRENT_MAIN | `0ee5beb` (T48 #42 merged 2026-10-11) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T48 Notification bell in the shell |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/notification-bell |
+| ACTIVE_TASK | MAOS-T59 DataTable + pagination |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing); T61 committed locally, lands next |
+| CURRENT_BRANCH | feat/data-table |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | web notification-bell 3/3; web 86/86; web build OK |
+| TESTS_PASSED | web data-table 8/8; web build OK |
 | TESTS_PENDING | — |
-| PR_URL | open: T48 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
+| PR_URL | open: T59 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T48; next W4 task per Execution order is T59 (check registry); T49 Customer ADR is an owner product gate - prepare the draft only. |
+| EXACT_NEXT_ACTION | Land T59; land T61 (feat/ui-primitives, committed); then T60 FilterBar (on T59), T62 CRM Kanban, T65 activity timeline API, T67 My Work API. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -71,6 +71,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | FIXED in F-3 PR (+ follow-ups page sent invalid DONE status) |
 | F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
 | CI-2 | Local-only intermittent integration failures (about 1 in 6 parallel runs on the Mac): the response body `{"error":"Not found"}` is not produced by MAOS and the API logged no such request — supertest re-listens on an ephemeral port per request and another local process answered. Not seen in GitHub CI. If it appears there: bind each test app once (`app.listen(0, '127.0.0.1')`) in the harnesses | integration tests | OBSERVED (no action yet) |
+| GIT-1 | GitHub email privacy now blocks pushes with the private address. Owner chose (2026-10-11) the repo-local no-reply identity `272799577+Soldado-marketing@users.noreply.github.com` for MAOS commits; global git identity unchanged; only the unpushed T48 commit was re-authored | git | RESOLVED |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
@@ -145,7 +146,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T18 | Keychain database credential for backups (code; owner stores the item) | ops/backup-keychain-credential | #40 MERGED (`f43a0fc`) | 37/37 macOS + Linux; 3 mutations | 0 | COMPLETE_MERGED (activation: owner stores the Keychain item) |
 | MAOS-D16b | Payment idempotency key (Idempotency-Key header, unique per tenant) | schema/payment-idempotency | #38 (open, gated) | API 6/6, web 86/86; 4 mutations | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION; migrate before deploy) |
 | MAOS-T47 | Notification writers (re-applied from feat/v2-a1-notifications) | feat/notification-writers | #41 MERGED (`5a04391`) | 8/8 + unit 5/5; 5 mutations | 0 | COMPLETE_MERGED |
-| MAOS-T48 | Notification bell in the workspace top bar | feat/notification-bell | (this PR) | web 3/3, 86/86 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T48 | Notification bell in the workspace top bar | feat/notification-bell | #42 MERGED (`0ee5beb`) | web 3/3, 86/86 | 0 | COMPLETE_MERGED |
+| MAOS-T59 | Shared DataTable (sorting, pagination; pilot: leads) | feat/data-table | (this PR) | web 8/8 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -508,3 +510,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T18 | Keychain database credential for backups (code) | ops/backup-keychain-credential | PR | 37/37, 3 mutations | 0 | COMPLETE_AWAITING_MERGE (owner stores the Keychain item)
 - MAOS-T47 | Notification writers | feat/notification-writers | PR | 8/8, unit 5/5, 5 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T48 | Notification bell in the shell | feat/notification-bell | PR | web 86/86 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T59 | Shared DataTable | feat/data-table | PR | web 8/8 | 0 | COMPLETE_AWAITING_MERGE
