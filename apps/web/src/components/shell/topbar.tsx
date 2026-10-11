@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { getApiHealthReference } from '@/api/health';
 import type { SupportedLocale } from '@/i18n/direction';
 import type { WorkspaceRole } from '@/navigation/roles';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { TopbarActions } from './topbar-actions';
 import { UserMenu } from './user-menu';
 
@@ -29,6 +30,7 @@ export function Topbar({ locale, role }: TopbarProps) {
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <TopbarActions apiHealth={apiHealth} locale={locale} />
+        <NotificationBell />
         <UserMenu role={role} />
       </div>
     </motion.header>
