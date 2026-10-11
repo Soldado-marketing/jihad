@@ -14,11 +14,11 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `2709dca` (#51 merged) |
+| CURRENT_MAIN | `c9c7988` (#52 merged) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T49 ADR-017 Customer entity and client-scope mapping (Proposed) |
+| ACTIVE_TASK | MAOS-T70 ADR-018 Time entries and rate resolution (Proposed) |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | docs/adr-017-customer |
+| CURRENT_BRANCH | docs/adr-018-time-and-rates |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Continue the landing queue: T70, T103, T104, T108, T109. |
+| EXACT_NEXT_ACTION | Continue the landing queue: T103, T104, T108, T109. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -157,7 +157,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | #49 MERGED (`b85e371`) | web filter-bar 6/6 | 0 | COMPLETE_MERGED |
 | MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | #50 MERGED (`c55d131`) | web activity-timeline 4/4 | 0 | COMPLETE_MERGED |
 | MAOS-T132 | Audit log API and owner-only Audit UI | feat/audit-ui | #51 MERGED (`2709dca`) | audit-log 4/4, web 2/2; 3 mutations | 0 | COMPLETE_MERGED |
-| MAOS-T49 | ADR-017 Customer entity and client-scope mapping (Proposed) | docs/adr-017-customer | (this PR) | docs | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T49 | ADR-017 Customer entity and client-scope mapping (Proposed) | docs/adr-017-customer | #52 MERGED (`c9c7988`) | docs | 0 | COMPLETE_MERGED |
+| MAOS-T70 | ADR-018 Time entries and rate resolution (Proposed) | docs/adr-018-time-and-rates | (this PR) | docs | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -529,3 +530,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | PR | web activity-timeline 4/4 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T132 | Audit log API and owner-only Audit UI | feat/audit-ui | PR | audit-log 4/4, web 2/2; 3 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T49 | ADR-017 Customer entity and client-scope mapping (Proposed) | docs/adr-017-customer | PR | docs | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T70 | ADR-018 Time entries and rate resolution (Proposed) | docs/adr-018-time-and-rates | PR | docs | 0 | COMPLETE_AWAITING_MERGE
