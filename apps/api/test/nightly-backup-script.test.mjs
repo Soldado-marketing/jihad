@@ -111,6 +111,8 @@ function runNightly(c, env = {}) {
       RAILWAY_BIN: join(c.bin, 'railway'),
       MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
       MAOS_BACKUP_PG_DUMP: 'path',
+      // Never the real Keychain: the stub exists only when a test installs it.
+      SECURITY_BIN: join(c.bin, 'security'),
       ...env,
     },
   });
@@ -201,6 +203,85 @@ describe('nightly-backup.sh - precondition failures', () => {
     assert.equal(r.status, 1);
     assert.match(logOf(c), /FAIL: exit 1/);
     assert.doesNotMatch(logOf(c), /SUCCESS/);
+  });
+});
+
+/**
+ * Keychain stub (MAOS-T18): records its arguments; prints the value in
+ * $STUB_DIR/keychain.value, or exits 44 ("item not found") when absent.
+ */
+function installKeychain(c, value) {
+  if (value !== undefined) writeFileSync(join(c.stub, 'keychain.value'), value);
+  writeExe(
+    join(c.bin, 'security'),
+    `printf '%s\\n' "$@" > "$STUB_DIR/security.args"
+[ -e "$STUB_DIR/keychain.value" ] || exit 44
+cat "$STUB_DIR/keychain.value"`,
+  );
+}
+
+describe('nightly-backup.sh - Keychain credential (MAOS-T18)', () => {
+  const KEYCHAIN_URL = 'postgresql://backup:K3ychain%40Secret@db.example:5432/railway';
+
+  it('uses the Keychain item without calling Railway, and never logs the value', () => {
+    const c = makeCase();
+    setup(c);
+    installKeychain(c, KEYCHAIN_URL);
+    const r = runNightly(c);
+    assert.equal(r.status, 0, logOf(c));
+    assert.equal(existsSync(join(c.stub, 'railway.args')), false, 'Railway must not be called');
+    const log = logOf(c);
+    assert.match(log, /credential source: keychain/);
+    assert.match(log, /received DATABASE_URL=<REDACTED>/);
+    for (const out of [log, r.stdout, r.stderr]) assert.ok(!out.includes('K3ychain'), 'credential leaked');
+  });
+
+  it('asks security for the item by name only (the secret is never an argument)', () => {
+    const c = makeCase();
+    setup(c);
+    installKeychain(c, KEYCHAIN_URL);
+    runNightly(c);
+    const args = readFileSync(join(c.stub, 'security.args'), 'utf8').trim().split('\n');
+    assert.deepEqual(args, ['find-generic-password', '-s', 'maos-backup-database-url', '-a', 'maos', '-w']);
+  });
+
+  it('falls back to the Railway CLI when the item is missing (auto)', () => {
+    const c = makeCase();
+    setup(c);
+    installKeychain(c);
+    assert.equal(runNightly(c).status, 0, logOf(c));
+    assert.match(logOf(c), /credential source: railway/);
+  });
+
+  it('fails with exit 3 and never calls Railway when the Keychain is required but missing', () => {
+    const c = makeCase();
+    setup(c);
+    installKeychain(c);
+    const r = runNightly(c, { MAOS_BACKUP_CREDENTIAL_SOURCE: 'keychain' });
+    assert.equal(r.status, 3);
+    assert.match(logOf(c), /FAIL: no Keychain item maos-backup-database-url/);
+    assert.equal(existsSync(join(c.stub, 'railway.args')), false);
+  });
+
+  it('refuses a Keychain value that is not a PostgreSQL URL, without echoing it', () => {
+    const c = makeCase();
+    setup(c);
+    installKeychain(c, 'not-a-url-S3cretValue');
+    const r = runNightly(c);
+    assert.equal(r.status, 3);
+    assert.match(logOf(c), /is not a PostgreSQL URL/);
+    assert.ok(!logOf(c).includes('S3cretValue'));
+  });
+
+  it('skips the Keychain when the source is railway, and rejects an unknown source', () => {
+    const c = makeCase();
+    setup(c);
+    installKeychain(c, KEYCHAIN_URL);
+    assert.equal(runNightly(c, { MAOS_BACKUP_CREDENTIAL_SOURCE: 'railway' }).status, 0);
+    assert.equal(existsSync(join(c.stub, 'security.args')), false);
+    const other = makeCase();
+    setup(other);
+    assert.equal(runNightly(other, { MAOS_BACKUP_CREDENTIAL_SOURCE: 'vault' }).status, 3);
   });
 });
 

@@ -133,6 +133,7 @@ esac`,
       MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
       MAOS_BACKUP_PG_DUMP: 'path',
       MAOS_BACKUP_ALERT: installAlertStub(c),
+      SECURITY_BIN: join(c.bin, 'security'),
     };
   }
 
