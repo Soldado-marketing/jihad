@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `423ef38` (D16a #32 merged 2026-10-10) |
+| CURRENT_MAIN | `317fc10` (T39 #33 merged 2026-10-11; full suites blocking) |
 | CURRENT_WAVE | W1/W2 remainder unlocked by the merges: T19, T24, T28, T29, T35, T39, D16 overpayment; then W3 T40 (migration gate) |
-| ACTIVE_TASK | MAOS-T39 Stale test triage; full suites blocking |
+| ACTIVE_TASK | MAOS-F1 Client onboarding assigns the client scope |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | test/stale-baseline-triage |
+| CURRENT_BRANCH | fix/client-onboarding-scope |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | API full 397 pass / 0 fail / 10 todo; web 75/75; gate 297/297; integration 221/221 |
+| TESTS_PASSED | client-onboarding-scope 5/5; visibility-scope 6/6; web 78/78; 4 mutations caught (1 equivalent) |
 | TESTS_PENDING | — |
-| PR_URL | open: T39 (this branch), #26 (migration-gated) |
+| PR_URL | open: F-1 (this branch), #26 (migration-gated) |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26: review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health, before merge/deploy; (2) T18 Keychain item stored by the owner; (3) T21/T22 owner actions; (4) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T39; then F-1 (client approval sets clientScopeKey) from current main; then F-2 → F-3 → T40 + D16b (migration gate). |
+| EXACT_NEXT_ACTION | Land F-1; then F-3 (CRM PATCH/reports DTO validation) from current main; then F-2 (invite flow: assess scope/gates) → T40 + D16b (migration gate). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -67,7 +67,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D14 | Next 16 (major): remaining web advisories are in the postcss 8.4.31 pinned by Next 15 (build-time only for MAOS); fixing them needs a separate major-upgrade task | web advisories | OPEN (non-blocking) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
 | F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | OPEN |
-| F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | OPEN |
+| F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | FIXED in F-1 PR (approval/role change require clientScopeKey for CLIENT) |
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | OPEN |
 | F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
@@ -136,7 +136,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T29 | Foreign-ID tenant validation — CRM and finance | fix/foreign-id-crm-finance | #30 MERGED (`fa1b218`) | suite 8/8; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | #31 MERGED (`0073b6b`) | suite 20/20; 10 mutations | 0 | COMPLETE_MERGED |
 | MAOS-D16a | Reject overpayments (row-locked balance check) | fix/reject-overpayment | #32 MERGED (`423ef38`) | finance 15/15; 5 mutations | 0 | COMPLETE_MERGED |
-| MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | (this PR) | API 397/0/10 todo; web 75/75 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | #33 MERGED (`317fc10`) | API 397/0/10 todo; web 75/75 | 0 | COMPLETE_MERGED |
+| MAOS-F1 | Client onboarding assigns the client scope (+ contractor access label) | fix/client-onboarding-scope | (this PR) | suite 5/5; web 78/78 | 0 | COMPLETE_AWAITING_MERGE |
 | MAOS-T44 | Email delivery tracking per recipient (D9) — migration | feat/email-delivery-tracking | #26 (open) | gate 243/243; integration 104/104; 3 mutations; migration applied only on disposable DBs | 0 | COMPLETE_AWAITING_MERGE (OWNER_GATE_MIGRATION) |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers, conflicts with `main`; consumed by T47), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
@@ -491,3 +492,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T35 | Contractor assigned-item scope | fix/contractor-assigned-scope | PR | 20/20, 10 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-D16a | Reject overpayments | fix/reject-overpayment | PR | finance 15/15, integration-api 35/35, 5 mutations | 0 | COMPLETE_AWAITING_MERGE (D16b idempotency needs a migration: gated)
 - MAOS-T39 | Stale test triage; full suites blocking | test/stale-baseline-triage | PR | API 397 pass/0 fail/10 todo, web 75/75 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-F1 | Client onboarding assigns the client scope | fix/client-onboarding-scope | PR | 5/5, web 78/78, 4 mutations | 0 | COMPLETE_AWAITING_MERGE

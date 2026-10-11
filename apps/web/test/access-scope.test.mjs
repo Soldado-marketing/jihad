@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { effectiveAccessLabel } from '../src/security/access-scope.ts';
+import { clientScopeKeyPayload, effectiveAccessLabel } from '../src/security/access-scope.ts';
 
 const webRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (p) => readFileSync(join(webRoot, p), 'utf8');
@@ -20,10 +20,15 @@ describe('effective access', () => {
     assert.match(effectiveAccessLabel('CLIENT'), /own client only/i);
   });
 
-  it('describes every internal role as workspace-wide, limited by role', () => {
-    for (const role of ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR', undefined]) {
+  it('describes owner, manager and employee as workspace-wide, limited by role', () => {
+    for (const role of ['OWNER', 'MANAGER', 'EMPLOYEE', undefined]) {
       assert.match(effectiveAccessLabel(role), /whole workspace/i);
     }
+  });
+
+  it('describes a contractor as limited to assigned work (MAOS-T35)', () => {
+    assert.match(effectiveAccessLabel('CONTRACTOR'), /assigned/i);
+    assert.doesNotMatch(effectiveAccessLabel('CONTRACTOR'), /whole workspace/i);
   });
 
   it('offers no unenforced visibility scope when approving a user', () => {
@@ -37,5 +42,22 @@ describe('effective access', () => {
   it('shows the effective access on the settings page, not the raw stored scope', () => {
     assert.doesNotMatch(settings, /value=\{me\.visibilityScope/);
     assert.match(settings, /effectiveAccessLabel\(me\.role\)/);
+  });
+});
+
+describe('client key on approval and role change (F-1)', () => {
+  it('requires a valid key for a CLIENT and sends none for other roles', () => {
+    assert.deepEqual(clientScopeKeyPayload('CLIENT', ' acme-gmbh '), { clientScopeKey: 'acme-gmbh' });
+    for (const bad of ['', '   ', 'acme gmbh', 'a/b', '-acme', 'x'.repeat(121)]) {
+      assert.equal(clientScopeKeyPayload('CLIENT', bad), null, `accepted ${JSON.stringify(bad)}`);
+    }
+    for (const role of ['MANAGER', 'EMPLOYEE', 'CONTRACTOR']) {
+      assert.deepEqual(clientScopeKeyPayload(role, 'acme'), {});
+    }
+  });
+
+  it('sends the client key from both the approve and the change-role form', () => {
+    assert.match(approvals, /clientScopeKeyPayload\(approveRole, approveClientKey\)/);
+    assert.match(approvals, /clientScopeKeyPayload\(changeRoleValue, changeRoleClientKey\)/);
   });
 });

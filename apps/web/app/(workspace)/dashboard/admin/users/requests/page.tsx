@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageTransition } from '@/components/motion';
 import { LoadingState } from '@/components/states/loading-state';
 import { apiFetch } from '@/lib/fetch';
-import { effectiveAccessLabel } from '@/security/access-scope';
+import { clientScopeKeyPayload, effectiveAccessLabel } from '@/security/access-scope';
 
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -59,6 +59,7 @@ export default function UserRequestsPage() {
   const [approveTarget, setApproveTarget] = useState<RegistrationRequest | null>(null);
   const [approveRole, setApproveRole] = useState<Role>('EMPLOYEE');
   const [approveNote, setApproveNote] = useState('');
+  const [approveClientKey, setApproveClientKey] = useState('');
   const [approveLoading, setApproveLoading] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
 
@@ -71,6 +72,7 @@ export default function UserRequestsPage() {
   // Change Role modal state
   const [changeRoleTarget, setChangeRoleTarget] = useState<RegistrationRequest | null>(null);
   const [changeRoleValue, setChangeRoleValue] = useState<Role>('EMPLOYEE');
+  const [changeRoleClientKey, setChangeRoleClientKey] = useState('');
   const [changeRoleLoading, setChangeRoleLoading] = useState(false);
   const [changeRoleError, setChangeRoleError] = useState<string | null>(null);
 
@@ -99,6 +101,11 @@ export default function UserRequestsPage() {
 
   async function handleApprove() {
     if (!approveTarget) return;
+    const clientKey = clientScopeKeyPayload(approveRole, approveClientKey);
+    if (!clientKey) {
+      setApproveError('Enter a valid client key for this client.');
+      return;
+    }
     setApproveLoading(true);
     setApproveError(null);
     try {
@@ -108,6 +115,7 @@ export default function UserRequestsPage() {
           role: approveRole,
           adminNote: approveNote.trim() || undefined,
           permissions: [],
+          ...clientKey,
         }),
       });
       const approvedName = approveTarget.fullName;
@@ -147,12 +155,17 @@ export default function UserRequestsPage() {
 
   async function handleChangeRole() {
     if (!changeRoleTarget) return;
+    const clientKey = clientScopeKeyPayload(changeRoleValue, changeRoleClientKey);
+    if (!clientKey) {
+      setChangeRoleError('Enter a valid client key for this client.');
+      return;
+    }
     setChangeRoleLoading(true);
     setChangeRoleError(null);
     try {
       await apiFetch(`/admin/users/${changeRoleTarget.user.id}/role`, {
         method: 'PATCH',
-        body: JSON.stringify({ role: changeRoleValue }),
+        body: JSON.stringify({ role: changeRoleValue, ...clientKey }),
       });
       const name = changeRoleTarget.fullName;
       setChangeRoleTarget(null);
@@ -331,6 +344,7 @@ export default function UserRequestsPage() {
                               setApproveTarget(req);
                               setApproveRole('EMPLOYEE');
                               setApproveNote('');
+                              setApproveClientKey('');
                               setApproveError(null);
                             }}
                             className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
@@ -365,6 +379,7 @@ export default function UserRequestsPage() {
                               onClick={() => {
                                 setChangeRoleTarget(req);
                                 setChangeRoleValue('EMPLOYEE');
+                                setChangeRoleClientKey('');
                                 setChangeRoleError(null);
                               }}
                               className="rounded bg-muted/50 px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
@@ -482,6 +497,21 @@ export default function UserRequestsPage() {
                   </select>
                 </div>
 
+                {approveRole === 'CLIENT' && (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Client key</label>
+                    <input
+                      value={approveClientKey}
+                      onChange={(e) => setApproveClientKey(e.target.value)}
+                      maxLength={120}
+                      placeholder="e.g. acme-gmbh"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <p className="mt-1 text-xs text-muted">
+                      The same key as on this client&apos;s projects, files and invoices. Letters, digits, dot, underscore or hyphen.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="mb-1 block text-sm font-medium text-foreground">Data access</p>
                   <p className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
@@ -677,6 +707,21 @@ export default function UserRequestsPage() {
                   Owner role cannot be assigned or changed here.
                 </p>
               </div>
+              {changeRoleValue === 'CLIENT' && (
+                <div className="mt-4">
+                  <label className="mb-1 block text-sm font-medium text-foreground">Client key</label>
+                  <input
+                    value={changeRoleClientKey}
+                    onChange={(e) => setChangeRoleClientKey(e.target.value)}
+                    maxLength={120}
+                    placeholder="e.g. acme-gmbh"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="mt-1 text-xs text-muted">
+                    Ties this client to its own projects, files and invoices.
+                  </p>
+                </div>
+              )}
 
               <div className="mt-6 flex justify-end gap-3">
                 <button

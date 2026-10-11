@@ -112,7 +112,7 @@ describe('approval stores only an enforced visibility scope', { skip }, () => {
 
   it('stores CLIENT_LEVEL for a CLIENT (isolation is enforced by its client scope)', async () => {
     const r = await pendingRequest('CLIENT');
-    const res = await approve(r.requestId, { role: 'CLIENT', visibilityScope: 'TENANT_WIDE' });
+    const res = await approve(r.requestId, { role: 'CLIENT', visibilityScope: 'TENANT_WIDE', clientScopeKey: `client-${RUN}` });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(await storedScope(r.userId), 'CLIENT_LEVEL');
   });
