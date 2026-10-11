@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { MembershipRole } from '@prisma/client';
 import { assertFileAssetInTenant, assertFileVersionInTenant } from '../../common/tenant/tenant-references';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApprovalsRepository } from './approvals.repository';
+import { ApprovalClosedError, ApprovalsRepository } from './approvals.repository';
 import { CreateApprovalRequestDto } from './dto/create-approval-request.dto';
 import { CreateApprovalDecisionDto } from './dto/create-approval-decision.dto';
 
@@ -53,7 +53,18 @@ export class ApprovalsService {
 
   async decide(tenantId: string, actorId: string, id: string, dto: CreateApprovalDecisionDto) {
     const approval = await this.get(tenantId, id);
-    const decision = await this.repo.createDecision(tenantId, actorId, id, dto);
+    let decision;
+    try {
+      decision = await this.repo.createDecision(tenantId, actorId, id, dto);
+    } catch (error) {
+      if (error instanceof ApprovalClosedError) {
+        throw new ConflictException({
+          code: 'APPROVAL_ALREADY_DECIDED',
+          reason: `This approval is already ${error.status.toLowerCase().replace(/_/g, ' ')}.`,
+        });
+      }
+      throw error;
+    }
 
     // Back to whoever asked. Keyed on the decision id, so one decision is one
     // notification however many times the request is replayed.
