@@ -7,12 +7,13 @@ import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoicesController } from './invoices.controller';
 import { InvoicesRepository } from './invoices.repository';
 import { InvoicesService } from './invoices.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   // ClientInvoicesController was previously written but never registered, so
   // the /api/client/invoices routes did not exist at runtime.
   controllers: [InvoicesController, ClientInvoicesController],
-  imports: [AuditModule, MembershipsModule, PermissionsModule],
+  imports: [AuditModule, MembershipsModule, NotificationsModule, PermissionsModule],
   providers: [InvoicePdfService, InvoicesRepository, InvoicesService],
   exports: [InvoicesService],
 })
