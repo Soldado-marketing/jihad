@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `b85e371` (#49 merged) |
+| CURRENT_MAIN | `c55d131` (#50 merged) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T66 Activity timeline component |
+| ACTIVE_TASK | MAOS-T132 Audit log API and owner-only Audit UI |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/activity-timeline-ui |
+| CURRENT_BRANCH | feat/audit-ui |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | web activity-timeline 4/4 |
+| TESTS_PASSED | audit-log 4/4, web 2/2; 3 mutations |
 | TESTS_PENDING | — |
 | PR_URL | open: T59 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T66; then T132 (feat/audit-ui), T49, T70, T103, T104, T108 (all committed); then T109. |
+| EXACT_NEXT_ACTION | Continue the landing queue: T49, T70, T103, T104, T108, T109. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -155,7 +155,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T67 | My Work aggregation API | feat/my-work-api | #47 MERGED (`99c00d7`) | my-work 5/5; 6 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T68 | My Work page | feat/my-work-ui | #48 MERGED (`cbe1ef0`) | web my-work 4/4 | 0 | COMPLETE_MERGED |
 | MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | #49 MERGED (`b85e371`) | web filter-bar 6/6 | 0 | COMPLETE_MERGED |
-| MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | (this PR) | web activity-timeline 4/4 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | #50 MERGED (`c55d131`) | web activity-timeline 4/4 | 0 | COMPLETE_MERGED |
+| MAOS-T132 | Audit log API and owner-only Audit UI | feat/audit-ui | (this PR) | audit-log 4/4, web 2/2; 3 mutations | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -525,3 +526,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T68 | My Work page | feat/my-work-ui | PR | web my-work 4/4 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T60 | FilterBar with URL-held filters and search | feat/filter-bar | PR | web filter-bar 6/6 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T66 | Activity timeline component | feat/activity-timeline-ui | PR | web activity-timeline 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T132 | Audit log API and owner-only Audit UI | feat/audit-ui | PR | audit-log 4/4, web 2/2; 3 mutations | 0 | COMPLETE_AWAITING_MERGE
