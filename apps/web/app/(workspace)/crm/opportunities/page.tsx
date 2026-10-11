@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import { toCents } from '@/lib/money';
+import { PipelineBoard } from '@/components/crm/pipeline-board';
+import type { PipelineStage } from '@/lib/pipeline';
 
 type Opportunity = { id: string; title: string; status: string; valueCents?: number; currency?: string; lead?: { name: string } };
 type LeadOption = { id: string; name: string };
@@ -21,6 +23,7 @@ export default function OpportunitiesPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [leads, setLeads] = useState<LeadOption[]>([]);
+  const [view, setView] = useState<'board' | 'list'>('board');
 
   useEffect(() => {
     load();
@@ -55,6 +58,18 @@ export default function OpportunitiesPage() {
     } catch (e: any) { setError(e.message); }
   }
 
+  /** Moves an opportunity to another stage (PATCH validates the stage). */
+  async function moveTo(id: string, status: PipelineStage) {
+    const previous = items;
+    setItems((list) => list.map((o) => (o.id === id ? { ...o, status } : o)));
+    try {
+      await apiFetch(`/opportunities/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    } catch (e: any) {
+      setItems(previous);
+      setError(e.message);
+    }
+  }
+
   async function deleteItem(id: string) {
     if (!confirm('Delete this opportunity?')) return;
     try { await apiFetch(`/opportunities/${id}`, { method: 'DELETE' }); load(); }
@@ -64,8 +79,20 @@ export default function OpportunitiesPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="CRM" title="Opportunities" description="Track sales opportunities and pipeline."
-        actions={<button onClick={() => setShowForm(v => !v)}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white">+ New Opportunity</button>}
+        actions={
+          <div className="flex gap-2">
+            <div role="group" aria-label="View" className="flex overflow-hidden rounded-lg border border-line text-sm">
+              {(['board', 'list'] as const).map(v => (
+                <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
+                  className={`px-3 py-2 ${view === v ? 'bg-slate-100 font-medium text-ink' : 'text-muted'}`}>
+                  {v === 'board' ? 'Board' : 'List'}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowForm(v => !v)}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white">+ New Opportunity</button>
+          </div>
+        }
       />
       {showForm && (
         <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-line bg-white p-4">
@@ -102,7 +129,8 @@ export default function OpportunitiesPage() {
       {loading && <p className="text-sm text-muted">Loading…</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}
       {!loading && items.length === 0 && !error && <p className="text-center text-sm text-muted py-8">No opportunities yet.</p>}
-      {items.length > 0 && (
+      {items.length > 0 && view === 'board' && <PipelineBoard items={items} onMove={moveTo} />}
+      {items.length > 0 && view === 'list' && (
         <table className="w-full rounded-xl border border-line overflow-hidden bg-white">
           <thead className="bg-slate-50 text-xs font-semibold text-muted uppercase">
             <tr>{['Title','Lead','Value','Status',''].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
