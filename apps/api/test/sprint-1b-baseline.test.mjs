@@ -32,13 +32,15 @@ describe('Sprint 1B permissions and audit foundation baseline', () => {
     }
   });
 
-  it('keeps the MVP role foundation to Owner, Manager, Employee, and Client', () => {
+  it('keeps the MVP role foundation to Owner, Manager, Employee, Contractor and Client', () => {
+    // MAOS-T39: the role type is the Prisma enum, re-exported so code and
+    // queries share one type. CONTRACTOR is part of the canonical role set
+    // (Blueprint §2.1).
     const roles = readApi('src/common/identity/membership-role.ts');
-
-    assert.match(roles, /OWNER/);
-    assert.match(roles, /MANAGER/);
-    assert.match(roles, /EMPLOYEE/);
-    assert.match(roles, /CLIENT/);
+    const schema = readApi('prisma/schema.prisma');
+    assert.match(roles, /export \{ MembershipRole \} from '@prisma\/client'/);
+    const block = schema.match(/enum MembershipRole \{([^}]*)\}/)?.[1] ?? '';
+    assert.deepEqual(block.trim().split(/\s+/), ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR', 'CLIENT']);
   });
 
   it('implements a route-level permission guard with tenant context and deny-by-default behavior', () => {
@@ -58,9 +60,16 @@ describe('Sprint 1B permissions and audit foundation baseline', () => {
     const permissionService = readApi('src/modules/permissions/permission.service.ts');
     const scopeService = readApi('src/modules/permissions/resource-scope.service.ts');
 
-    assert.match(permissionService, /manager_assigned_scope_placeholder/);
-    assert.match(permissionService, /employee_own_assigned_scope_placeholder/);
-    assert.match(permissionService, /client_own_client_visible_scope_placeholder/);
+    // MAOS-T39: the role placeholders became DB-backed default grants with an
+    // explicit deny for anything outside each role's set; CLIENT reads only
+    // client-portal routes. Contractor assigned-work scope is real (MAOS-T35).
+    assert.match(permissionService, /manager_default_grant/);
+    assert.match(permissionService, /manager_resource_not_in_default_set/);
+    assert.match(permissionService, /employee_default_grant/);
+    assert.match(permissionService, /employee_resource_not_in_default_set/);
+    assert.match(permissionService, /client_portal_read_default/);
+    assert.match(permissionService, /client_non_portal_deny/);
+    assert.match(scopeService, /resolveWorkScope/);
     assert.match(scopeService, /manager_assigned_scope_not_implemented/);
     assert.match(scopeService, /employee_own_assigned_scope_not_implemented/);
     assert.match(scopeService, /client_own_scope_not_implemented/);

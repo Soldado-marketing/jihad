@@ -80,8 +80,10 @@ describe('Sprint 10 dashboards and reports basic frontend baseline', () => {
     const clientDashboard = readWeb('src/components/client-portal/client-dashboard.tsx');
     const clientSummary = readWeb('src/components/dashboard/client-dashboard-summary.tsx');
 
-    assert.match(workspaceDashboard, /WorkspaceSummaryGrid/);
-    assert.match(workspaceDashboard, /HiddenDataNotice/);
+    // MAOS-T39: the workspace dashboard renders counts from the workspace
+    // summary endpoint inline; finance amounts are never shown there.
+    assert.match(workspaceDashboard, /'\/dashboards\/workspace-summary'/);
+    assert.doesNotMatch(workspaceDashboard, /finance\/summary|profitability|totalCents|paidCents|amountCents/);
     assert.match(clientDashboard, /ClientDashboardSummary/);
     assert.doesNotMatch(clientSummary, /FinanceSummaryOwnerOnly/);
     assert.doesNotMatch(clientSummary, /CostList/);

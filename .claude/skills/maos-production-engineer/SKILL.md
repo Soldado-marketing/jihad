@@ -656,23 +656,23 @@ Mutation testing is valuable for important security changes when practical.
 
 These are comparison checkpoints, not permanent truths.
 
-The current baseline, with every known failure listed by name, is kept in `docs/MAOS_EXECUTION_LEDGER.md`. As of 2026-10-10 on `main`:
+The current baseline is kept in `docs/MAOS_EXECUTION_LEDGER.md`. As of 2026-10-11 (MAOS-T39) there are no known failures: any failing test is a regression. As of that date:
 
 Blocking unit/contract gate (`ci.yml`):
 
-`239/239`
+`297/297`
 
 HTTP integration (`integration-api` first, then the security suites):
 
-`101/101`
+`221/221`
 
 Full API suite:
 
-`342 tests / 43 known legacy failures`
+`407 tests / 0 failures / 10 todo (F-4) — blocking in CI`
 
 Web:
 
-`64 tests / 3 known legacy failures`
+`75 tests / 0 failures — blocking in CI`
 
 Required before merge:
 

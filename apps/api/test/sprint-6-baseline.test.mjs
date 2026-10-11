@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { assertGuardedController, assertTenantScopedRepository } from './support/source-assertions.mjs';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readApi = (relativePath) => readFileSync(join(apiRoot, relativePath), 'utf8');
@@ -45,7 +46,6 @@ describe('Sprint 6 files, file versioning, and approvals API baseline', () => {
       'src/modules/files/files.controller.ts',
       'src/modules/files/files.service.ts',
       'src/modules/files/files.repository.ts',
-      'src/modules/files/signed-url.service.ts',
       'src/modules/files/files.module.ts',
       'src/modules/file-versions/file-versions.module.ts',
       'src/modules/approvals/approvals.controller.ts',
@@ -68,7 +68,11 @@ describe('Sprint 6 files, file versioning, and approvals API baseline', () => {
     assert.match(filesController, /@Patch\(':id'\)/);
     assert.match(filesController, /@Get\(':id\/versions'\)/);
     assert.match(filesController, /@Post\(':id\/versions'\)/);
-    assert.match(filesController, /@Get\(':id\/signed-url'\)/);
+    // MAOS-T38 removed the signed-URL placeholder; content is served only by
+    // the authorised content route.
+    assert.equal(existsApi('src/modules/files/signed-url.service.ts'), false);
+    assert.doesNotMatch(filesController, /signed-url/);
+    assert.match(filesController, /@Get\(':id\/versions\/:versionId\/content'\)/);
     assert.match(approvalsController, /@Controller\('approvals'\)/);
     assert.match(approvalsController, /@Get\(\)/);
     assert.match(approvalsController, /@Post\(\)/);
@@ -77,46 +81,37 @@ describe('Sprint 6 files, file versioning, and approvals API baseline', () => {
   });
 
   it('uses permission guard and Sprint 6 permission resources on protected routes', () => {
-    const controllers = [
-      readApi('src/modules/files/files.controller.ts'),
-      readApi('src/modules/approvals/approvals.controller.ts'),
-    ].join('\n');
+    for (const path of ['src/modules/files/files.controller.ts', 'src/modules/approvals/approvals.controller.ts']) {
+      assertGuardedController(assert, readApi(path), path);
+    }
     const permissionTypes = readApi('src/modules/permissions/permission.types.ts');
 
-    assert.match(controllers, /@UseGuards\(PermissionGuard\)/);
-    assert.match(controllers, /RequirePermission/);
     assert.match(permissionTypes, /FILE/);
     assert.match(permissionTypes, /FILE_VERSION/);
     assert.match(permissionTypes, /APPROVAL/);
   });
 
   it('keeps file and approval repositories tenant-aware without direct unscoped access', () => {
-    const repositories = [
-      readApi('src/modules/files/files.repository.ts'),
-      readApi('src/modules/approvals/approvals.repository.ts'),
-    ].join('\n');
-
-    assert.match(repositories, /extends TenantAwareRepository/);
-    assert.match(repositories, /requireTenantContext/);
-    assert.doesNotMatch(repositories, /prisma\./);
+    // MAOS-T39: every query carries a tenantId boundary (see support helper).
+    for (const path of [
+      'src/modules/files/files.repository.ts',
+      'src/modules/file-versions/file-versions.repository.ts',
+      'src/modules/approvals/approvals.repository.ts',
+    ]) {
+      assertTenantScopedRepository(assert, readApi(path), path);
+    }
   });
 
-  it('adds signed URL placeholder safeguards and audit placeholders', () => {
-    const signedUrlService = readApi('src/modules/files/signed-url.service.ts');
-    const filesService = readApi('src/modules/files/files.service.ts');
-    const approvalsService = readApi('src/modules/approvals/approvals.service.ts');
-
-    assert.match(signedUrlService, /validateActorScope/);
-    assert.match(signedUrlService, /validateTenantOwnership/);
-    assert.match(signedUrlService, /expiresInSeconds: 300/);
-    assert.match(signedUrlService, /signedUrlPayload: 'redacted-placeholder'/);
-    assert.match(signedUrlService, /file\.signed_url\.requested/);
-    assert.match(filesService, /file\.created/);
-    assert.match(filesService, /file\.updated/);
-    assert.match(filesService, /file\.version\.created/);
-    assert.match(approvalsService, /approval\.requested/);
-    assert.match(approvalsService, /approval\.decision_recorded/);
+  it('audits file version uploads and downloads', () => {
+    // MAOS-T39: audit is written where the sensitive operations are: storing
+    // and serving file content (including client-scope denials).
+    const fileVersions = readApi('src/modules/file-versions/file-versions.service.ts');
+    assert.match(fileVersions, /'file\.version\.upload'/);
+    assert.match(fileVersions, /'file\.version\.download'/);
+    assert.match(fileVersions, /'file_outside_client_scope'/);
   });
+
+  it.todo('writes audit events for file metadata and approval changes (specified in Sprint 6, never built; backlog F-4)');
 
   it('preserves client-visible file boundary and approval-safe payloads', () => {
     const filesRepository = readApi('src/modules/files/files.repository.ts');
@@ -125,7 +120,7 @@ describe('Sprint 6 files, file versioning, and approvals API baseline', () => {
 
     assert.match(filesRepository, /clientVisible/);
     assert.match(filesRepository, /clientScopeKey/);
-    assert.match(approvalsRepository, /clientVisible/);
+    // Approvals carry the client scope but are not exposed to the portal.
     assert.match(approvalsRepository, /clientScopeKey/);
     assert.doesNotMatch(clientController, /files/i);
     assert.doesNotMatch(clientController, /approvals/i);

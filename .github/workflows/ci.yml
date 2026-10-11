@@ -152,12 +152,12 @@ jobs:
             test/throttle-per-client.test.mjs \
             test/security-gate-sessions.test.mjs
 
-      # Informational: the sprint-*-baseline suites describe features that were
-      # specified but never built. They carry 43 known failures. Reported so the
-      # number stays visible, without blocking the pipeline.
-      - name: Full suite (informational - 43 known failures)
+      # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
+      # rewritten to the current code; features specified but never built are
+      # `todo` entries (backlog F-4), reported without failing. Integration
+      # suites skip here (no MAOS_INTEGRATION) - they ran above.
+      - name: Full suite
         working-directory: apps/api
-        continue-on-error: true
         run: npm test
 
   web:
@@ -194,10 +194,9 @@ jobs:
         working-directory: apps/web
         run: node --test test/invoice-send-result.test.mjs test/security-headers.test.mjs test/access-scope.test.mjs
 
-      # Informational: 3 known failures.
-      - name: Web tests (informational - 3 known failures)
+      # Blocking (MAOS-T39): every web suite.
+      - name: Web tests
         working-directory: apps/web
-        continue-on-error: true
         run: npm test
 
   audit:

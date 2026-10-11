@@ -7,7 +7,7 @@ export class VoiceToTaskRepository {
 
   getDraft(tenantId: string, id: string) {
     return this.prisma.voiceToTaskDraft.findFirst({
-      where: { id, voiceNote: { tenantId } },
+      where: { id, tenantId },
       select: { id: true, title: true, description: true, suggestedPriority: true, status: true },
     });
   }
@@ -37,7 +37,7 @@ export class VoiceToTaskRepository {
     const draft = await this.prisma.voiceToTaskDraft.findFirst({ where: { id, voiceNote: { tenantId } } });
     if (!draft) throw new NotFoundException('Draft not found');
     return this.prisma.voiceToTaskDraft.update({
-      where: { id },
+      where: { id, tenantId },
       data: { status: 'CONFIRMED' },
     });
   }

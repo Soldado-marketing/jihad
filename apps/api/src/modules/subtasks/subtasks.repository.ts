@@ -33,7 +33,7 @@ export class SubtasksRepository {
     const existing = await this.prisma.subtask.findFirst({ where: { id, task: { tenantId } } });
     if (!existing) throw new NotFoundException('Subtask not found');
     return this.prisma.subtask.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         ...(dto.title && { title: dto.title }),
         ...(dto.status && { status: dto.status }),
@@ -45,9 +45,9 @@ export class SubtasksRepository {
   async delete(tenantId: string, id: string) {
     // Verify the subtask belongs to a task that belongs to this tenant
     const existing = await this.prisma.subtask.findFirst({
-      where: { id, task: { tenantId } },
+      where: { id, tenantId },
     });
     if (!existing) throw new NotFoundException('Subtask not found');
-    return this.prisma.subtask.delete({ where: { id } });
+    return this.prisma.subtask.delete({ where: { id, tenantId } });
   }
 }

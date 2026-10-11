@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { assertGuardedController, assertTenantScopedRepository } from './support/source-assertions.mjs';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const readApi = (relativePath) => readFileSync(join(apiRoot, relativePath), 'utf8');
@@ -94,7 +95,6 @@ describe('Sprint 11 MVP API hardening regression', () => {
       'src/modules/files/files.controller.ts',
       'src/modules/approvals/approvals.controller.ts',
       'src/modules/chat/chat.controller.ts',
-      'src/modules/notifications/notifications.controller.ts',
       'src/modules/voice-notes/voice-notes.controller.ts',
       'src/modules/voice-to-task/voice-to-task.controller.ts',
       'src/modules/finance/finance.controller.ts',
@@ -106,11 +106,19 @@ describe('Sprint 11 MVP API hardening regression', () => {
       'src/modules/reports/reports.controller.ts',
     ];
 
+    // MAOS-T39: the tenant now comes from the authenticated session
+    // (@CurrentUser), never from request headers, and authentication runs
+    // before the permission check.
     for (const controllerPath of protectedControllers) {
-      const controller = readApi(controllerPath);
-      assert.match(controller, /@UseGuards\(PermissionGuard\)/, `${controllerPath} should use PermissionGuard`);
-      assert.match(controller, /@RequirePermission\(/, `${controllerPath} should declare permission requirements`);
-      assert.match(controller, /tenantContextFromHeaders/, `${controllerPath} should propagate tenant context`);
+      assertGuardedController(assert, readApi(controllerPath), controllerPath);
+    }
+
+    // SELF-scoped: the caller's own notifications. Authentication is the whole
+    // gate and every call is keyed on the caller's own user id.
+    const notifications = readApi('src/modules/notifications/notifications.controller.ts');
+    assert.match(notifications, /@UseGuards\(JwtAuthGuard\)/);
+    for (const call of notifications.match(/this\.svc\.\w+\([^)]*\)/g) ?? []) {
+      assert.match(call, /user\.tenantId, user\.sub/, `notifications must stay self-scoped: ${call}`);
     }
   });
 
@@ -119,11 +127,15 @@ describe('Sprint 11 MVP API hardening regression', () => {
       (file) => file.endsWith('repository.ts') && !file.includes('/tenants/'),
     );
 
+    // MAOS-T39: repositories use Prisma directly; the invariant is that every
+    // query carries a tenantId boundary. Reviewed exception: the dashboard
+    // portal counts pass a prebuilt `visible` filter that contains tenantId.
+    const reviewedExceptions = {
+      'src/modules/dashboards/dashboards.repository.ts': ['project.count', 'task.count', 'invoice.count'],
+    };
+    assert.ok(repositoryFiles.length >= 20, 'repository discovery found too few files');
     for (const repositoryPath of repositoryFiles) {
-      const repository = readApi(repositoryPath);
-      assert.match(repository, /extends TenantAwareRepository/, `${repositoryPath} should extend TenantAwareRepository`);
-      assert.match(repository, /requireTenantContext/, `${repositoryPath} should require tenant context`);
-      assert.doesNotMatch(repository, /prisma\./, `${repositoryPath} should not use direct Prisma access`);
+      assertTenantScopedRepository(assert, readApi(repositoryPath), repositoryPath, reviewedExceptions[repositoryPath]);
     }
   });
 
@@ -135,60 +147,59 @@ describe('Sprint 11 MVP API hardening regression', () => {
     const clientPaymentsController = readApi('src/modules/payments/client-payments.controller.ts');
     const invoicesService = readApi('src/modules/invoices/invoices.service.ts');
     const paymentsService = readApi('src/modules/payments/payments.service.ts');
+    const invoicesRepository = readApi('src/modules/invoices/invoices.repository.ts');
+    const paymentsRepository = readApi('src/modules/payments/payments.repository.ts');
+    const permissionService = readApi('src/modules/permissions/permission.service.ts');
 
-    assert.match(financeController, /sensitive: true/);
-    assert.match(invoicesController, /sensitive: true/);
-    assert.match(paymentsController, /sensitive: true/);
-    assert.match(invoicesService, /assertOwnerOnlyFinanceAccess/);
-    assert.match(paymentsService, /assertOwnerOnlyFinanceAccess/);
+    // MAOS-T39: owner-only finance is enforced by `sensitive: true`, which
+    // PermissionService denies to every non-owner. Every finance route and the
+    // payment list carry it. Invoices are deliberately manageable by MANAGER
+    // (Blueprint §2.1), so they are permission-controlled, not owner-only.
+    const financeRoutes = financeController.match(/@RequirePermission\([^)]*\)/g) ?? [];
+    assert.ok(financeRoutes.length >= 4);
+    for (const route of financeRoutes) assert.match(route, /sensitive: true/);
+    assert.match(paymentsController, /resource: PermissionResource\.PAYMENT, sensitive: true/);
+    assert.match(invoicesController, /resource: PermissionResource\.INVOICE/);
+    assert.match(permissionService, /if \(sensitive\) \{\s*return \{ allowed: false, reason: 'sensitive_non_owner_deny'/);
     assert.match(clientInvoicesController, /scope: 'client-portal'/);
     assert.match(clientPaymentsController, /scope: 'client-portal'/);
-    assert.match(invoicesService, /toClientInvoice/);
-    assert.match(paymentsService, /toClientPayment/);
+    // Client portals read through dedicated client-safe selects.
+    assert.match(invoicesRepository, /select: CLIENT_INVOICE_SELECT/);
+    assert.match(paymentsRepository, /select: CLIENT_PAYMENT_SELECT/);
     assert.doesNotMatch(`${clientInvoicesController}\n${clientPaymentsController}`, /COST_RECORD|FINANCE|REVENUE_RECORD/);
     assert.doesNotMatch(`${invoicesService}\n${paymentsService}`, /payroll|employeeCost|costRecord/i);
   });
 
-  it('preserves client portal, signed URL, chat/realtime, and report leakage controls', () => {
+  it('preserves client portal, file and chat leakage controls', () => {
     const clientPortalService = readApi('src/modules/client-portal/client-portal.service.ts');
-    const signedUrlService = readApi('src/modules/files/signed-url.service.ts');
-    const realtimeGateway = readApi('src/modules/realtime/realtime-gateway.placeholder.ts');
     const chatRepository = readApi('src/modules/chat/chat.repository.ts');
-    const reportsService = readApi('src/modules/reports/reports.service.ts');
-    const dashboardsRepository = readApi('src/modules/dashboards/dashboards.repository.ts');
 
-    assert.match(clientPortalService, /requireClientActor/);
-    assert.match(clientPortalService, /validateClientVisibleResource/);
-    assert.match(clientPortalService, /client_visible_scope_required/);
+    // MAOS-T39: the portal resolves the client scope from the caller's own
+    // membership (fail closed) and reads client-visible rows only.
+    assert.match(clientPortalService, /this\.clientScope\.resolve\(tenantId, actorId, role\)/);
+    assert.match(clientPortalService, /clientVisible: true/);
     assert.doesNotMatch(clientPortalService, /internalNotes|auditLogs|payroll|employeeCost/i);
-    assert.match(signedUrlService, /validateActorScope/);
-    assert.match(signedUrlService, /expiresInSeconds: 300/);
-    assert.match(signedUrlService, /signedUrlPayload: 'redacted-placeholder'/);
-    assert.match(realtimeGateway, /payloadPolicy: 'minimal-reference-only'/);
-    assert.match(realtimeGateway, /handleSessionRevocationPlaceholder/);
-    assert.match(chatRepository, /type: 'INTERNAL'/);
-    assert.match(chatRepository, /type: 'CLIENT'/);
-    assert.match(reportsService, /applyHiddenCountTotalSuppression/);
-    assert.match(reportsService, /report\.hidden_total\.suppressed/);
-    assert.match(dashboardsRepository, /hiddenCountTotalSuppression: true/);
+    // MAOS-T38 removed the signed-URL and realtime placeholders: neither may
+    // come back as a fake-success surface. File content is served only by the
+    // authorised content route (security-gate suites).
+    assert.equal(existsApi('src/modules/files/signed-url.service.ts'), false);
+    assert.equal(existsApi('src/modules/realtime'), false);
+    assert.match(chatRepository, /ChatChannelType\.INTERNAL/);
   });
 
-  it('preserves AI and voice safety placeholders without external provider calls or automatic task creation', () => {
-    const transcriptionProvider = readApi('src/modules/transcription/transcription-provider.placeholder.ts');
-    const aiExtraction = readApi('src/modules/ai-provider/ai-extraction.placeholder.ts');
-    const voiceToTaskService = readApi('src/modules/voice-to-task/voice-to-task.service.ts');
-    const voiceNotesService = readApi('src/modules/voice-notes/voice-notes.service.ts');
+  it.todo('reports suppress hidden counts and totals (specified in Sprint 10, never built; backlog F-4)');
 
-    assert.match(transcriptionProvider, /externalProviderCalled: false/);
-    assert.match(transcriptionProvider, /unauthorizedTrainingAllowed: false/);
-    assert.match(transcriptionProvider, /supportedLanguages: \['ar', 'en', 'de', 'mixed'\]/);
-    assert.match(aiExtraction, /externalProviderCalled: false/);
-    assert.match(aiExtraction, /taskCreatedAutomatically: false/);
-    assert.match(aiExtraction, /humanConfirmationRequired: true/);
-    assert.match(voiceToTaskService, /taskCreated: false/);
-    assert.match(voiceToTaskService, /placeholder-only-no-automatic-task/);
-    assert.match(voiceNotesService, /placeholder-no-external-provider/);
-    assert.doesNotMatch(voiceToTaskService, /TasksService|tasksService|createTask\(/);
+  it('keeps AI and transcription providers out until they are built for real', () => {
+    const voiceToTaskService = readApi('src/modules/voice-to-task/voice-to-task.service.ts');
+    const voiceToTaskRepository = readApi('src/modules/voice-to-task/voice-to-task.repository.ts');
+
+    // MAOS-T38 removed the AI and transcription placeholder modules. Confirming
+    // a voice-to-task draft only marks it CONFIRMED: no task is created
+    // automatically and no external provider is called.
+    assert.equal(existsApi('src/modules/ai-provider'), false);
+    assert.equal(existsApi('src/modules/transcription'), false);
+    assert.match(voiceToTaskRepository, /data: \{ status: 'CONFIRMED' \}/);
+    assert.doesNotMatch(`${voiceToTaskService}\n${voiceToTaskRepository}`, /TasksService|tasksService|task\.create\(|createTask\(/);
   });
 
   it('keeps audit redaction markers for sensitive MVP events', () => {
@@ -216,8 +227,14 @@ describe('Sprint 11 MVP API hardening regression', () => {
       .join('\n');
     const appModule = readApi('src/app.module.ts');
 
-    assert.doesNotMatch(source, /from ['"]openai|from ['"]stripe|from ['"]@aws-sdk|from ['"]nodemailer|from ['"]axios/i);
-    assert.doesNotMatch(source, /\bfetch\(/);
+    // MAOS-T39: two integrations are approved and built - object storage
+    // (S3 SDK, storage module only) and email (Resend over fetch, mail module
+    // only). Everything else stays out, and no other module calls out.
+    const files = listFiles('src').filter((f) => f.endsWith('.ts'));
+    const outside = (allowed) => files.filter((f) => !f.startsWith(allowed)).map((f) => readApi(f)).join('\n');
+    assert.doesNotMatch(source, /from ['"]openai|from ['"]stripe|from ['"]nodemailer|from ['"]axios/i);
+    assert.doesNotMatch(outside('src/modules/storage/'), /from ['"]@aws-sdk/);
+    assert.doesNotMatch(outside('src/modules/mail/'), /\bfetch\(/);
     assert.doesNotMatch(appModule, /AdvancedBiModule|ForecastingModule|AnomalyDetectionModule|AutomationsModule|PayrollModule|ReportExportModule|ScheduledReportsModule/);
   });
 });

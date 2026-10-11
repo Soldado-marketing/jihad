@@ -89,7 +89,8 @@ describe('Sprint 8 voice notes and voice-to-task frontend baseline', () => {
 
     assert.match(sprint8Files, /Human confirmation required/);
     assert.match(sprint8Files, /External provider calls are not active/);
-    assert.match(sprint8Files, /cannot create tasks without human confirmation/);
+    // MAOS-T39: the current wording of the same safety message.
+    assert.match(sprint8Files, /human confirmation is required/);
     assert.doesNotMatch(sprint8Files, /finance/i);
     assert.doesNotMatch(sprint8Files, /report/i);
     assert.doesNotMatch(sprint8Files, /automation/i);

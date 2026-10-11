@@ -92,7 +92,9 @@ describe('Sprint 4 client portal frontend boundary baseline', () => {
       .join('\n');
 
     assert.doesNotMatch(clientFiles, /file upload/i);
-    assert.doesNotMatch(clientFiles, /approval/i);
+    // MAOS-T39: copy may mention approval ("tasks for review or approval");
+    // what must stay absent is any approvals feature in the portal.
+    assert.doesNotMatch(clientFiles, /\/approvals|ApprovalRequest|approvalRequest/);
     assert.doesNotMatch(clientFiles, /chat/i);
     assert.doesNotMatch(clientFiles, /crm/i);
     assert.doesNotMatch(clientFiles, /automation/i);
