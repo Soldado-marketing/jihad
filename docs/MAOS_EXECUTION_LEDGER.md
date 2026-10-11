@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `0086453` (#55 merged) |
+| CURRENT_MAIN | `dcab6d7` (#56 merged) |
 | CURRENT_WAVE | W4 — Core business (Phase A). W1–W3: everything not owner-gated is merged (status given 2026-10-11) |
-| ACTIVE_TASK | MAOS-T108 Approval queue; decisions only on open approvals |
+| ACTIVE_TASK | MAOS-T109 Meeting notes, decisions and tasks |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/approval-queue |
+| CURRENT_BRANCH | feat/meeting-decisions |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | approval-decisions 5/5, web 4/4; 1 mutation |
+| TESTS_PASSED | foreign-ids-content 19/19, web 4/4; 1 mutation |
 | TESTS_PENDING | — |
 | PR_URL | open: T59 (this branch); gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Continue the landing queue: T109. |
+| EXACT_NEXT_ACTION | Queue landed. Remaining registry work is owner-gated; give the final status. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -161,7 +161,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T70 | ADR-018 Time entries and rate resolution (Proposed) | docs/adr-018-time-and-rates | #53 MERGED (`e6d7b59`) | docs | 0 | COMPLETE_MERGED |
 | MAOS-T103 | Calendar aggregation API | feat/calendar-api | #54 MERGED (`88b3aa5`) | calendar 6/6; 5 mutations | 0 | COMPLETE_MERGED |
 | MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | #55 MERGED (`0086453`) | web calendar 7/7 | 0 | COMPLETE_MERGED |
-| MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | (this PR) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | #56 MERGED (`dcab6d7`) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
+| MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | (this PR) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -537,3 +538,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T103 | Calendar aggregation API | feat/calendar-api | PR | calendar 6/6; 5 mutations | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | PR | web calendar 7/7 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | PR | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | PR | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
