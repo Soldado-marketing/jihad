@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `bde94b0` (T109 #57 merged 2026-10-11) |
+| CURRENT_MAIN | `2de4355` |
 | CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
-| ACTIVE_TASK | Owner batch 2026-10-11: migration gate report delivered; next T21 schedules, CI-2 harness fix, D7 dashboard, F-2 invites, D8 scheduler, T50+/T71+ schema PRs (gated) |
-| TASK_STATUS | IN_PROGRESS |
-| CURRENT_BRANCH | — |
+| ACTIVE_TASK | MAOS-T21 Backup schedules: rehearsal runner, LaunchAgent templates, installer |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
+| CURRENT_BRANCH | ops/backup-schedules |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | main: full API and web suites blocking and green; integration suites per ci.yml |
+| TESTS_PASSED | backup-schedule 4/4 |
 | TESTS_PENDING | — |
 | PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) ONE decision on PRs #26/#36/#38 per docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md (all three current with main; #36 precheck = 0); (2) pmset wake schedule (needs sudo); (3) D2 off-Mac backup (deferred — risk: backups exist only on this Mac); (4) D6 German invoice rules (deferred) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | T21: pinned runtime copy + LaunchAgents (nightly, hourly staleness, weekly rehearsal) via PR; then CI-2 fix; D7; F-2; D8; T50/T52 and T71/T72 as migration-gated PRs. |
+| EXACT_NEXT_ACTION | Land T21, then install the schedules on the backup Mac and verify; then F-2 invites (drafted), D7 dashboard, D8 scheduler, T50/T52 and T71/T72 (gated PRs). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -165,6 +165,7 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | #55 MERGED (`0086453`) | web calendar 7/7 | 0 | COMPLETE_MERGED |
 | MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | #56 MERGED (`dcab6d7`) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
 | MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | #57 MERGED (`bde94b0`) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
+| MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | (this PR) | backup-schedule 4/4 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -547,3 +548,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T22 | Production-dump restore rehearsal | — (ops) | — | maos-20261010T013010Z.dump: sha256 MATCH, pg_restore --list OK (429 entries, 43 tables), isolated restore REHEARSAL OK (row counts reported, 8 migrations), 0 leftover containers, protected containers untouched | 0 | PASS
 - Migration gate prep | #26/#36/#38 merged up to date with main (merge commits, no rewrite), gate + integration green locally; read-only production prechecks: 8 migrations applied (= main), #36 duplicate groups 0, no new object present | — | — | 0 | REPORT DELIVERED (docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md)
 - D2 risk | Backups exist only on this Mac (and depend on it being awake with Docker running); off-Mac copy deferred by owner 2026-10-11 | — | — | — | OPEN RISK
+- MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | PR | backup-schedule 4/4 | 0 | COMPLETE_AWAITING_MERGE
