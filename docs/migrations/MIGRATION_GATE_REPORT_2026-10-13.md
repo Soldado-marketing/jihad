@@ -95,10 +95,10 @@ As written in `docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md`:
 
 | PR | Gate | Integration | Full API | Notes |
 |---|---|---|---|---|
-| #36 | 308/308 | 293/293 | 0 failures | merged up to date with main |
+| #36 | 308/308 | 293/293 | 0 failures | all four re-merged with main and re-measured 2026-10-13 22:xx |
 | #38 | 308/308 | 294/294 | 0 failures | |
 | #26 | 312/312 | 291/291 | 0 failures | |
-| #65 | 308/308 | 297/297 (before F2b); with F2b: invites 15/15, customers 9/9 | 0 failures | CLIENT invites added (4/4 mutations caught); isolation 80/80 before and after the fill-in; full re-measure at the next refresh |
+| #65 | 308/308 | 300/300 (incl. invites 15/15 with CLIENT invites, customers 9/9) | 0 failures | CLIENT invites (4/4 mutations caught); isolation 80/80 before and after the fill-in |
 
 ## Decision requested (one)
 

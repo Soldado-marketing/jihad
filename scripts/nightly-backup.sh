@@ -199,6 +199,18 @@ if [ "$TIMED_OUT" = 1 ]; then
 fi
 
 if [ "$STATUS" -eq 0 ]; then
+  # D2 (MAOS-T20): encrypted off-site copy of the new dump. Silent until it is
+  # configured (exit 2); on failure it raises its own alert. It never turns a
+  # good local backup into a failed run.
+  OFFSITE_CMD="${MAOS_OFFSITE_CMD:-$SCRIPT_DIR/offsite-backup.sh}"
+  if [ -x "$OFFSITE_CMD" ]; then
+    "$OFFSITE_CMD" >> "$LOG" 2>&1
+    case $? in
+      0) log "off-site copy: OK" ;;
+      2) log "off-site copy: not configured" ;;
+      *) log "off-site copy: FAILED (alert raised)" ;;
+    esac
+  fi
   finish "SUCCESS: exit 0" 0
 fi
 finish "FAIL: exit $STATUS" "$STATUS"
