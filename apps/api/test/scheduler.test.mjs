@@ -80,7 +80,7 @@ after(async () => {
 describe('scheduler (MAOS D8)', { skip }, () => {
   it('is off by default: the app boots with no timers', () => {
     assert.equal(scheduler.activeTimers, 0);
-    assert.deepEqual(scheduler.status().map((s) => s.name), ['invite-expiry']);
+    assert.deepEqual(scheduler.status().map((s) => s.name), ['invite-expiry', 'deadline-reminders']);
   });
 
   it('starts one timer per job only when MAOS_SCHEDULER_ENABLED=true, and stops them on shutdown', () => {

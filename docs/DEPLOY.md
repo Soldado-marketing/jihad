@@ -243,6 +243,7 @@ and no new dependency. They are **off** unless `MAOS_SCHEDULER_ENABLED=true`.
 | Job | Every | Does |
 |---|---|---|
 | `invite-expiry` | 15 min | Marks open invitations past their 72 h expiry as `EXPIRED`. |
+| `deadline-reminders` | 30 min | One notification to the assignee of an open task due within 24 h, and to OWNER/MANAGERs for a requested approval due within 24 h (not its requester). Idempotent per due date; ACTIVE members of ACTIVE tenants only. |
 
 ## Database migrations
 

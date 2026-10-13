@@ -63,13 +63,17 @@ export class NotificationsRepository {
     return memberships.map((membership) => membership.userId);
   }
 
-  /** The membership role of one user inside one tenant, or null if not a member. */
+  /**
+   * The membership role of one user inside one tenant, or null if they are not
+   * an ACTIVE member - a suspended or removed member receives nothing, matching
+   * findRecipientIdsByRole.
+   */
   async findMemberRole(tenantId: string, userId: string): Promise<MembershipRole | null> {
     const membership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId } },
-      select: { role: true },
+      select: { role: true, status: true },
     });
-    return membership?.role ?? null;
+    return membership?.status === 'ACTIVE' ? membership.role : null;
   }
 
   list(tenantId: string, userId: string) {
