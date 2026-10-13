@@ -23,6 +23,16 @@ const config: Config = {
         danger: '#b42318',
         navy: '#0f172a',
         'navy-soft': '#1e293b',
+        // Aliases for the names the auth, settings and user-menu screens use.
+        // They were never defined, so those classes produced no CSS (the
+        // sign-in button rendered as plain text). Each maps to the palette above.
+        primary: '#0f766e',
+        'primary-foreground': '#ffffff',
+        destructive: '#b42318',
+        surface: '#ffffff',
+        foreground: '#101828',
+        background: '#ffffff',
+        border: '#d9e2ec',
       },
       boxShadow: {
         shell: '0 24px 80px -52px rgba(15, 23, 42, 0.65)',
