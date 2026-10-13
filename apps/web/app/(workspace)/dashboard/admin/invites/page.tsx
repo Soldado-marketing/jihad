@@ -114,21 +114,21 @@ export default function InvitesPage() {
   }
 
   const inputCls =
-    'rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+    'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent';
 
   return (
     <PageTransition className="mx-auto max-w-5xl space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Invitations</h1>
+        <h1 className="text-2xl font-semibold text-ink">Invitations</h1>
         <p className="mt-1 text-sm text-muted">
           Invite a team member by email. The link works once and expires after {INVITE_TTL_HOURS} hours. Clients
           still use the request-and-approve flow.
         </p>
       </div>
 
-      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4">
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-panel p-4">
         <div className="flex min-w-[16rem] flex-1 flex-col gap-1">
-          <label htmlFor="invite-email" className="text-sm font-medium text-foreground">Email</label>
+          <label htmlFor="invite-email" className="text-sm font-medium text-ink">Email</label>
           <input
             id="invite-email" type="email" required maxLength={320}
             value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com"
@@ -136,7 +136,7 @@ export default function InvitesPage() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="invite-role" className="text-sm font-medium text-foreground">Role</label>
+          <label htmlFor="invite-role" className="text-sm font-medium text-ink">Role</label>
           <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as InviteRole)} className={inputCls}>
             {INVITE_ROLES.map((r) => (
               <option key={r.value} value={r.value}>{r.label}</option>
@@ -146,11 +146,11 @@ export default function InvitesPage() {
         <button
           type="submit"
           disabled={busy}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:opacity-50"
         >
           {busy ? 'Sending…' : 'Send invitation'}
         </button>
-        {formError && <p role="alert" className="w-full text-sm text-destructive">{formError}</p>}
+        {formError && <p role="alert" className="w-full text-sm text-danger">{formError}</p>}
       </form>
 
       {result && result.delivery === 'emailed' && (
@@ -177,28 +177,28 @@ export default function InvitesPage() {
         </div>
       )}
 
-      {pageError && <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{pageError}</div>}
+      {pageError && <div className="rounded-lg bg-danger/10 px-4 py-3 text-sm text-danger">{pageError}</div>}
 
       {loading ? (
         <LoadingState />
       ) : invites.length === 0 ? (
         <p className="text-sm text-muted">No invitations yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-line">
           <table className="w-full text-sm">
-            <thead className="bg-muted/30 text-left">
+            <thead className="bg-soft text-left">
               <tr>
-                <th className="px-4 py-3 font-medium text-foreground">Email</th>
-                <th className="px-4 py-3 font-medium text-foreground">Role</th>
-                <th className="px-4 py-3 font-medium text-foreground">Status</th>
-                <th className="px-4 py-3 font-medium text-foreground">Expires</th>
-                <th className="px-4 py-3 font-medium text-foreground">Actions</th>
+                <th className="px-4 py-3 font-medium text-ink">Email</th>
+                <th className="px-4 py-3 font-medium text-ink">Role</th>
+                <th className="px-4 py-3 font-medium text-ink">Status</th>
+                <th className="px-4 py-3 font-medium text-ink">Expires</th>
+                <th className="px-4 py-3 font-medium text-ink">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-line">
               {invites.map((inv) => (
-                <tr key={inv.id} className="bg-surface">
-                  <td className="px-4 py-3 text-foreground">{inv.email}</td>
+                <tr key={inv.id} className="bg-panel">
+                  <td className="px-4 py-3 text-ink">{inv.email}</td>
                   <td className="px-4 py-3 text-muted">
                     {INVITE_ROLES.find((r) => r.value === inv.role)?.label ?? inv.role}
                   </td>
@@ -213,14 +213,14 @@ export default function InvitesPage() {
                       <button
                         type="button"
                         onClick={() => void handleRevoke(inv.id)}
-                        className="text-sm text-destructive hover:underline"
+                        className="text-sm text-danger hover:underline"
                       >
                         Revoke
                       </button>
                     ) : (
                       <span className="text-muted">—</span>
                     )}
-                    {rowError[inv.id] && <p className="mt-1 text-xs text-destructive">{rowError[inv.id]}</p>}
+                    {rowError[inv.id] && <p className="mt-1 text-xs text-danger">{rowError[inv.id]}</p>}
                   </td>
                 </tr>
               ))}

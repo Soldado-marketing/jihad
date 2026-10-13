@@ -3,9 +3,28 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageTransition } from '@/components/motion';
-import { getStoredUser, getStoredTenant, getAccessToken, type StoredUser, type StoredTenant } from '@/lib/auth';
-import { apiBase } from '@/lib/api';
+import { OwnerFinanceKpis } from '@/components/dashboard/owner-finance-kpis';
+import { getStoredUser, getStoredTenant, type StoredUser, type StoredTenant } from '@/lib/auth';
+import { relativeTime } from '@/lib/activity';
+import { itemHref, type CalendarItem } from '@/lib/calendar';
 import { apiFetch } from '@/lib/fetch';
+import { dueText, type MyWork } from '@/lib/my-work';
+import {
+  activeProjects,
+  attention,
+  canSeeFinance,
+  nextTasks,
+  upcoming,
+  upcomingRange,
+  type ProjectRow,
+} from '@/lib/ops-dashboard';
+
+/**
+ * Operations-first dashboard (MAOS D7): what needs attention now, what comes
+ * next, and where work stands. Every number comes from an API that already
+ * scopes it to the viewer (contractors see their assigned work only); a
+ * section whose data could not be loaded says so instead of showing zeros.
+ */
 
 type WorkspaceSummary = {
   projectTasks: { projects: number; tasks: number };
@@ -15,7 +34,7 @@ type WorkspaceSummary = {
   invoices: number;
 };
 
-type UnreadCount = { count: number };
+type Loaded<T> = T | 'loading' | 'error';
 
 const roleLabels: Record<string, string> = {
   OWNER: 'Owner',
@@ -25,33 +44,36 @@ const roleLabels: Record<string, string> = {
   CLIENT: 'Client',
 };
 
-function StatCard({
-  label,
-  value,
-  href,
-  highlight,
-}: {
-  label: string;
-  value: number | string;
-  href: string;
-  highlight?: boolean;
-}) {
+function SectionTitle({ children, href, linkLabel }: { children: React.ReactNode; href?: string; linkLabel?: string }) {
+  return (
+    <div className="mb-3 flex items-baseline justify-between">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{children}</h2>
+      {href && (
+        <Link href={href} className="text-xs font-medium text-accent hover:underline">
+          {linkLabel ?? 'View all →'}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function Panel({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-2xl border border-line bg-panel p-4 shadow-card">{children}</div>;
+}
+
+function Placeholder<T>({ state, empty }: { state: Loaded<T>; empty: string }) {
+  if (state === 'loading') return <div className="h-16 animate-pulse rounded-xl bg-slate-100" />;
+  if (state === 'error') return <p className="text-sm text-slate-500">Could not load this section.</p>;
+  return <p className="text-sm text-slate-500">{empty}</p>;
+}
+
+function StatCard({ label, value, href }: { label: string; value: number; href: string }) {
   return (
     <Link
       href={href}
-      className={`flex flex-col gap-1 rounded-2xl border p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-md ${
-        highlight && Number(value) > 0
-          ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
-          : 'border-line bg-panel hover:border-accent/40 hover:bg-slate-50'
-      }`}
+      className="flex flex-col gap-1 rounded-2xl border border-line bg-panel p-4 shadow-card transition hover:-translate-y-0.5 hover:bg-slate-50"
     >
-      <span
-        className={`text-2xl font-bold tabular-nums ${
-          highlight && Number(value) > 0 ? 'text-amber-700' : 'text-ink'
-        }`}
-      >
-        {value}
-      </span>
+      <span className="text-xl font-bold tabular-nums text-ink">{value}</span>
       <span className="text-xs font-medium text-slate-500">{label}</span>
     </Link>
   );
@@ -60,62 +82,47 @@ function StatCard({
 export default function DashboardPage() {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [tenant, setTenant] = useState<StoredTenant | null>(null);
-  const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
-  const [unread, setUnread] = useState<number>(0);
+  const [work, setWork] = useState<Loaded<MyWork>>('loading');
+  const [calendar, setCalendar] = useState<Loaded<CalendarItem[]>>('loading');
+  const [projects, setProjects] = useState<Loaded<ProjectRow[]>>('loading');
+  const [summary, setSummary] = useState<Loaded<WorkspaceSummary>>('loading');
   const [pendingUsers, setPendingUsers] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [now] = useState(() => new Date());
+  const [showFinance, setShowFinance] = useState(false);
 
   useEffect(() => {
     const u = getStoredUser();
-    const t = getStoredTenant();
     setUser(u);
-    setTenant(t);
+    setTenant(getStoredTenant());
 
-    const fetches: Promise<void>[] = [
-      apiFetch<WorkspaceSummary>('/dashboards/workspace-summary')
-        .then(setSummary)
-        .catch(() => {}),
-      apiFetch<UnreadCount>('/notifications/unread-count')
-        .then((d) => setUnread(d.count))
-        .catch(() => {}),
-    ];
+    apiFetch<MyWork>('/my-work').then(setWork).catch(() => setWork('error'));
+    const { from, to } = upcomingRange(now);
+    apiFetch<{ items: CalendarItem[] }>(`/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+      .then((r) => setCalendar(r.items))
+      .catch(() => setCalendar('error'));
+    apiFetch<ProjectRow[]>('/projects').then(setProjects).catch(() => setProjects('error'));
+    apiFetch<WorkspaceSummary>('/dashboards/workspace-summary').then(setSummary).catch(() => setSummary('error'));
 
-    // OWNER only: pending user count
-    if (u?.role === 'OWNER') {
-      const token = getAccessToken();
-      if (token) {
-        fetches.push(
-          fetch(`${apiBase()}/admin/users/requests?status=PENDING`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data: unknown) => {
-              if (Array.isArray(data)) {
-                setPendingUsers(data.length);
-              } else if (
-                data &&
-                typeof data === 'object' &&
-                'requests' in data &&
-                Array.isArray((data as { requests: unknown[] }).requests)
-              ) {
-                setPendingUsers((data as { requests: unknown[] }).requests.length);
-              } else {
-                setPendingUsers(0);
-              }
-            })
-            .catch(() => setPendingUsers(0)),
-        );
-      }
+    if (canSeeFinance(u?.role)) {
+      setShowFinance(true);
     }
+    if (u?.role === 'OWNER') {
+      apiFetch<unknown[]>('/admin/users/requests?status=PENDING')
+        .then((rows) => setPendingUsers(Array.isArray(rows) ? rows.length : null))
+        .catch(() => setPendingUsers(null));
+    }
+  }, [now]);
 
-    Promise.allSettled(fetches).finally(() => setLoading(false));
-  }, []);
+  const tasks = typeof work === 'object' ? nextTasks(work) : [];
+  const toDecide = typeof work === 'object' ? work.approvals.toDecide.slice(0, 5) : [];
+  const latest = typeof work === 'object' ? work.notifications.latest.slice(0, 5) : [];
+  const soon = Array.isArray(calendar) ? upcoming(calendar, now) : [];
+  const active = Array.isArray(projects) ? activeProjects(projects) : { shown: [], total: 0 };
 
   return (
     <PageTransition className="space-y-8">
-      {/* Welcome header */}
       <section>
-        <p className="text-sm font-semibold uppercase tracking-wide text-accent">Workspace</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-accent">Today</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink">
           {user ? `Welcome back, ${user.displayName}` : 'Dashboard'}
         </h1>
@@ -131,89 +138,193 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* OWNER — User Access Requests panel */}
-      {user?.role === 'OWNER' && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Administration
-          </h2>
-          <Link
-            href="/dashboard/admin/users/requests"
-            className="flex items-start justify-between gap-4 rounded-2xl border border-line bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-slate-50"
-          >
-            <div>
-              <p className="text-base font-semibold text-ink">User Access Requests</p>
-              <p className="mt-1 text-sm text-slate-600">
-                Approve, reject, or suspend registration requests for this workspace.
-              </p>
-            </div>
-            <div className="shrink-0 text-right">
-              {pendingUsers !== null && (
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold ${
-                    pendingUsers > 0
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {pendingUsers > 0 ? `${pendingUsers} pending` : 'No pending requests'}
-                </span>
-              )}
-              <p className="mt-2 text-xs font-medium text-accent">Review →</p>
-            </div>
-          </Link>
-        </section>
-      )}
-
-      {/* Workspace summary */}
+      {/* Needs attention */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Workspace overview
-        </h2>
-
-        {loading ? (
+        <SectionTitle href="/my-work" linkLabel="Open My Work →">Needs attention</SectionTitle>
+        {typeof work === 'object' ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-20 animate-pulse rounded-2xl border border-line bg-slate-100"
-              />
+            {attention(work).map((a) => (
+              <Link
+                key={a.key}
+                href={a.href}
+                className={`flex flex-col gap-1 rounded-2xl border p-5 shadow-card transition hover:-translate-y-0.5 ${
+                  a.urgent && a.count > 0 ? 'border-amber-200 bg-amber-50' : 'border-line bg-panel hover:bg-slate-50'
+                }`}
+              >
+                <span className={`text-2xl font-bold tabular-nums ${a.urgent && a.count > 0 ? 'text-amber-700' : 'text-ink'}`}>
+                  {a.count}
+                </span>
+                <span className="text-xs font-medium text-slate-500">{a.label}</span>
+              </Link>
             ))}
           </div>
-        ) : summary ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Projects" value={summary.projectTasks.projects} href="/projects" />
-            <StatCard label="Tasks" value={summary.projectTasks.tasks} href="/tasks" />
-            <StatCard label="Leads" value={summary.crm.leads} href="/crm/leads" />
-            <StatCard label="Opportunities" value={summary.crm.opportunities} href="/crm/opportunities" />
-            <StatCard
-              label="Pending approvals"
-              value={summary.collaboration.pendingApprovals}
-              href="/approvals"
-              highlight
-            />
-            <StatCard
-              label="Pending follow-ups"
-              value={summary.crm.pendingFollowUps}
-              href="/crm"
-              highlight
-            />
-            <StatCard label="Files" value={summary.collaboration.files} href="/files" />
-            <StatCard label="Voice notes" value={summary.voiceNotes} href="/voice" />
-            <StatCard
-              label="Unread notifications"
-              value={unread}
-              href="/notifications"
-              highlight
-            />
-            <StatCard label="Invoices" value={summary.invoices} href="/finance/invoices" />
-            <StatCard label="Meetings" value={summary.crm.meetings} href="/crm/meetings" />
-            <StatCard label="Internal notes" value={summary.collaboration.notes} href="/collaboration" />
-          </div>
         ) : (
-          <p className="text-sm text-slate-500">Could not load workspace summary.</p>
+          <Placeholder state={work} empty="" />
         )}
       </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section>
+          <SectionTitle href="/my-work">My next tasks</SectionTitle>
+          <Panel>
+            {tasks.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {tasks.map((t) => (
+                  <li key={t.id} className="flex items-center justify-between gap-3 py-2">
+                    <Link href={`/tasks/${t.id}`} className="min-w-0 truncate text-sm font-medium text-ink hover:underline">
+                      {t.title}
+                      {t.project && <span className="ml-2 text-xs font-normal text-slate-500">{t.project.name}</span>}
+                    </Link>
+                    <span className="shrink-0 text-xs text-slate-500">{dueText(t.dueAt, now)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Placeholder state={work} empty="Nothing overdue or due soon." />
+            )}
+          </Panel>
+        </section>
+
+        <section>
+          <SectionTitle href="/calendar">Next 7 days</SectionTitle>
+          <Panel>
+            {soon.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {soon.map((i) => (
+                  <li key={`${i.type}-${i.id}`} className="flex items-center justify-between gap-3 py-2">
+                    <Link href={itemHref(i)} className="min-w-0 truncate text-sm text-ink hover:underline">
+                      {i.title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-slate-500">
+                      {new Date(i.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Placeholder state={calendar} empty="Nothing scheduled in the next 7 days." />
+            )}
+          </Panel>
+        </section>
+
+        <section>
+          <SectionTitle href="/approvals">Approvals waiting for you</SectionTitle>
+          <Panel>
+            {toDecide.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {toDecide.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+                    <Link href={`/approvals/${a.id}`} className="min-w-0 truncate text-sm text-ink hover:underline">
+                      {a.title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-slate-500">{dueText(a.dueAt, now)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Placeholder state={work} empty="No approvals waiting for you." />
+            )}
+          </Panel>
+        </section>
+
+        <section>
+          <SectionTitle href="/notifications">Recent activity</SectionTitle>
+          <Panel>
+            {latest.length > 0 ? (
+              <ul className="divide-y divide-line">
+                {latest.map((n) => (
+                  <li key={n.id} className="flex items-center justify-between gap-3 py-2">
+                    <span className={`min-w-0 truncate text-sm ${n.status === 'UNREAD' ? 'font-medium text-ink' : 'text-slate-600'}`}>
+                      {n.title}
+                    </span>
+                    <span className="shrink-0 text-xs text-slate-500">{relativeTime(n.createdAt, now)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Placeholder state={work} empty="No recent activity." />
+            )}
+          </Panel>
+        </section>
+      </div>
+
+      <section>
+        <SectionTitle href="/projects">
+          Active projects{Array.isArray(projects) && active.total > 0 ? ` (${active.total})` : ''}
+        </SectionTitle>
+        {active.shown.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {active.shown.map((p) => (
+              <Link
+                key={p.id}
+                href={`/projects/${p.id}`}
+                className="rounded-2xl border border-line bg-panel p-4 shadow-card transition hover:-translate-y-0.5 hover:bg-slate-50"
+              >
+                <p className="truncate text-sm font-semibold text-ink">{p.name}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {p._count ? `${p._count.tasks} task${p._count.tasks === 1 ? '' : 's'} · ` : ''}
+                  updated {relativeTime(p.updatedAt, now)}
+                </p>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Panel>
+            <Placeholder state={projects} empty="No active projects." />
+          </Panel>
+        )}
+      </section>
+
+      {showFinance && <OwnerFinanceKpis />}
+
+      <section>
+        <SectionTitle>Workspace at a glance</SectionTitle>
+        {typeof summary === 'object' ? (
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <StatCard label="Leads" value={summary.crm.leads} href="/crm/leads" />
+            <StatCard label="Opportunities" value={summary.crm.opportunities} href="/crm/opportunities" />
+            <StatCard label="Pending follow-ups" value={summary.crm.pendingFollowUps} href="/crm/follow-ups" />
+            <StatCard label="Pending approvals" value={summary.collaboration.pendingApprovals} href="/approvals" />
+            <StatCard label="Files" value={summary.collaboration.files} href="/files" />
+            <StatCard label="Invoices" value={summary.invoices} href="/finance/invoices" />
+          </div>
+        ) : (
+          <Placeholder state={summary} empty="" />
+        )}
+      </section>
+
+      {user?.role === 'OWNER' && (
+        <section>
+          <SectionTitle>Administration</SectionTitle>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/dashboard/admin/users/requests"
+              className="flex items-start justify-between gap-4 rounded-2xl border border-line bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:bg-slate-50"
+            >
+              <div>
+                <p className="text-base font-semibold text-ink">User access requests</p>
+                <p className="mt-1 text-sm text-slate-600">Approve, reject or suspend registration requests.</p>
+              </div>
+              {pendingUsers !== null && (
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-semibold ${
+                    pendingUsers > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {pendingUsers > 0 ? `${pendingUsers} pending` : 'None pending'}
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/dashboard/admin/invites"
+              className="rounded-2xl border border-line bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:bg-slate-50"
+            >
+              <p className="text-base font-semibold text-ink">Invitations</p>
+              <p className="mt-1 text-sm text-slate-600">Invite team members by email.</p>
+            </Link>
+          </div>
+        </section>
+      )}
     </PageTransition>
   );
 }
