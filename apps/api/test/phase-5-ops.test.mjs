@@ -33,9 +33,9 @@ describe('Phase 5 - CI workflow', () => {
 
   it('runs the API against a real PostgreSQL service', () => {
     const src = read(path);
-    // The official postgres:16-alpine image, from Docker Hub or its AWS ECR
-    // Public mirror (identical digest; MAOS-T146).
-    assert.match(src, /image: (public\.ecr\.aws\/docker\/library\/)?postgres:16-alpine\n/);
+    // The official postgres:16-alpine image, from Docker Hub or a public
+    // mirror serving the identical digest (ECR Public, MAOS-T146; mirror.gcr.io).
+    assert.match(src, /image: (public\.ecr\.aws\/docker\/library\/|mirror\.gcr\.io\/library\/)?postgres:16-alpine\n/);
     assert.match(src, /pg_isready/);
     assert.match(src, /DATABASE_URL: postgresql:/);
   });

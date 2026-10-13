@@ -43,6 +43,10 @@ fi
 REPORT="$LOGS/rehearsal-$(date -u +%Y%m%dT%H%M%SZ).txt"
 if REHEARSAL_REPORT="$REPORT" "$REHEARSAL" "$DUMP" > "$REPORT.log" 2>&1; then
   echo "$(stamp) PASS $(basename "$DUMP")" >> "$LOGS/rehearsal.log"
+  # D2 (MAOS-T20): also prove the newest off-site copy restores. Silent until
+  # configured (exit 2); it raises its own alert on failure.
+  OFFSITE_REHEARSAL="${MAOS_OFFSITE_REHEARSAL_CMD:-$SCRIPT_DIR/offsite-rehearsal.sh}"
+  if [ -x "$OFFSITE_REHEARSAL" ]; then "$OFFSITE_REHEARSAL" >> "$LOGS/rehearsal.log" 2>&1 || true; fi
   exit 0
 fi
 echo "$(stamp) FAIL $(basename "$DUMP") (see $(basename "$REPORT").log)" >> "$LOGS/rehearsal.log"
