@@ -14,24 +14,24 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `bde94b0` (T109 #57 merged 2026-10-11) |
+| CURRENT_MAIN | `d0f346b` (#64 merged) |
 | CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
-| ACTIVE_TASK | none |
-| TASK_STATUS | — (all dependency-ready, non-gated work landed) |
-| CURRENT_BRANCH | — |
+| ACTIVE_TASK | MAOS-T142 Deadline and approval reminders on the scheduler |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
+| CURRENT_BRANCH | feat/deadline-reminders |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | main: full API and web suites blocking and green; integration suites per ci.yml |
+| TESTS_PASSED | deadline-reminders 4/4 (6 mutations) |
 | TESTS_PENDING | — |
 | PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
 | BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
-| OWNER_GATE_PENDING | (1) OWNER_GATE_MIGRATION for #26 (T44), #36 (T40; plus its duplicate pre-check = 0 rows) and #38 (D16b; apply BEFORE deploying its code): review → fresh prod backup → sha256 → pg_restore --list → owner approval → apply → health; (2) F-2 invite flow (product decision); (3) T18 Keychain item (owner stores it); (4) T21 LaunchAgent activation and T22 production-dump rehearsal (owner actions); (5) D2, D3, D6 deferred |
+| OWNER_GATE_PENDING | (1) ONE decision on PRs #26/#36/#38 per docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md (all three current with main; #36 precheck = 0); (2) pmset wake schedule (needs sudo); (3) D2 off-Mac backup (deferred — risk: backups exist only on this Mac); (4) D6 German invoice rules (deferred) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Wait for owner decisions (OWNER_GATE_PENDING). Each unlocks work: migration gates (#26/#36/#38; then T50/T51/T56/T71/T77/T87/T89/T93/T97/T101/T105/T110/T114/T116 schema tasks), ADR-017/ADR-018 acceptance (T50+, T71+), T15 branch cleanup (52 merged remote branches; docs/consolidate and feat/v2-a1-notifications superseded), F-2 invite flow, D7 dashboard IA (T121), D8 scheduler (T125), T18 Keychain item, T21/T22, D2/D3/D6. |
+| EXACT_NEXT_ACTION | Land T142; refresh gated #26/#36/#38 with main (merge commits); then ONE consolidated decision sheet (all remaining work gated). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -51,6 +51,8 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 **Owner decisions 2026-10-10:** #13 APPROVED to merge (only #13). T35 YES (contractors: assigned items only). T36 YES (hide unenforced visibilityScope options). D4/T37 YES (default recipients: invoice's own client scope, ACTIVE users/memberships). T38/T39 YES with verification (no legitimate callers first). D9 YES (per-recipient delivery tracking; migration gate still applies). D16: reject overpayments; add duplicate-payment/idempotency protection (migration gate still applies). T18 YES (Keychain; never print the credential). D1 approved in principle: merge #4 only after green CI and no conflict. DEFERRED: D2, D3, D6. Other PR merges (#5–#12, #14–#19) remain owner-gated.
 
+**Owner batch decisions 2026-10-11:** ADR-017 (Customer) and ADR-018 (TimeEntry/Rate) ACCEPTED. F-2 invite flow APPROVED (single-use tokens, fail closed, existing auth; migration gated). D7 APPROVED (operations-first dashboard; finance per permissions; no speculative metrics). D8 APPROVED in principle (lowest-complexity scheduler, no paid service; new secret/service = gate). T15 branch cleanup APPROVED (merged + two superseded branches, after re-verification). T18 Keychain APPROVED. T21 activation APPROVED. T22 rehearsal APPROVED (isolated only). D2 DEFERRED (risk recorded). D3 KEEP public endpoint for now. D6 DEFERRED. #26/#36/#38 stay migration-gated: one consolidated report requested.
+
 | D1 | Review and merge MAOS-T09 Blueprint (`docs/product-blueprint-v1`) | T11, T13 | OPEN |
 | D2 | Off-Mac backup storage target (provider, region, cost) | T20 | OPEN |
 | D3 | Keep or close the public PostgreSQL endpoint | T18 design, G-DATA | OPEN |
@@ -58,7 +60,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D5 | Repository visibility (currently public) | G-DATA | OPEN |
 | D6 | German invoice regime (VAT / Kleinunternehmer, numbering, legal fields) | T41, T42 | OPEN |
 | D7 | Dashboard information architecture | T121 | OPEN |
-| D8 | Scheduler hosting (in-process vs worker; Railway impact) | T125 | OPEN |
+| D8 | Scheduler hosting (in-process vs worker; Railway impact) | T125 | DECIDED 2026-10-11 (in-process, lowest complexity) — IMPLEMENTED (MAOS-D8): advisory-locked, off by default; enabling in production (`MAOS_SCHEDULER_ENABLED=true` on Railway) is an owner action; durable job-run table is migration-gated |
 | D9 | Email delivery tracking scope (EmailMessage/EmailEvent) | T44, T45 | OPEN |
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
 | D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |
@@ -66,11 +68,11 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D15 | Prisma major upgrade: remaining API advisories (deepmerge-ts via @prisma/config) need Prisma >6; config-load only | API advisories | OPEN (non-blocking) |
 | D14 | Next 16 (major): remaining web advisories are in the postcss 8.4.31 pinned by Next 15 (build-time only for MAOS); fixing them needs a separate major-upgrade task | web advisories | OPEN (non-blocking) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
-| F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | OWNER_GATE_PRODUCT: no Blueprint target for invites; CLIENT invites need `Invite.clientScopeKey` (migration). Register → approve covers all roles since F-1 |
+| F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | IMPLEMENTED (MAOS-F2, no migration): OWNER invites MANAGER/EMPLOYEE/CONTRACTOR; sha256-stored single-use token, 72 h expiry (no existing convention; chosen conservatively, `INVITE_TTL_HOURS`); one 400 INVITE_INVALID for every unusable token; existing email refused (no takeover). GATED: CLIENT invites need `Invite.clientScopeKey` (migration) |
 | F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | FIXED in F-1 PR (approval/role change require clientScopeKey for CLIENT) |
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | FIXED in F-3 PR (+ follow-ups page sent invalid DONE status) |
 | F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
-| CI-2 | Local-only intermittent integration failures (about 1 in 6 parallel runs on the Mac): the response body `{"error":"Not found"}` is not produced by MAOS and the API logged no such request — supertest re-listens on an ephemeral port per request and another local process answered. Not seen in GitHub CI. If it appears there: bind each test app once (`app.listen(0, '127.0.0.1')`) in the harnesses | integration tests | OBSERVED (no action yet) |
+| CI-2 | Local-only intermittent integration failures (about 1 in 6 parallel runs on the Mac): the response body `{"error":"Not found"}` is not produced by MAOS and the API logged no such request — supertest re-listens on an ephemeral port per request and another local process answered. Not seen in GitHub CI. If it appears there: bind each test app once (`app.listen(0, '127.0.0.1')`) in the harnesses | integration tests | RESOLVED 2026-10-11: every harness listens once on 127.0.0.1 (8 consecutive clean local runs) |
 | GIT-1 | GitHub email privacy now blocks pushes with the private address. Owner chose (2026-10-11) the repo-local no-reply identity `272799577+Soldado-marketing@users.noreply.github.com` for MAOS commits; global git identity unchanged; only the unpushed T48 commit was re-authored | git | RESOLVED |
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
@@ -163,6 +165,11 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | #55 MERGED (`0086453`) | web calendar 7/7 | 0 | COMPLETE_MERGED |
 | MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | #56 MERGED (`dcab6d7`) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
 | MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | #57 MERGED (`bde94b0`) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
+| MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | #61 MERGED (`9fcef34`) | backup-schedule 4/4 | 0 | COMPLETE_MERGED |
+| MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | #62 MERGED (`17add82`) | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_MERGED |
+| MAOS-D7 | Operations-first dashboard | feat/ops-dashboard | #63 MERGED (`81cc525`) | web 151/151 (ops-dashboard 9), build OK, local stack verified | 0 | COMPLETE_MERGED |
+| MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | #64 MERGED (`d0f346b`) | scheduler 6/6 (5 mutations) | 0 | COMPLETE_MERGED |
+| MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | (this PR) | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -540,3 +547,17 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | PR | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | PR | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_AWAITING_MERGE
 - 2026-10-11 W4–W7 landing | #42–#57 merged (T48, T59, T61, T65, T62, T67, T68, T60, T66, T132, T49, T70, T103, T104, T108, T109); main CI, Railway and health verified after each | 0 | COMPLETE_MERGED
+- MAOS-T15 | Branch cleanup | — (git refs) | — | 62 remote branches deleted after re-verification (60 ancestors of main + docs/consolidate + feat/v2-a1-notifications); the 2 superseded branches preserved first in ~/MAOS_BACKUPS/git-archive/superseded-branches-2026-10-11.bundle (verified, sha256 recorded); kept: main + #26/#36/#38 branches | 0 | COMPLETE
+- MAOS-T18 | Keychain credential activated | — (ops) | — | item `maos-backup-database-url` stored via stdin (never in argv/logs/output); stored value verified equal by hash comparison | 0 | COMPLETE
+- MAOS-T22 | Production-dump restore rehearsal | — (ops) | — | maos-20261010T013010Z.dump: sha256 MATCH, pg_restore --list OK (429 entries, 43 tables), isolated restore REHEARSAL OK (row counts reported, 8 migrations), 0 leftover containers, protected containers untouched | 0 | PASS
+- Migration gate prep | #26/#36/#38 merged up to date with main (merge commits, no rewrite), gate + integration green locally; read-only production prechecks: 8 migrations applied (= main), #36 duplicate groups 0, no new object present | — | — | 0 | REPORT DELIVERED (docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md)
+- D2 risk | Backups exist only on this Mac (and depend on it being awake with Docker running); off-Mac copy deferred by owner 2026-10-11 | — | — | — | OPEN RISK
+- MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | PR | backup-schedule 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- Backup outage 2026-10-11..13 | Nightly runs failed 10-11 and 10-12 (SSL EOF on every retry: the Mac slept mid-dump) and 10-13 (Docker Desktop not running); newest good dump was 10-10. Recovery 2026-10-13: Docker restarted; manual backup with the reviewed origin/main runner under `caffeinate -i` → maos-20261013T114512Z.dump SUCCESS (sha256 written, retention applied); its isolated rehearsal REHEARSAL OK. Fix: scheduled runs now wrap in `caffeinate -i` (#61) | — | — | 0 | RESOLVED (pmset wake still owner action)
+- MAOS-T21 activation 2026-10-13 | `install-backup-schedule.sh` pinned runtime 9fcef34 (origin/main) into ~/MAOS_BACKUPS/runtime; replaced the old out-of-repo wrapper agent (old plist backed up in launchd-backup/). launchctl: backup (daily 03:30, caffeinate), backup-staleness (every 3600 s), restore-rehearsal (Sun 05:15, caffeinate) all loaded, next runs registered. Staleness agent kickstarted: exit 0 ("newest verified backup … 0h old"). Forced failure test (limit 0 h): alert line in logs/alerts.log + macOS notification, exit 1 as designed. Production unaffected: health 200, ready 200 (read-only pg_dump only) | — | #61 | 0 | COMPLETE
+- MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | PR | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-D7 | Operations-first dashboard | feat/ops-dashboard | PR | web 151/151 (ops-dashboard 9), build OK, local stack verified | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | PR | scheduler 6/6 (5 mutations) | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T50/T51/T52 | Customer entity (ADR-017): schema + idempotent backfill + /customers API | schema/customer | #65 DRAFT (GATED, do not merge) | customers 9/9 (6 mutations), isolation 80/80 before and after a real backfill, gate 308, integration 293 | 0 | GATED_MIGRATION (docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md)
+- T71/T72/T73 status | Not started: T71 depends on T56 (project enrichment schema), which depends on T50 (#65, gated). Building them now would stack branches on a gated PR (forbidden) | — | — | — | — | BLOCKED_BY_GATE (#65)
+- MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | PR | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE

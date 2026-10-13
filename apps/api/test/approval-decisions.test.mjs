@@ -77,6 +77,10 @@ before(async () => {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ forbidNonWhitelisted: true, transform: true, whitelist: true }));
   await app.init();
+  // Listen once on IPv4 loopback (CI-2): supertest otherwise re-listens on a
+  // fresh ephemeral port per request, and on a developer machine another
+  // local process occasionally answered that port.
+  await app.listen(0, '127.0.0.1');
   server = app.getHttpServer();
   request = require('supertest');
   const { PrismaService } = require(join(apiRoot, 'dist/modules/prisma/prisma.service.js'));
@@ -161,12 +165,14 @@ describe('approval decisions', { skip }, () => {
     }
   });
 
-  it('records exactly one of several concurrent decisions', async () => {
+  it('records exactly one of several concurrent final decisions', async () => {
+    // Only decisions that close the approval: REQUEST_CHANGES keeps it open by
+    // design, so a REQUEST_CHANGES followed by APPROVE is legitimately two.
     const id = await newApproval();
     const results = await Promise.all([
       decide('owner', id, 'APPROVE'),
       decide('manager', id, 'REJECT'),
-      decide('owner', id, 'REQUEST_CHANGES'),
+      decide('owner', id, 'CANCEL'),
     ]);
     const codes = results.map((r) => r.status).sort();
     assert.deepEqual(codes, [201, 409, 409], JSON.stringify(results.map((r) => r.body)));

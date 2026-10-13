@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.soldado.maos.restore-rehearsal</string>
+  <!-- Weekly, Sunday 05:15: restores the newest verified dump into an
+       isolated throwaway container and records PASS/FAIL (MAOS-T21). -->
+  <!-- caffeinate -i keeps the Mac from sleeping while the job runs: the
+       2026-10-11/12 nightly backups failed because the Mac slept mid-dump
+       and the database connection dropped. Needs no admin rights. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-i</string>
+    <string>/bin/bash</string>
+    <string>__RUNTIME__/scripts/scheduled-rehearsal.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MAOS_BACKUP_HOME</key>
+    <string>__BACKUP_HOME__</string>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>5</integer>
+    <key>Minute</key>
+    <integer>15</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>__BACKUP_HOME__/logs/rehearsal.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__BACKUP_HOME__/logs/rehearsal.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

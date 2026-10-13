@@ -80,7 +80,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (304 tests).
+      # Blocking gate: the suites that are fully green today (308 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -98,10 +98,11 @@ jobs:
             test/nightly-backup-script.test.mjs \
             test/restore-rehearsal-script.test.mjs \
             test/backup-alerting.test.mjs \
+            test/backup-schedule.test.mjs \
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (272/272), so it blocks.
+      # service above and drives it over HTTP. Green (288/288), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -168,7 +169,10 @@ jobs:
             test/login-history.test.mjs \
             test/security-gate-session-revocation.test.mjs \
             test/throttle-per-client.test.mjs \
-            test/security-gate-sessions.test.mjs
+            test/security-gate-sessions.test.mjs \
+            test/invites.test.mjs \
+            test/scheduler.test.mjs \
+            test/deadline-reminders.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
