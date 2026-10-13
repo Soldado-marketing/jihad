@@ -10,28 +10,29 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 ---
 
-## Current state
+## RESUME CAPSULE
+
+Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD and the active PR, and continue from EXACT_NEXT_ACTION. Read deeper sections only if the checks disagree.
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `e17e0da` (#67 merged) |
-| CURRENT_WAVE | All dependency-ready work that needs no owner gate is merged (2026-10-13). Everything remaining is behind an owner gate. |
-| ACTIVE_TASK | none - waiting on owner decisions (decision sheet below) |
-| TASK_STATUS | IDLE_AWAITING_OWNER |
-| CURRENT_BRANCH | main |
+| CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 being applied; non-gated product work merged |
+| ACTIVE_TASK | Owner batch 2026-10-13 (D8 enable, pmset, ADR-009, migration gate prep, CLIENT invites, D2, ADR-018 helpers) |
+| TASK_STATUS | IN_PROGRESS |
+| CURRENT_BRANCH | docs/adr009-resume-capsule |
 | HEAD | — |
-| COMPLETED_STEPS | — |
-| CURRENT_STEP | — |
-| REMAINING_STEPS | — |
-| TESTS_PASSED | main: gate 308, integration 288, full API 0 failures, web 152 |
+| MAIN_HEAD_LAST_VERIFIED | `9a9faed` (2026-10-13; CI, Railway, health verified) |
+| PR_URL | gated (do not merge): #36 T40, #38 D16b, #26 T44, #65 T50-T52 (draft) |
+| PR_STATUS | gated PRs current with main 2026-10-13, green locally |
+| CI_STATUS | main green (gate 308, integration 288, full API 0 failures, web 152) |
+| COMPLETED_ATOMIC_STEP | D8 enabled in production (MAOS_SCHEDULER_ENABLED=true, deploy SUCCESS, scheduler_started logged, health 200) |
+| EXACT_NEXT_ACTION | Land this docs PR; verify first scheduled_job_* runs; CLIENT invites on #65 branch; consolidated migration gate report; D2 (T20) code + setup gate; ADR-018 pure helpers |
 | TESTS_PENDING | — |
-| PR_URL | gated (do not merge): #36 T40, #38 D16b, #26 T44, #65 T50-T52 (draft); all merged up to date with main 2026-10-13 and green locally |
-| CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
-| BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
-| OWNER_GATE_PENDING | see "Decision sheet 2026-10-13" below |
-| REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
-| LAST_SAFE_CHECKPOINT | 2026-10-13 - #61-#64, #66, #67 merged and verified (CI, Railway, health); gated branches refreshed; no uncommitted work |
-| EXACT_NEXT_ACTION | Wait for the owner's answers to the decision sheet. Then: migration window (#36, #38, #26, #65 in that order) -> T56 -> T71-T74; or other approved items. |
+| BLOCKERS | T71-T74 need T56, which needs #65 (gated) |
+| OWNER_GATE_PENDING | pmset wake (password in Terminal tab); production migration approval (after the consolidated report) |
+| LAST_UPDATED | 2026-10-13 |
+
+Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
 
 ## Decision sheet 2026-10-13 (owner)
 
@@ -48,14 +49,14 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
-1. `cd ~/Developer/MAOS/claude && git fetch origin`; check `git status`, branch and HEAD.
-2. Read this ledger (from `main`, or `origin/docs/execution-ledger` until merged). Compare it with Git and, only if relevant to the active task, its PR/CI.
+1. `cd ~/Developer/MAOS/claude`; run only `git status --short`, current branch, HEAD, `origin/main` HEAD if relevant, and the active PR's status.
+2. **Fast resume:** read only the RESUME CAPSULE at the top of this file. If the checks match it, continue from EXACT_NEXT_ACTION without reading further history. Escalate (recent git log of the active branch, the active PR/CI, the active task's ledger lines, the relevant Blueprint section - never the whole project) only on a branch/HEAD mismatch, unexpected uncommitted work, a PR merged/closed/changed, main moving under the active task, a changed CI result, or stale/missing capsule state. Reuse recorded test results while the code and HEAD are unchanged.
 3. If ACTIVE_TASK is set: continue that task from EXACT_NEXT_ACTION. Never switch tasks because a session restarted.
 4. Owner gates are non-blocking when safe work exists: record the gate, mark what it blocks, never cross it or assume approval, and continue with the next dependency-ready task that needs no approval. Stop and wait only when (a) the gate blocks all remaining dependency-ready work, (b) continuing would break task/wave order, (c) the next step needs a merge, deploy, migration, production write, secret, credential, paid service, DNS, destructive or other owner-only action, or (d) there is a real safety or Blueprint conflict.
 5. If no task is active and no gate blocks: start the first dependency-ready task in Execution order.
-6. If the last session ended without a clean checkpoint: rebuild state from git log, pushed branches, PRs and CI, update this table, then continue.
+6. If the last session ended without a clean checkpoint: rebuild state from git log, pushed branches, PRs and CI, update the capsule, then continue. When context runs low: finish the current atomic action, update the capsule (branch, HEAD, PR, CI, completed step, EXACT_NEXT_ACTION, tests pending, blockers), commit/push only if already safe, and output a short checkpoint.
 7. Read the Blueprint only when the active task needs architecture validation or a conflict appears. Do not re-audit, re-plan or rerun completed tests.
-8. Update this table when a task starts, after tests, commit, push, PR, CI results, before an owner gate and before stopping.
+8. Update the RESUME CAPSULE when a task starts, after tests, commit, push, PR, CI results, before an owner gate and before stopping.
 
 ## Owner gates and decisions
 
