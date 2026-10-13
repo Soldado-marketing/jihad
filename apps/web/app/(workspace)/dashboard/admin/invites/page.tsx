@@ -6,6 +6,7 @@ import { LoadingState } from '@/components/states/loading-state';
 import { apiFetch } from '@/lib/fetch';
 import {
   canRevoke,
+  invitePayload,
   INVITE_ROLES,
   INVITE_STATUS_LABEL,
   INVITE_TTL_HOURS,
@@ -20,10 +21,17 @@ import {
  * personally; it is never stored in plain text and cannot be shown again.
  */
 
+interface CustomerOption {
+  id: string;
+  name: string;
+  status: string;
+}
+
 interface Invite {
   id: string;
   email: string;
   role: string;
+  customer?: { id: string; name: string } | null;
   status: InviteStatus;
   expiresAt: string;
   acceptedAt: string | null;
@@ -56,6 +64,8 @@ export default function InvitesPage() {
   const [result, setResult] = useState<CreateResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [rowError, setRowError] = useState<Record<string, string>>({});
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [customerId, setCustomerId] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,10 +81,18 @@ export default function InvitesPage() {
 
   useEffect(() => {
     void load();
+    apiFetch<CustomerOption[]>('/customers?status=ACTIVE')
+      .then(setCustomers)
+      .catch(() => setCustomers([]));
   }, [load]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    const payload = invitePayload(email.trim(), role, customerId);
+    if (!payload) {
+      setFormError('Choose the customer this client belongs to.');
+      return;
+    }
     setBusy(true);
     setFormError(null);
     setResult(null);
@@ -82,7 +100,7 @@ export default function InvitesPage() {
     try {
       const created = await apiFetch<CreateResult>('/admin/invites', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), role }),
+        body: JSON.stringify(payload),
       });
       setResult(created);
       setEmail('');
@@ -121,8 +139,8 @@ export default function InvitesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-ink">Invitations</h1>
         <p className="mt-1 text-sm text-muted">
-          Invite a team member by email. The link works once and expires after {INVITE_TTL_HOURS} hours. Clients
-          still use the request-and-approve flow.
+          Invite a team member or a client by email. The link works once and expires after {INVITE_TTL_HOURS} hours. A
+          client invite belongs to one customer and sees only that customer's work.
         </p>
       </div>
 
@@ -143,6 +161,17 @@ export default function InvitesPage() {
             ))}
           </select>
         </div>
+        {role === 'CLIENT' && (
+          <div className="flex min-w-[14rem] flex-col gap-1">
+            <label htmlFor="invite-customer" className="text-sm font-medium text-ink">Customer</label>
+            <select id="invite-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={inputCls}>
+              <option value="">{customers.length ? 'Choose a customer' : 'No active customers'}</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <button
           type="submit"
           disabled={busy}
@@ -201,6 +230,7 @@ export default function InvitesPage() {
                   <td className="px-4 py-3 text-ink">{inv.email}</td>
                   <td className="px-4 py-3 text-muted">
                     {INVITE_ROLES.find((r) => r.value === inv.role)?.label ?? inv.role}
+                    {inv.customer && <span className="ml-1 text-xs text-slate-500">· {inv.customer.name}</span>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[inv.status]}`}>

@@ -365,14 +365,19 @@ model Invite {
   acceptedAt       DateTime?
   acceptedByUserId String?
   revokedAt        DateTime?
+  // CLIENT invites only (ADR-017): the Customer chosen explicitly by the
+  // OWNER. On acceptance the membership gets that Customer's clientScopeKey.
+  customerId       String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   acceptedBy       User?          @relation("AcceptedInviteUser", fields: [acceptedByUserId], references: [id])
+  customer         Customer?      @relation(fields: [customerId], references: [id], onDelete: NoAction)
 
   @@index([tenantId, email])
   @@index([tenantId, status])
   @@index([expiresAt])
+  @@index([tenantId, customerId])
 }
 
 model Session {
@@ -519,6 +524,7 @@ model Customer {
   projects          Project[]
   invoices          Invoice[]
   fileAssets        FileAsset[]
+  invites           Invite[]
 
   @@unique([tenantId, clientScopeKey])
   @@index([tenantId, status])

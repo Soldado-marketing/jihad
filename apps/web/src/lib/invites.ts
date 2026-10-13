@@ -4,11 +4,12 @@
  * API, and what the acceptance form refuses before it is submitted.
  */
 
-/** OWNER is never invitable; CLIENT waits for a gated migration (client scope on the invite). */
+/** OWNER is never invitable. A CLIENT invite must name its Customer (ADR-017). */
 export const INVITE_ROLES = [
   { value: 'EMPLOYEE', label: 'Employee' },
   { value: 'MANAGER', label: 'Manager' },
   { value: 'CONTRACTOR', label: 'Contractor' },
+  { value: 'CLIENT', label: 'Client' },
 ] as const;
 
 export type InviteRole = (typeof INVITE_ROLES)[number]['value'];
@@ -44,6 +45,12 @@ export const INVITE_STATUS_LABEL: Record<InviteStatus, string> = {
   EXPIRED: 'Expired',
   REVOKED: 'Revoked',
 };
+
+/** What the create request needs: a CLIENT names its customer, nobody else does. */
+export function invitePayload(email: string, role: InviteRole, customerId: string): { email: string; role: InviteRole; customerId?: string } | null {
+  if (role === 'CLIENT') return customerId ? { email, role, customerId } : null;
+  return { email, role };
+}
 
 /** Only an open invite can be revoked; the API answers 404 for anything else. */
 export function canRevoke(status: InviteStatus): boolean {

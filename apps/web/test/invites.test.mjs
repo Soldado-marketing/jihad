@@ -8,14 +8,20 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { acceptFormError, canRevoke, INVITE_ROLES, isInviteToken } from '../src/lib/invites.ts';
+import { acceptFormError, canRevoke, INVITE_ROLES, invitePayload, isInviteToken } from '../src/lib/invites.ts';
 
 const webRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (p) => readFileSync(join(webRoot, p), 'utf8');
 
 describe('invite flow UI', () => {
   it('offers only the roles the API accepts', () => {
-    assert.deepEqual(INVITE_ROLES.map((r) => r.value).sort(), ['CONTRACTOR', 'EMPLOYEE', 'MANAGER']);
+    assert.deepEqual(INVITE_ROLES.map((r) => r.value).sort(), ['CLIENT', 'CONTRACTOR', 'EMPLOYEE', 'MANAGER']);
+  });
+
+  it('a client invite always names its customer; other roles never do', () => {
+    assert.equal(invitePayload('a@b.c', 'CLIENT', ''), null);
+    assert.deepEqual(invitePayload('a@b.c', 'CLIENT', 'c1'), { email: 'a@b.c', role: 'CLIENT', customerId: 'c1' });
+    assert.deepEqual(invitePayload('a@b.c', 'EMPLOYEE', 'c1'), { email: 'a@b.c', role: 'EMPLOYEE' });
   });
 
   it('sends only well-formed tokens to the API', () => {

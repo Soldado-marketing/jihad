@@ -26,6 +26,7 @@ interface Preview {
   role: string;
   tenantName: string;
   expiresAt: string;
+  customerName?: string;
 }
 
 type Phase = 'checking' | 'invalid' | 'ready' | 'done';
@@ -164,7 +165,8 @@ function AcceptInvite() {
     <Shell>
       <h1 className="mb-1 text-2xl font-semibold text-ink">Join {preview.tenantName}</h1>
       <p className="mb-6 text-sm text-muted">
-        You were invited as <strong>{roleLabel}</strong> with {preview.email}. The link works once and expires{' '}
+        You were invited as <strong>{roleLabel}</strong>
+        {preview.customerName ? <> for <strong>{preview.customerName}</strong></> : null} with {preview.email}. The link works once and expires{' '}
         {new Date(preview.expiresAt).toLocaleString()}.
       </p>
 
