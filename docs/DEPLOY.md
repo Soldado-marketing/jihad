@@ -161,6 +161,7 @@ DATABASE_URL='<your production DATABASE_URL>' npx prisma migrate deploy
 | `S3_KEY_PREFIX` | Optional | Namespace inside the bucket |
 | `FILE_MAX_UPLOAD_BYTES` | Optional | Per-file limit, default 26214400 (25 MiB), max 104857600 |
 | `OPENAI_API_KEY` | Optional | For AI transcription features |
+| `MAOS_SCHEDULER_ENABLED` | Optional | `true` (exactly) starts the in-process background jobs; anything else leaves them off (default). See "Background jobs" below. |
 
 ---
 
@@ -223,6 +224,26 @@ configuration at all.
   read and cannot change it.
 
 ---
+
+## Background jobs
+
+The API runs recurring jobs in-process (MAOS D8): no worker service, no queue
+and no new dependency. They are **off** unless `MAOS_SCHEDULER_ENABLED=true`.
+
+- Each run takes a Postgres advisory lock inside its transaction, so with
+  several API replicas a job runs on one of them per round; the others skip.
+- A job never overlaps itself; a failing job rolls back and the next round
+  runs normally.
+- Every run writes one structured log line: `scheduled_job_succeeded`,
+  `scheduled_job_skipped_locked`, `scheduled_job_skipped_running` or
+  `scheduled_job_failed` with the job name, rows changed, duration and, on
+  failure, only the error class. Search the Railway logs for `scheduled_job_`.
+- Durable run records (a table) wait for a migration gate.
+
+| Job | Every | Does |
+|---|---|---|
+| `invite-expiry` | 15 min | Marks open invitations past their 72 h expiry as `EXPIRED`. |
+| `deadline-reminders` | 30 min | One notification to the assignee of an open task due within 24 h, and to OWNER/MANAGERs for a requested approval due within 24 h (not its requester). Idempotent per due date; ACTIVE members of ACTIVE tenants only. |
 
 ## Database migrations
 
@@ -320,6 +341,28 @@ macOS notification and appends a line to `$MAOS_BACKUP_HOME/logs/alerts.log`
 
 Alerts go to the Mac running the scripts. Email or chat delivery is not
 built in.
+
+### Backup schedules (backup Mac)
+
+`scripts/install-backup-schedule.sh` installs three LaunchAgents and pins the
+scripts they run:
+
+| Agent | When | Runs |
+|---|---|---|
+| `com.soldado.maos.backup` | daily 03:30 | `nightly-backup.sh` (Keychain credential, Railway CLI fallback) |
+| `com.soldado.maos.backup-staleness` | hourly | `backup-staleness-check.sh` (alert if no verified dump < 26 h) |
+| `com.soldado.maos.restore-rehearsal` | Sundays 05:15 | `scheduled-rehearsal.sh` (isolated restore of the newest verified dump; PASS/FAIL in `logs/rehearsal.log`) |
+
+The agents run `~/MAOS_BACKUPS/runtime/current`, a copy of `scripts/` taken
+from `origin/main` at install time, never a working checkout. Re-run the
+installer after a reviewed change to the backup scripts reaches `main`.
+Replaced plists are kept in `~/MAOS_BACKUPS/launchd-backup/<timestamp>/`.
+
+The backup and rehearsal run under `caffeinate -i`, so the Mac does not sleep
+while they run (the 2026-10-11/12 failures were a Mac sleeping mid-dump). A
+sleeping Mac still has to wake: launchd runs a missed job at the next wake, or
+schedule a wake before 03:30 (`sudo pmset repeat wake MTWRFSU 03:25:00`, an
+owner action). Docker Desktop must be running for the dump.
 
 ### Restore
 

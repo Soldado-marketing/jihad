@@ -248,6 +248,49 @@ export class MailService {
     this.send(params.to, 'Your account has been approved', text);
   }
 
+  /** The link an invited person opens to accept (MAOS F-2). */
+  inviteUrl(token: string): string {
+    return `${this.appUrl}/auth/invite?token=${encodeURIComponent(token)}`;
+  }
+
+  /**
+   * Sends an invitation link (MAOS F-2). Resolves true only when Resend
+   * accepted the message; never throws, because the caller falls back to
+   * handing the link to the OWNER. The link is the credential, so neither it
+   * nor the recipient address is logged.
+   */
+  async sendInviteEmail(params: {
+    to: string;
+    tenantName: string;
+    role: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    if (!this.apiKey) {
+      this.logger.warn('invite_email_skipped reason=not_configured');
+      return false;
+    }
+    const text = [
+      'Hello,',
+      '',
+      `You have been invited to join ${params.tenantName} on MAOS as ${params.role}.`,
+      '',
+      'Accept the invitation and set your password here:',
+      this.inviteUrl(params.token),
+      '',
+      `The link works once and expires on ${params.expiresAt.toISOString().slice(0, 16).replace('T', ' ')} UTC.`,
+      'If you did not expect this invitation, ignore this email.',
+    ].join('\n');
+    try {
+      const id = await this.deliver({ to: [params.to], subject: `Invitation to ${params.tenantName}`, text });
+      this.logger.log(`invite_email_sent id=${id}`);
+      return true;
+    } catch (err: unknown) {
+      this.logger.error(`invite_email_failed ${err instanceof Error ? err.message : 'unknown error'}`);
+      return false;
+    }
+  }
+
   /** Notify the requester that their account request was not approved. */
   sendRejectionEmail(params: { to: string; name: string }): void {
     const text = [

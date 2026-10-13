@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.soldado.maos.backup-staleness</string>
+  <!-- Hourly: alerts when the newest verified dump is missing or older than
+       26 hours, so a backup that never ran is noticed (MAOS-T19/T21). -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__RUNTIME__/scripts/backup-staleness-check.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MAOS_BACKUP_HOME</key>
+    <string>__BACKUP_HOME__</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>__BACKUP_HOME__/logs/staleness.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__BACKUP_HOME__/logs/staleness.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
