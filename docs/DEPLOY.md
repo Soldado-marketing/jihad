@@ -398,6 +398,31 @@ by a newer `pg_dump`, and `REHEARSAL_REPORT=<file>` to keep the report.
 
 ---
 
+### Off-site encrypted copy (D2, MAOS-T20)
+
+Every successful nightly backup is also copied, **encrypted on this Mac before
+upload**, to S3-compatible object storage outside both this Mac and Railway
+(`scripts/offsite-backup.sh`). The weekly rehearsal also restores the newest
+off-site copy (`scripts/offsite-rehearsal.sh`: download, ciphertext sha256,
+decrypt, plaintext sha256, isolated restore). Both stay silent (exit 2) until
+configured; a failure raises one backup alert and never fails the local backup.
+
+- Encryption: `openssl cms`, AES-256, to a recipient certificate. The Mac needs
+  only the certificate to encrypt; the private key (Keychain item
+  `maos-offsite-private-key`) is used only to rehearse. **A copy of the private
+  key must also live outside the Mac** (password manager), or the off-site
+  copies cannot be decrypted after losing the Mac.
+- Upload: `curl --aws-sigv4`, credentials from the Keychain
+  (`maos-offsite-access-key-id`, `maos-offsite-secret-access-key`) passed on
+  stdin, never on a command line. Each upload is read back and its sha256
+  compared before it counts as done.
+- Retention and protection belong to the bucket: a lifecycle rule (e.g. delete
+  after 35 days) and, where offered, object lock/versioning. The access key the
+  Mac holds should be allowed to write and read, not to delete.
+- Config (not secret): `~/MAOS_BACKUPS/offsite.env` with `OFFSITE_ENDPOINT`
+  (https), `OFFSITE_REGION`, `OFFSITE_BUCKET`, optional `OFFSITE_PREFIX`.
+- Setup steps: `docs/ops/OFFSITE_BACKUP_SETUP.md`.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
