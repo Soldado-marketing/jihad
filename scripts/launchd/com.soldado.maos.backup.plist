@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.soldado.maos.backup</string>
+  <!-- Nightly production backup (MAOS-T21). Runs the pinned runtime copy of
+       the reviewed scripts, never a working checkout. No credential here:
+       the runner reads it from the Keychain (T18). -->
+  <!-- caffeinate -i keeps the Mac from sleeping while the job runs: the
+       2026-10-11/12 nightly backups failed because the Mac slept mid-dump
+       and the database connection dropped. Needs no admin rights. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-i</string>
+    <string>/bin/bash</string>
+    <string>__RUNTIME__/scripts/nightly-backup.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MAOS_BACKUP_HOME</key>
+    <string>__BACKUP_HOME__</string>
+    <key>MAOS_BACKUP_CREDENTIAL_SOURCE</key>
+    <string>auto</string>
+    <key>MAOS_RAILWAY_DIR</key>
+    <string>__RAILWAY_DIR__</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>WorkingDirectory</key>
+  <string>__BACKUP_HOME__</string>
+  <key>StandardOutPath</key>
+  <string>__BACKUP_HOME__/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__BACKUP_HOME__/logs/launchd.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

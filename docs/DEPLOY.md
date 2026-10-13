@@ -321,6 +321,28 @@ macOS notification and appends a line to `$MAOS_BACKUP_HOME/logs/alerts.log`
 Alerts go to the Mac running the scripts. Email or chat delivery is not
 built in.
 
+### Backup schedules (backup Mac)
+
+`scripts/install-backup-schedule.sh` installs three LaunchAgents and pins the
+scripts they run:
+
+| Agent | When | Runs |
+|---|---|---|
+| `com.soldado.maos.backup` | daily 03:30 | `nightly-backup.sh` (Keychain credential, Railway CLI fallback) |
+| `com.soldado.maos.backup-staleness` | hourly | `backup-staleness-check.sh` (alert if no verified dump < 26 h) |
+| `com.soldado.maos.restore-rehearsal` | Sundays 05:15 | `scheduled-rehearsal.sh` (isolated restore of the newest verified dump; PASS/FAIL in `logs/rehearsal.log`) |
+
+The agents run `~/MAOS_BACKUPS/runtime/current`, a copy of `scripts/` taken
+from `origin/main` at install time, never a working checkout. Re-run the
+installer after a reviewed change to the backup scripts reaches `main`.
+Replaced plists are kept in `~/MAOS_BACKUPS/launchd-backup/<timestamp>/`.
+
+The backup and rehearsal run under `caffeinate -i`, so the Mac does not sleep
+while they run (the 2026-10-11/12 failures were a Mac sleeping mid-dump). A
+sleeping Mac still has to wake: launchd runs a missed job at the next wake, or
+schedule a wake before 03:30 (`sudo pmset repeat wake MTWRFSU 03:25:00`, an
+owner action). Docker Desktop must be running for the dump.
+
 ### Restore
 
 ```bash

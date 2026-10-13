@@ -98,6 +98,7 @@ jobs:
             test/nightly-backup-script.test.mjs \
             test/restore-rehearsal-script.test.mjs \
             test/backup-alerting.test.mjs \
+            test/backup-schedule.test.mjs \
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
