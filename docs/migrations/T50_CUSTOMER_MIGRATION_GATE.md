@@ -15,6 +15,8 @@ Branch: `schema/customer`. Prepared 2026-10-13.
 | Index `(tenantId, customerId)` on those three tables | built on small tables |
 | FK `customerId → Customer(id) ON DELETE NO ACTION` | validates existing rows, which are all `NULL` |
 
+A second migration on this branch, `20261013212118_add_invite_customer` (MAOS-F2b, CLIENT invites), adds a nullable `Invite.customerId` (FK to `Customer`, `ON DELETE NO ACTION`) and index `(tenantId, customerId)`. Existing invites keep `NULL`; nothing is rewritten.
+
 Nothing is dropped, renamed or made required. `clientScopeKey` stays the authorization boundary; the portal filters are unchanged.
 
 ## Compatibility
