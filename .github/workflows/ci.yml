@@ -80,7 +80,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (315 tests).
+      # Blocking gate: the suites that are fully green today (323 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -100,6 +100,7 @@ jobs:
             test/backup-alerting.test.mjs \
             test/backup-schedule.test.mjs \
             test/labour-cost.test.mjs \
+            test/offsite-backup.test.mjs \
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
