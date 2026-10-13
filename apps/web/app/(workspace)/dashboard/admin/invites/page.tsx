@@ -1,0 +1,233 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { PageTransition } from '@/components/motion';
+import { LoadingState } from '@/components/states/loading-state';
+import { apiFetch } from '@/lib/fetch';
+import {
+  canRevoke,
+  INVITE_ROLES,
+  INVITE_STATUS_LABEL,
+  INVITE_TTL_HOURS,
+  type InviteRole,
+  type InviteStatus,
+} from '@/lib/invites';
+
+/**
+ * Invitations (MAOS F-2, OWNER only - the API checks the membership). The
+ * OWNER invites an email into a role; the person accepts through the emailed
+ * link. Without a configured mailer the link is shown once here, to pass on
+ * personally; it is never stored in plain text and cannot be shown again.
+ */
+
+interface Invite {
+  id: string;
+  email: string;
+  role: string;
+  status: InviteStatus;
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+interface CreateResult {
+  invite: Invite;
+  delivery: 'emailed' | 'not_sent';
+  inviteUrl?: string;
+}
+
+const STATUS_BADGE: Record<InviteStatus, string> = {
+  DRAFT: 'bg-slate-100 text-slate-600',
+  SENT: 'bg-amber-100 text-amber-700',
+  ACCEPTED: 'bg-green-100 text-green-700',
+  EXPIRED: 'bg-slate-100 text-slate-600',
+  REVOKED: 'bg-red-100 text-red-700',
+};
+
+export default function InvitesPage() {
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<InviteRole>('EMPLOYEE');
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [result, setResult] = useState<CreateResult | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [rowError, setRowError] = useState<Record<string, string>>({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setPageError(null);
+    try {
+      setInvites(await apiFetch<Invite[]>('/admin/invites'));
+    } catch (err: unknown) {
+      setPageError(err instanceof Error ? err.message : 'Failed to load invitations.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    setResult(null);
+    setCopied(false);
+    try {
+      const created = await apiFetch<CreateResult>('/admin/invites', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim(), role }),
+      });
+      setResult(created);
+      setEmail('');
+      void load();
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'The invitation could not be created.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    setRowError((prev) => ({ ...prev, [id]: '' }));
+    try {
+      await apiFetch(`/admin/invites/${id}/revoke`, { method: 'POST' });
+      void load();
+    } catch (err: unknown) {
+      setRowError((prev) => ({ ...prev, [id]: err instanceof Error ? err.message : 'Revoke failed.' }));
+    }
+  }
+
+  async function copyLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  const inputCls =
+    'rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+
+  return (
+    <PageTransition className="mx-auto max-w-5xl space-y-6 p-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Invitations</h1>
+        <p className="mt-1 text-sm text-muted">
+          Invite a team member by email. The link works once and expires after {INVITE_TTL_HOURS} hours. Clients
+          still use the request-and-approve flow.
+        </p>
+      </div>
+
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4">
+        <div className="flex min-w-[16rem] flex-1 flex-col gap-1">
+          <label htmlFor="invite-email" className="text-sm font-medium text-foreground">Email</label>
+          <input
+            id="invite-email" type="email" required maxLength={320}
+            value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com"
+            className={inputCls}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="invite-role" className="text-sm font-medium text-foreground">Role</label>
+          <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as InviteRole)} className={inputCls}>
+            {INVITE_ROLES.map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+        >
+          {busy ? 'Sending…' : 'Send invitation'}
+        </button>
+        {formError && <p role="alert" className="w-full text-sm text-destructive">{formError}</p>}
+      </form>
+
+      {result && result.delivery === 'emailed' && (
+        <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+          Invitation emailed to {result.invite.email}.
+        </div>
+      )}
+      {result && result.delivery === 'not_sent' && result.inviteUrl && (
+        <div className="space-y-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p>
+            Email is not configured, so nothing was sent. Pass this link to {result.invite.email} personally. It is
+            shown only now and works once.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="break-all rounded bg-white/70 px-2 py-1 text-xs">{result.inviteUrl}</code>
+            <button
+              type="button"
+              onClick={() => void copyLink(result.inviteUrl as string)}
+              className="rounded border border-amber-300 px-2 py-1 text-xs hover:bg-amber-100"
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pageError && <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{pageError}</div>}
+
+      {loading ? (
+        <LoadingState />
+      ) : invites.length === 0 ? (
+        <p className="text-sm text-muted">No invitations yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30 text-left">
+              <tr>
+                <th className="px-4 py-3 font-medium text-foreground">Email</th>
+                <th className="px-4 py-3 font-medium text-foreground">Role</th>
+                <th className="px-4 py-3 font-medium text-foreground">Status</th>
+                <th className="px-4 py-3 font-medium text-foreground">Expires</th>
+                <th className="px-4 py-3 font-medium text-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {invites.map((inv) => (
+                <tr key={inv.id} className="bg-surface">
+                  <td className="px-4 py-3 text-foreground">{inv.email}</td>
+                  <td className="px-4 py-3 text-muted">
+                    {INVITE_ROLES.find((r) => r.value === inv.role)?.label ?? inv.role}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[inv.status]}`}>
+                      {INVITE_STATUS_LABEL[inv.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-muted">{new Date(inv.expiresAt).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    {canRevoke(inv.status) ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleRevoke(inv.id)}
+                        className="text-sm text-destructive hover:underline"
+                      >
+                        Revoke
+                      </button>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                    {rowError[inv.id] && <p className="mt-1 text-xs text-destructive">{rowError[inv.id]}</p>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </PageTransition>
+  );
+}

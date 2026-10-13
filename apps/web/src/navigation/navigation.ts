@@ -48,6 +48,14 @@ export const workspaceNavigation: NavigationItem[] = [
     clientSafe: false,
   },
   {
+    id: 'admin-invites',
+    label: 'Invitations',
+    href: '/dashboard/admin/invites',
+    allowedRoles: ['OWNER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
     id: 'audit',
     label: 'Audit Log',
     href: '/audit',

@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `2de4355` |
+| CURRENT_MAIN | `9fcef34` (#61 merged) |
 | CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
-| ACTIVE_TASK | MAOS-T21 Backup schedules: rehearsal runner, LaunchAgent templates, installer |
+| ACTIVE_TASK | MAOS-F2 Invite flow: OWNER invites, single-use token acceptance |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | ops/backup-schedules |
+| CURRENT_BRANCH | feat/invite-flow |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | backup-schedule 4/4 |
+| TESTS_PASSED | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 |
 | TESTS_PENDING | — |
 | PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) ONE decision on PRs #26/#36/#38 per docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md (all three current with main; #36 precheck = 0); (2) pmset wake schedule (needs sudo); (3) D2 off-Mac backup (deferred — risk: backups exist only on this Mac); (4) D6 German invoice rules (deferred) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T21, then install the schedules on the backup Mac and verify; then F-2 invites (drafted), D7 dashboard, D8 scheduler, T50/T52 and T71/T72 (gated PRs). |
+| EXACT_NEXT_ACTION | Land F-2; then D7 operations-first dashboard, D8 scheduler, then gated schema PRs T50/T52 and T71/T72; then ONE consolidated decision sheet. |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -68,7 +68,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D15 | Prisma major upgrade: remaining API advisories (deepmerge-ts via @prisma/config) need Prisma >6; config-load only | API advisories | OPEN (non-blocking) |
 | D14 | Next 16 (major): remaining web advisories are in the postcss 8.4.31 pinned by Next 15 (build-time only for MAOS); fixing them needs a separate major-upgrade task | web advisories | OPEN (non-blocking) |
 | D13 | Merge order: T16 and T17 both append to the blocking-gate list in `ci.yml`, and T23 appends to the integration step; later merges need trivial conflict resolution (keep all entries; gate 273, integration 111) | T16/T17/T23 merge | OPEN (mechanical) |
-| F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | APPROVED 2026-10-11 — to implement (CLIENT invites need Invite.clientScopeKey: migration-gated) |
+| F-2 | No real invite-acceptance flow exists (placeholder removed in T38); needs a token-verified invite task | invites | IMPLEMENTED (MAOS-F2, no migration): OWNER invites MANAGER/EMPLOYEE/CONTRACTOR; sha256-stored single-use token, 72 h expiry (no existing convention; chosen conservatively, `INVITE_TTL_HOURS`); one 400 INVITE_INVALID for every unusable token; existing email refused (no takeover). GATED: CLIENT invites need `Invite.clientScopeKey` (migration) |
 | F-1 | Approving a CLIENT never sets its clientScopeKey, so a UI-approved client gets a fail-closed 403 in the portal (found in T36; needs a task: client onboarding sets the scope / Customer link) | client portal onboarding | FIXED in F-1 PR (approval/role change require clientScopeKey for CLIENT) |
 | F-3 | CRM PATCH bodies (meetings, follow-ups, opportunities) and POST /reports are declared as inline types, so no DTO validation runs; an invalid status gives 500 instead of 400. No ID is written on those paths, so no isolation impact (found in T29). Fix: use UpdateOpportunityDto, add update DTOs for meetings/follow-ups and a reports DTO | crm, reports | FIXED in F-3 PR (+ follow-ups page sent invalid DONE status) |
 | F-4 | CRUD audit events (projects/tasks/subtasks, CRM, notes, files/approvals, chat/notifications, voice, invoices/payments/finance denials, dashboard/report views) and report hidden-total suppression were specified in Sprints 3–10 but never built; 10 `todo` tests track them. Blueprint §13 requires audit for sensitive state changes | audit, reports | OPEN |
@@ -165,7 +165,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T104 | Calendar UI (month, week, list) | feat/calendar-ui | #55 MERGED (`0086453`) | web calendar 7/7 | 0 | COMPLETE_MERGED |
 | MAOS-T108 | Approval queue; decisions only on open approvals | feat/approval-queue | #56 MERGED (`dcab6d7`) | approval-decisions 5/5, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
 | MAOS-T109 | Meeting notes, decisions and tasks | feat/meeting-decisions | #57 MERGED (`bde94b0`) | foreign-ids-content 19/19, web 4/4; 1 mutation | 0 | COMPLETE_MERGED |
-| MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | (this PR) | backup-schedule 4/4 | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | #61 MERGED (`9fcef34`) | backup-schedule 4/4 | 0 | COMPLETE_MERGED |
+| MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | (this PR) | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -549,3 +550,6 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - Migration gate prep | #26/#36/#38 merged up to date with main (merge commits, no rewrite), gate + integration green locally; read-only production prechecks: 8 migrations applied (= main), #36 duplicate groups 0, no new object present | — | — | 0 | REPORT DELIVERED (docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md)
 - D2 risk | Backups exist only on this Mac (and depend on it being awake with Docker running); off-Mac copy deferred by owner 2026-10-11 | — | — | — | OPEN RISK
 - MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | PR | backup-schedule 4/4 | 0 | COMPLETE_AWAITING_MERGE
+- Backup outage 2026-10-11..13 | Nightly runs failed 10-11 and 10-12 (SSL EOF on every retry: the Mac slept mid-dump) and 10-13 (Docker Desktop not running); newest good dump was 10-10. Recovery 2026-10-13: Docker restarted; manual backup with the reviewed origin/main runner under `caffeinate -i` → maos-20261013T114512Z.dump SUCCESS (sha256 written, retention applied); its isolated rehearsal REHEARSAL OK. Fix: scheduled runs now wrap in `caffeinate -i` (#61) | — | — | 0 | RESOLVED (pmset wake still owner action)
+- MAOS-T21 activation 2026-10-13 | `install-backup-schedule.sh` pinned runtime 9fcef34 (origin/main) into ~/MAOS_BACKUPS/runtime; replaced the old out-of-repo wrapper agent (old plist backed up in launchd-backup/). launchctl: backup (daily 03:30, caffeinate), backup-staleness (every 3600 s), restore-rehearsal (Sun 05:15, caffeinate) all loaded, next runs registered. Staleness agent kickstarted: exit 0 ("newest verified backup … 0h old"). Forced failure test (limit 0 h): alert line in logs/alerts.log + macOS notification, exit 1 as designed. Production unaffected: health 200, ready 200 (read-only pg_dump only) | — | #61 | 0 | COMPLETE
+- MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | PR | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_AWAITING_MERGE
