@@ -10,39 +10,53 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 ---
 
-## Current state
+## RESUME CAPSULE
+
+Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD and the active PR, and continue from EXACT_NEXT_ACTION. Read deeper sections only if the checks disagree.
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `d0f346b` (#64 merged) |
-| CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
-| ACTIVE_TASK | MAOS-T142 Deadline and approval reminders on the scheduler |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/deadline-reminders |
+| CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 being applied; non-gated product work merged |
+| ACTIVE_TASK | Owner batch 2026-10-13 (D8 enable, pmset, ADR-009, migration gate prep, CLIENT invites, D2, ADR-018 helpers) |
+| TASK_STATUS | IN_PROGRESS |
+| CURRENT_BRANCH | docs/migration-gate-2026-10-13 |
 | HEAD | — |
-| COMPLETED_STEPS | — |
-| CURRENT_STEP | — |
-| REMAINING_STEPS | — |
-| TESTS_PASSED | deadline-reminders 4/4 (6 mutations) |
+| MAIN_HEAD_LAST_VERIFIED | `63971ad` (#69 merged; Railway no deploy needed, health 200) |
+| PR_URL | gated (do not merge): #36 T40, #38 D16b, #26 T44, #65 T50-T52 + F2b CLIENT invites (draft) |
+| PR_STATUS | gated PRs current with main 2026-10-13, green locally |
+| CI_STATUS | main green (gate 308, integration 288, full API 0 failures, web 152) |
+| COMPLETED_ATOMIC_STEP | D8 enabled (scheduler_started in prod); ADR-009 amended (#69); CLIENT invites on #65 (migration 20261013212118, 4/4 mutations); consolidated migration gate report written; per-step order rehearsed (13 applied, 0 failed) |
+| EXACT_NEXT_ACTION | Land the migration-gate report PR; refresh the 4 gated branches with main and re-measure; record first scheduled_job_* runs; D2 (T20) encrypted off-site copy code + setup gate; ADR-018 pure helpers (rate resolution, cost rounding) |
 | TESTS_PENDING | — |
-| PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
-| CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
-| BLOCKERS | none for T19, T24, T28, T29, T35, T39, D16 overpayment (code) |
-| OWNER_GATE_PENDING | (1) ONE decision on PRs #26/#36/#38 per docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md (all three current with main; #36 precheck = 0); (2) pmset wake schedule (needs sudo); (3) D2 off-Mac backup (deferred — risk: backups exist only on this Mac); (4) D6 German invoice rules (deferred) |
-| REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
-| LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land T142; refresh gated #26/#36/#38 with main (merge commits); then ONE consolidated decision sheet (all remaining work gated). |
+| BLOCKERS | T71-T74 need T56, which needs #65 (gated) |
+| OWNER_GATE_PENDING | (1) production migration window per docs/migrations/MIGRATION_GATE_REPORT_2026-10-13.md; (2) pmset wake - password in Terminal tab; (3) D2 provider account/bucket/keys (setup gate) |
+| LAST_UPDATED | 2026-10-13 |
+
+Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
+
+## Decision sheet 2026-10-13 (owner)
+
+| # | Decision | Recommendation | Unblocks |
+|---|---|---|---|
+| 1 | One migration window for #36, #38, #26 and #65 (Customer). Runbooks: `docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md`, `docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md` | Approve; apply in order #36, #38, #26, #65 after a fresh verified backup | revenue/payment idempotency, email tracking, Customer; then T56 -> T71-T74 |
+| 2 | Turn on background jobs: Railway `jihad` variable `MAOS_SCHEDULER_ENABLED=true` (not a secret) | Approve | invite-expiry, deadline/approval reminders |
+| 3 | Mac wake for the 03:30 backup: `sudo pmset repeat wake MTWRFSU 03:25:00` | Do it (3-night backup outage 10-11..13 was the Mac sleeping, then Docker down) | reliable nightly backup |
+| 4 | D2 off-Mac backup copy (deferred) | Decide now: backups exist only on this Mac | T20 |
+| 5 | ADR-009 (Proposed: BullMQ worker) vs D8 in-process scheduler | Amend ADR-009: in-process + advisory locks until a worker-backed feature needs a queue | T125 durable run records (migration) |
+| 6 | CLIENT invites (needs `Invite.clientScopeKey`, migration) | Approve with the next migration window | F-2 for clients |
+| 7 | ADR-018 open questions (who approves time; per-entry submission; non-billable counts as cost; rates set by OWNER) | Accept the ADR's proposals | T71-T74 after #65 and T56 |
+| 8 | ADR-017: CLIENT sees own Customer in the portal? | Later task; name and responsible contact only | portal Customer view |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
-1. `cd ~/Developer/MAOS/claude && git fetch origin`; check `git status`, branch and HEAD.
-2. Read this ledger (from `main`, or `origin/docs/execution-ledger` until merged). Compare it with Git and, only if relevant to the active task, its PR/CI.
+1. `cd ~/Developer/MAOS/claude`; run only `git status --short`, current branch, HEAD, `origin/main` HEAD if relevant, and the active PR's status.
+2. **Fast resume:** read only the RESUME CAPSULE at the top of this file. If the checks match it, continue from EXACT_NEXT_ACTION without reading further history. Escalate (recent git log of the active branch, the active PR/CI, the active task's ledger lines, the relevant Blueprint section - never the whole project) only on a branch/HEAD mismatch, unexpected uncommitted work, a PR merged/closed/changed, main moving under the active task, a changed CI result, or stale/missing capsule state. Reuse recorded test results while the code and HEAD are unchanged.
 3. If ACTIVE_TASK is set: continue that task from EXACT_NEXT_ACTION. Never switch tasks because a session restarted.
 4. Owner gates are non-blocking when safe work exists: record the gate, mark what it blocks, never cross it or assume approval, and continue with the next dependency-ready task that needs no approval. Stop and wait only when (a) the gate blocks all remaining dependency-ready work, (b) continuing would break task/wave order, (c) the next step needs a merge, deploy, migration, production write, secret, credential, paid service, DNS, destructive or other owner-only action, or (d) there is a real safety or Blueprint conflict.
 5. If no task is active and no gate blocks: start the first dependency-ready task in Execution order.
-6. If the last session ended without a clean checkpoint: rebuild state from git log, pushed branches, PRs and CI, update this table, then continue.
+6. If the last session ended without a clean checkpoint: rebuild state from git log, pushed branches, PRs and CI, update the capsule, then continue. When context runs low: finish the current atomic action, update the capsule (branch, HEAD, PR, CI, completed step, EXACT_NEXT_ACTION, tests pending, blockers), commit/push only if already safe, and output a short checkpoint.
 7. Read the Blueprint only when the active task needs architecture validation or a conflict appears. Do not re-audit, re-plan or rerun completed tests.
-8. Update this table when a task starts, after tests, commit, push, PR, CI results, before an owner gate and before stopping.
+8. Update the RESUME CAPSULE when a task starts, after tests, commit, push, PR, CI results, before an owner gate and before stopping.
 
 ## Owner gates and decisions
 
@@ -169,7 +183,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | #62 MERGED (`17add82`) | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_MERGED |
 | MAOS-D7 | Operations-first dashboard | feat/ops-dashboard | #63 MERGED (`81cc525`) | web 151/151 (ops-dashboard 9), build OK, local stack verified | 0 | COMPLETE_MERGED |
 | MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | #64 MERGED (`d0f346b`) | scheduler 6/6 (5 mutations) | 0 | COMPLETE_MERGED |
-| MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | (this PR) | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | #66 MERGED (`b8001b1`) | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_MERGED |
+| MAOS-F-UI1 | Define theme colours used by auth and settings screens | fix/theme-token-aliases | #67 MERGED (`e17e0da`) | web 152/152 (theme-tokens guard, mutation-checked) | 0 | COMPLETE_MERGED |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -561,3 +576,6 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T50/T51/T52 | Customer entity (ADR-017): schema + idempotent backfill + /customers API | schema/customer | #65 DRAFT (GATED, do not merge) | customers 9/9 (6 mutations), isolation 80/80 before and after a real backfill, gate 308, integration 293 | 0 | GATED_MIGRATION (docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md)
 - T71/T72/T73 status | Not started: T71 depends on T56 (project enrichment schema), which depends on T50 (#65, gated). Building them now would stack branches on a gated PR (forbidden) | — | — | — | — | BLOCKED_BY_GATE (#65)
 - MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | PR | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-F-UI1 | Define theme colours used by auth and settings screens | fix/theme-token-aliases | PR | web 152/152 (theme-tokens guard, mutation-checked) | 0 | COMPLETE_AWAITING_MERGE
+- 2026-10-13 wrap-up | #61 T21, #62 F-2, #63 D7, #64 D8, #66 T142, #67 theme colours merged and verified; #65 Customer opened as gated draft; #26/#36/#38/#65 merged up to date with main (merge commits) and green locally (gate 308-312, integration 291-297, full API 0 failures) | — | — | 0 | ALL_REMAINING_GATED
+- 2026-10-13 owner batch | D8 enabled (Railway `MAOS_SCHEDULER_ENABLED=true`, deploy SUCCESS, `scheduler_started` with both jobs, health 200/200); ADR-009 amended (#69); CLIENT invites (F2b) added to gated #65 with migration `20261013212118_add_invite_customer`; read-only prod prechecks: #36 duplicates 0, all new objects absent, 0 client keys; per-migration order rehearsed on PG18 (13 applied, 0 failed) | — | — | 0 | IN_PROGRESS
