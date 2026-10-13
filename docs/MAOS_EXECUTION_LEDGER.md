@@ -19,17 +19,17 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 | CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 being applied; non-gated product work merged |
 | ACTIVE_TASK | Owner batch 2026-10-13 (D8 enable, pmset, ADR-009, migration gate prep, CLIENT invites, D2, ADR-018 helpers) |
 | TASK_STATUS | IN_PROGRESS |
-| CURRENT_BRANCH | docs/adr009-resume-capsule |
+| CURRENT_BRANCH | docs/migration-gate-2026-10-13 |
 | HEAD | — |
-| MAIN_HEAD_LAST_VERIFIED | `9a9faed` (2026-10-13; CI, Railway, health verified) |
-| PR_URL | gated (do not merge): #36 T40, #38 D16b, #26 T44, #65 T50-T52 (draft) |
+| MAIN_HEAD_LAST_VERIFIED | `63971ad` (#69 merged; Railway no deploy needed, health 200) |
+| PR_URL | gated (do not merge): #36 T40, #38 D16b, #26 T44, #65 T50-T52 + F2b CLIENT invites (draft) |
 | PR_STATUS | gated PRs current with main 2026-10-13, green locally |
 | CI_STATUS | main green (gate 308, integration 288, full API 0 failures, web 152) |
-| COMPLETED_ATOMIC_STEP | D8 enabled in production (MAOS_SCHEDULER_ENABLED=true, deploy SUCCESS, scheduler_started logged, health 200) |
-| EXACT_NEXT_ACTION | Land this docs PR; verify first scheduled_job_* runs; CLIENT invites on #65 branch; consolidated migration gate report; D2 (T20) code + setup gate; ADR-018 pure helpers |
+| COMPLETED_ATOMIC_STEP | D8 enabled (scheduler_started in prod); ADR-009 amended (#69); CLIENT invites on #65 (migration 20261013212118, 4/4 mutations); consolidated migration gate report written; per-step order rehearsed (13 applied, 0 failed) |
+| EXACT_NEXT_ACTION | Land the migration-gate report PR; refresh the 4 gated branches with main and re-measure; record first scheduled_job_* runs; D2 (T20) encrypted off-site copy code + setup gate; ADR-018 pure helpers (rate resolution, cost rounding) |
 | TESTS_PENDING | — |
 | BLOCKERS | T71-T74 need T56, which needs #65 (gated) |
-| OWNER_GATE_PENDING | pmset wake (password in Terminal tab); production migration approval (after the consolidated report) |
+| OWNER_GATE_PENDING | (1) production migration window per docs/migrations/MIGRATION_GATE_REPORT_2026-10-13.md; (2) pmset wake - password in Terminal tab; (3) D2 provider account/bucket/keys (setup gate) |
 | LAST_UPDATED | 2026-10-13 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -578,3 +578,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | PR | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-F-UI1 | Define theme colours used by auth and settings screens | fix/theme-token-aliases | PR | web 152/152 (theme-tokens guard, mutation-checked) | 0 | COMPLETE_AWAITING_MERGE
 - 2026-10-13 wrap-up | #61 T21, #62 F-2, #63 D7, #64 D8, #66 T142, #67 theme colours merged and verified; #65 Customer opened as gated draft; #26/#36/#38/#65 merged up to date with main (merge commits) and green locally (gate 308-312, integration 291-297, full API 0 failures) | — | — | 0 | ALL_REMAINING_GATED
+- 2026-10-13 owner batch | D8 enabled (Railway `MAOS_SCHEDULER_ENABLED=true`, deploy SUCCESS, `scheduler_started` with both jobs, health 200/200); ADR-009 amended (#69); CLIENT invites (F2b) added to gated #65 with migration `20261013212118_add_invite_customer`; read-only prod prechecks: #36 duplicates 0, all new objects absent, 0 client keys; per-migration order rehearsed on PG18 (13 applied, 0 failed) | — | — | 0 | IN_PROGRESS
