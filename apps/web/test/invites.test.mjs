@@ -49,6 +49,8 @@ describe('invite flow UI', () => {
   it('the admin page is OWNER-only in navigation and uses the admin endpoints', () => {
     const nav = read('src/navigation/navigation.ts');
     assert.match(nav, /href: '\/dashboard\/admin\/invites',\s*allowedRoles: \['OWNER'\]/);
+    // The sidebar shows only ids listed in its groups.
+    assert.match(read('src/components/shell/sidebar.tsx'), /ids: \[[^\]]*'admin-invites'/);
     const admin = read('app/(workspace)/dashboard/admin/invites/page.tsx');
     assert.match(admin, /apiFetch<CreateResult>\('\/admin\/invites'/);
     assert.match(admin, /\/admin\/invites\/\$\{[^}]+\}\/revoke/);

@@ -33,7 +33,7 @@ type Phase = 'checking' | 'invalid' | 'ready' | 'done';
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas p-6">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-sm">{children}</div>
+      <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-8 shadow-sm">{children}</div>
     </main>
   );
 }
@@ -124,7 +124,7 @@ function AcceptInvite() {
   };
 
   const inputCls =
-    'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary';
+    'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-accent';
 
   if (phase === 'invalid') {
     return (
@@ -145,13 +145,13 @@ function AcceptInvite() {
   if (phase === 'done') {
     return (
       <Shell>
-        <h1 className="mb-2 text-xl font-semibold text-foreground">You are in</h1>
+        <h1 className="mb-2 text-xl font-semibold text-ink">You are in</h1>
         <p className="text-sm text-muted">
           Your account for {preview.tenantName} is ready. Sign in with {preview.email} and the password you just set.
         </p>
         <Link
           href="/auth/login"
-          className="mt-6 inline-block text-sm text-primary underline-offset-4 hover:underline"
+          className="mt-6 inline-block text-sm text-accent underline-offset-4 hover:underline"
         >
           Sign in
         </Link>
@@ -162,21 +162,21 @@ function AcceptInvite() {
   const roleLabel = INVITE_ROLES.find((r) => r.value === preview.role)?.label ?? preview.role;
   return (
     <Shell>
-      <h1 className="mb-1 text-2xl font-semibold text-foreground">Join {preview.tenantName}</h1>
+      <h1 className="mb-1 text-2xl font-semibold text-ink">Join {preview.tenantName}</h1>
       <p className="mb-6 text-sm text-muted">
         You were invited as <strong>{roleLabel}</strong> with {preview.email}. The link works once and expires{' '}
         {new Date(preview.expiresAt).toLocaleString()}.
       </p>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="mb-4 rounded-lg bg-danger/10 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="fullName" className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="fullName" className="mb-1 block text-sm font-medium text-ink">
             Full name
           </label>
           <input
@@ -186,7 +186,7 @@ function AcceptInvite() {
           />
         </div>
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink">
             Password
           </label>
           <input
@@ -196,7 +196,7 @@ function AcceptInvite() {
           />
         </div>
         <div>
-          <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-foreground">
+          <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-ink">
             Confirm password
           </label>
           <input
@@ -208,7 +208,7 @@ function AcceptInvite() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+          className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:opacity-50"
         >
           {busy ? 'Creating your account…' : 'Accept invitation'}
         </button>

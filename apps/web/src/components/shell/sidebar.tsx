@@ -14,14 +14,18 @@ type SidebarProps = {
 };
 
 const navGlyphs: Record<string, string> = {
+  'admin-invites': 'IN',
   'admin-users': 'AU',
   approvals: 'AP',
+  audit: 'AL',
+  calendar: 'CA',
   chat: 'CH',
   collaboration: 'CO',
   crm: 'CR',
   dashboard: 'DA',
   files: 'FI',
   finance: 'FN',
+  'my-work': 'MW',
   notifications: 'NO',
   projects: 'PR',
   reports: 'RE',
@@ -32,7 +36,7 @@ const navGlyphs: Record<string, string> = {
 
 const navGroups = [
   {
-    ids: ['dashboard', 'admin-users'],
+    ids: ['dashboard', 'my-work', 'calendar', 'admin-users', 'admin-invites'],
     label: 'Workspace',
   },
   {
@@ -44,7 +48,7 @@ const navGroups = [
     label: 'Team',
   },
   {
-    ids: ['files', 'approvals', 'voice', 'finance', 'reports', 'settings'],
+    ids: ['files', 'approvals', 'voice', 'finance', 'reports', 'audit', 'settings'],
     label: 'Operations',
   },
 ];
@@ -110,7 +114,7 @@ export function Sidebar({ role }: SidebarProps) {
                 (item.href !== '/dashboard' &&
                   item.id !== 'admin-users' &&
                   pathname?.startsWith(`${item.href}/`)) ||
-                (item.id === 'admin-users' && pathname?.startsWith('/dashboard/admin/'));
+                (item.id === 'admin-users' && pathname?.startsWith('/dashboard/admin/users/'));
 
               return (
                 <motion.div
