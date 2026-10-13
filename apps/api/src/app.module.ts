@@ -36,6 +36,7 @@ import { UsersModule } from './modules/users/users.module';
 import { VoiceNotesModule } from './modules/voice-notes/voice-notes.module';
 import { VoiceToTaskModule } from './modules/voice-to-task/voice-to-task.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { InvitesModule } from './modules/invites/invites.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { LabelsModule } from './modules/labels/labels.module';
@@ -80,6 +81,7 @@ import { MailModule } from './modules/mail/mail.module';
     DashboardsModule,
     ReportsModule,
     AdminUsersModule,
+    CustomersModule,
     InvitesModule,
     SchedulerModule,
     LabelsModule,

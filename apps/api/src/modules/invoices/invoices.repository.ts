@@ -8,6 +8,7 @@ import {
   computeInvoiceTotals,
   resolveInvoiceStatus,
 } from './invoice-totals';
+import { customerIdForKey } from '../customers/customer-link';
 
 /**
  * Client-safe projection.
@@ -96,7 +97,7 @@ export class InvoicesRepository {
    * Creates the invoice and its lines atomically, with totals computed from the
    * lines rather than accepted from the caller.
    */
-  create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
+  async create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
     const totals = computeInvoiceTotals(dto.lines ?? []);
 
     return this.prisma.invoice.create({
@@ -106,6 +107,8 @@ export class InvoicesRepository {
         currency: (dto.currency ?? 'EUR').toUpperCase(),
         projectId: dto.projectId,
         clientScopeKey: dto.clientScopeKey,
+        // ADR-017: derived from the key, never from the request.
+        customerId: await customerIdForKey(this.prisma, tenantId, dto.clientScopeKey),
         createdByUserId: actorId,
         dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
         subtotalCents: totals.subtotalCents,
