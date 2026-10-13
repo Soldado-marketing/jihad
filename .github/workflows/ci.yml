@@ -19,11 +19,12 @@ jobs:
 
     services:
       postgres:
-        # Same image as docker.io/library/postgres:16-alpine (identical digest),
-        # pulled from the AWS ECR Public mirror of the Docker Official Images:
-        # concurrent PR runs hit Docker Hub's anonymous pull rate limit and
-        # failed before any test ran (MAOS-T146).
-        image: public.ecr.aws/docker/library/postgres:16-alpine
+        # Same image as docker.io/library/postgres:16-alpine (identical digest
+        # sha256:721873c3..., checked 2026-10-14). Docker Hub (MAOS-T146) and
+        # then AWS ECR Public ("toomanyrequests: Data limit exceeded", three
+        # failed runs on 2026-10-13) both throttled anonymous pulls before any
+        # test ran; Google's public Docker Hub mirror serves the same digest.
+        image: mirror.gcr.io/library/postgres:16-alpine
         env:
           POSTGRES_USER: maos
           POSTGRES_PASSWORD: maos_password
