@@ -14,16 +14,16 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 | Field | Value |
 |---|---|
-| CURRENT_MAIN | `81cc525` (#63 merged) |
+| CURRENT_MAIN | `d0f346b` (#64 merged) |
 | CURRENT_WAVE | W4–W7: every task that needs no owner gate is merged; all remaining registry work is behind an owner gate |
-| ACTIVE_TASK | MAOS-D8 In-process scheduler with advisory locks; invite-expiry job |
+| ACTIVE_TASK | MAOS-T142 Deadline and approval reminders on the scheduler |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/scheduler |
+| CURRENT_BRANCH | feat/deadline-reminders |
 | HEAD | — |
 | COMPLETED_STEPS | — |
 | CURRENT_STEP | — |
 | REMAINING_STEPS | — |
-| TESTS_PASSED | scheduler 6/6 (5 mutations) |
+| TESTS_PASSED | deadline-reminders 4/4 (6 mutations) |
 | TESTS_PENDING | — |
 | PR_URL | gated (do not merge): #26 T44, #36 T40, #38 D16b |
 | CI_STATUS | main `c828abe` green; gate 281/281, integration 159/159 |
@@ -31,7 +31,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | OWNER_GATE_PENDING | (1) ONE decision on PRs #26/#36/#38 per docs/migrations/MIGRATION_GATE_REPORT_2026-10-11.md (all three current with main; #36 precheck = 0); (2) pmset wake schedule (needs sudo); (3) D2 off-Mac backup (deferred — risk: backups exist only on this Mac); (4) D6 German invoice rules (deferred) |
 | REAL_CLIENT_DATA_ALLOWED | NO (owner decision; changes only at gate G-DATA) |
 | LAST_SAFE_CHECKPOINT | 2026-10-10 — all non-migration PRs merged and verified; no uncommitted work |
-| EXACT_NEXT_ACTION | Land D8; then gated schema PRs (T50 Customer schema, T71 TimeEntry/Rate schema) as do-not-merge PRs; refresh #26/#36/#38 with main; then ONE consolidated decision sheet. |
+| EXACT_NEXT_ACTION | Land T142; refresh gated #26/#36/#38 with main (merge commits); then ONE consolidated decision sheet (all remaining work gated). |
 
 ## Session resume protocol (resume command: `كمل MAOS`)
 
@@ -168,7 +168,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T21 | Backup schedules: rehearsal runner, LaunchAgent templates, installer | ops/backup-schedules | #61 MERGED (`9fcef34`) | backup-schedule 4/4 | 0 | COMPLETE_MERGED |
 | MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | #62 MERGED (`17add82`) | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_MERGED |
 | MAOS-D7 | Operations-first dashboard | feat/ops-dashboard | #63 MERGED (`81cc525`) | web 151/151 (ops-dashboard 9), build OK, local stack verified | 0 | COMPLETE_MERGED |
-| MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | (this PR) | scheduler 6/6 (5 mutations) | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | #64 MERGED (`d0f346b`) | scheduler 6/6 (5 mutations) | 0 | COMPLETE_MERGED |
+| MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | (this PR) | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -559,3 +560,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | PR | scheduler 6/6 (5 mutations) | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T50/T51/T52 | Customer entity (ADR-017): schema + idempotent backfill + /customers API | schema/customer | #65 DRAFT (GATED, do not merge) | customers 9/9 (6 mutations), isolation 80/80 before and after a real backfill, gate 308, integration 293 | 0 | GATED_MIGRATION (docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md)
 - T71/T72/T73 status | Not started: T71 depends on T56 (project enrichment schema), which depends on T50 (#65, gated). Building them now would stack branches on a gated PR (forbidden) | — | — | — | — | BLOCKED_BY_GATE (#65)
+- MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | PR | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_AWAITING_MERGE
