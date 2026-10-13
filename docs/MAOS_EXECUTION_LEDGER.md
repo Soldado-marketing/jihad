@@ -557,3 +557,5 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-F2 | Invite flow: OWNER invites, single-use token acceptance | feat/invite-flow | PR | invites 12/12 (4 mutations), web invites 6/6, gate 308, integration 278 | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-D7 | Operations-first dashboard | feat/ops-dashboard | PR | web 151/151 (ops-dashboard 9), build OK, local stack verified | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | PR | scheduler 6/6 (5 mutations) | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T50/T51/T52 | Customer entity (ADR-017): schema + idempotent backfill + /customers API | schema/customer | #65 DRAFT (GATED, do not merge) | customers 9/9 (6 mutations), isolation 80/80 before and after a real backfill, gate 308, integration 293 | 0 | GATED_MIGRATION (docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md)
+- T71/T72/T73 status | Not started: T71 depends on T56 (project enrichment schema), which depends on T50 (#65, gated). Building them now would stack branches on a gated PR (forbidden) | — | — | — | — | BLOCKED_BY_GATE (#65)
