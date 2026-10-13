@@ -37,6 +37,7 @@ import { VoiceNotesModule } from './modules/voice-notes/voice-notes.module';
 import { VoiceToTaskModule } from './modules/voice-to-task/voice-to-task.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { InvitesModule } from './modules/invites/invites.module';
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { MailModule } from './modules/mail/mail.module';
 
@@ -80,6 +81,7 @@ import { MailModule } from './modules/mail/mail.module';
     ReportsModule,
     AdminUsersModule,
     InvitesModule,
+    SchedulerModule,
     LabelsModule,
   ],
   controllers: [HealthController],

@@ -60,7 +60,7 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 | D5 | Repository visibility (currently public) | G-DATA | OPEN |
 | D6 | German invoice regime (VAT / Kleinunternehmer, numbering, legal fields) | T41, T42 | OPEN |
 | D7 | Dashboard information architecture | T121 | OPEN |
-| D8 | Scheduler hosting (in-process vs worker; Railway impact) | T125 | OPEN |
+| D8 | Scheduler hosting (in-process vs worker; Railway impact) | T125 | DECIDED 2026-10-11 (in-process, lowest complexity) — IMPLEMENTED (MAOS-D8): advisory-locked, off by default; enabling in production (`MAOS_SCHEDULER_ENABLED=true` on Railway) is an owner action; durable job-run table is migration-gated |
 | D9 | Email delivery tracking scope (EmailMessage/EmailEvent) | T44, T45 | OPEN |
 | D10 | Staging / preview environment (cost, Railway) | T14 follow-up | OPEN |
 | D11 | PR tooling (`gh`) | every task's PR step | RESOLVED 2026-10-09 (gh authenticated; PRs #4–#10 opened) |

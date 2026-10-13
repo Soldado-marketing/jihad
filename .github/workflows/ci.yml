@@ -168,7 +168,8 @@ jobs:
             test/security-gate-session-revocation.test.mjs \
             test/throttle-per-client.test.mjs \
             test/security-gate-sessions.test.mjs \
-            test/invites.test.mjs
+            test/invites.test.mjs \
+            test/scheduler.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
