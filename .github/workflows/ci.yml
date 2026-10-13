@@ -102,7 +102,7 @@ jobs:
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (293/293), so it blocks.
+      # service above and drives it over HTTP. Green (288/288), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -159,6 +159,7 @@ jobs:
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
+            test/customers.test.mjs \
             test/approval-decisions.test.mjs \
             test/calendar.test.mjs \
             test/audit-log.test.mjs \
@@ -170,7 +171,7 @@ jobs:
             test/security-gate-sessions.test.mjs \
             test/invites.test.mjs \
             test/scheduler.test.mjs \
-            test/customers.test.mjs
+            test/deadline-reminders.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
