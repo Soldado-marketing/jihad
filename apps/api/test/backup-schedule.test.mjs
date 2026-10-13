@@ -102,6 +102,10 @@ describe('install-backup-schedule.sh --dry-run', () => {
       assert.match(xml, /<key>RunAtLoad<\/key>\s*<false\/>/);
     }
     assert.match(readFileSync(join(agents, 'com.soldado.maos.backup.plist'), 'utf8'), /MAOS_BACKUP_CREDENTIAL_SOURCE<\/key>\s*<string>auto/);
+    // The Mac must not sleep while the dump or the rehearsal runs.
+    for (const f of ['com.soldado.maos.backup.plist', 'com.soldado.maos.restore-rehearsal.plist']) {
+      assert.match(readFileSync(join(agents, f), 'utf8'), /<string>\/usr\/bin\/caffeinate<\/string>\s*<string>-i<\/string>/, f);
+    }
     assert.ok(existsSync(join(c.home, 'runtime', 'current', 'scripts', 'nightly-backup.sh')));
     assert.match(readFileSync(join(c.home, 'runtime', 'current', 'VERSION'), 'utf8'), /^[0-9a-f]{7,}/);
   });

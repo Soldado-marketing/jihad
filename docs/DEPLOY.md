@@ -337,8 +337,11 @@ from `origin/main` at install time, never a working checkout. Re-run the
 installer after a reviewed change to the backup scripts reaches `main`.
 Replaced plists are kept in `~/MAOS_BACKUPS/launchd-backup/<timestamp>/`.
 
-The Mac must be awake: either keep it on, or schedule a wake before 03:30
-(`sudo pmset repeat wake MTWRFSU 03:25:00`, an owner action).
+The backup and rehearsal run under `caffeinate -i`, so the Mac does not sleep
+while they run (the 2026-10-11/12 failures were a Mac sleeping mid-dump). A
+sleeping Mac still has to wake: launchd runs a missed job at the next wake, or
+schedule a wake before 03:30 (`sudo pmset repeat wake MTWRFSU 03:25:00`, an
+owner action). Docker Desktop must be running for the dump.
 
 ### Restore
 
