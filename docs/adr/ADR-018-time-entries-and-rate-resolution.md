@@ -1,10 +1,10 @@
 # ADR-018: Time Entries And Rate Resolution
 
-Status: Proposed
+Status: Accepted
 
 ## Status
 
-Proposed (MAOS-T70, 2026-10-11). Accepting it is an owner decision (OWNER_GATE_PRODUCT_BEHAVIOR). The schema it describes (T71, and later T77 for member terms) is behind the migration gate. Nothing in this ADR changes the database or the API.
+Accepted by the owner on 2026-10-11 (proposed in MAOS-T70). Accepting it is an owner decision (OWNER_GATE_PRODUCT_BEHAVIOR). The schema it describes (T71, and later T77 for member terms) is behind the migration gate. Nothing in this ADR changes the database or the API.
 
 ## Context
 
