@@ -82,6 +82,16 @@ As written in `docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md`:
 3. `GET /api/customers` as OWNER → 200, list matches the dry run; CONTRACTOR/CLIENT → 403.
 4. Client separation: the portal behaves exactly as before. `clientScopeKey` stays the authorization boundary; the Customer only references it and its key is immutable. The isolation suites already proved 80/80 before and after a real fill-in on a disposable copy.
 
+## #36 write freeze (amendment proposed 2026-10-14, NOT yet approved)
+
+The audited report says "writes frozen" for #36 but did not define how. Proposed definition. It is reversible and involves no production configuration change:
+
+1. **Operational freeze:** for the minutes of step 1, the owner records no payments, sends no invoices and marks nothing paid. These are the only paths that create `RevenueRecord` rows. Production holds test data only (`REAL_CLIENT_DATA_ALLOWED = NO`), and the owner is the only active user.
+2. **Proof the freeze held:** record `count(*)` and `max("createdAt")` of `RevenueRecord` and `Payment` with the final duplicate precheck. Read them again immediately before `migrate deploy`. Apply only if both are unchanged and the precheck is still 0.
+3. **Atomic guarantee:** `CREATE UNIQUE INDEX` takes a SHARE lock that blocks `RevenueRecord` inserts while it builds, and it checks every existing row. A duplicate that slipped in anyway makes the build fail atomically: no index is created and no row changes. Prisma then blocks all later migrations (P3018, then P3009), so the chain stops by itself. This was rehearsed on 2026-10-14.
+
+Not proposed: scaling the API to zero or any other production configuration change.
+
 ## Containment if a step fails
 
 - **Any check in steps 1–6 fails:** stop. Nothing has changed. Record the evidence.
