@@ -56,3 +56,37 @@ As in the 2026-10-13 report, single step:
 5. Merge and deploy; verify CI, Railway, health and logs.
 
 Containment is unchanged: a failure stops; no destructive rollback and no `migrate resolve` without the owner.
+
+## Correction 2026-10-15: migration hash
+
+The sha256 prefix recorded in "Audit 2026-10-15" above (`c63af1c8656f`) is a **documentation error**. It is left in place unchanged as part of the audit history; this section supersedes it.
+
+Verified 2026-10-15 from the repository with `shasum -a 256`:
+
+| Revision | sha256 of `apps/api/prisma/migrations/20261014155254_project_enrichment/migration.sql` |
+|---|---|
+| `26c04fb` (the file's only commit) | `43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c` |
+| `74f029c` (#84 head at the audit) | same |
+| current branch head | same |
+
+The file has exactly one commit and has never been changed, so the reviewed and rehearsed SQL is the SQL that will be applied. The full hash above is the approved value and the operator procedure below refuses any other.
+
+## Operator procedure (stable, replaces temporary helpers)
+
+The 2026-10-13/14 windows used helper scripts in a session scratchpad. They are not part of the repository and are **not** used for T56. The T56 window uses only these reviewed, tested repository files (`apps/api/test/migrate-deploy-one-script.test.mjs`, blocking in CI):
+
+- `scripts/migrate-deploy-one.sh`: a guard around the project's own `prisma migrate deploy`, not a second migration system. It refuses unless `apps/api/.env` is absent, `apps/api/prisma` has no uncommitted or untracked change, `migration.sql` has the approved full sha256, the credential is a PostgreSQL URL from the Keychain (MAOS-T18 item, never printed or passed as an argument), the history has no failed or locally missing migration, and the pending set is **exactly** the approved migration. `check` stops there and writes nothing; `apply` then runs `prisma migrate deploy` and requires `migrate status` "up to date".
+- `scripts/db-readonly-check.sh`: runs a check file in `postgres:18` in a session forced read-only (`default_transaction_read_only=on`).
+- `docs/migrations/T56_precheck.sql`, `docs/migrations/T56_postcheck.sql`: the precheck and post-apply verification queries.
+
+Run from `~/Developer/MAOS/claude` with the approved commit checked out (`npm ci` done in `apps/api`):
+
+1. `docker info`; fresh backup `MAOS_BACKUP_CREDENTIAL_SOURCE=keychain caffeinate -i scripts/nightly-backup.sh` → `SUCCESS`, new `maos-<UTC>.dump`.
+2. `shasum -a 256` of the dump equals its `.dump.sha256`; `pg_restore --list` in `postgres:18` is non-empty with every table; `scripts/restore-rehearsal.sh <dump>` → `REHEARSAL OK`.
+3. `scripts/db-readonly-check.sh docs/migrations/T56_precheck.sql` → 13 finished / 0 failed, 0 columns, 0 indexes, 0 long transactions, row counts recorded.
+4. `scripts/migrate-deploy-one.sh check 20261014155254_project_enrichment 43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c` → `CHECK OK`.
+5. **Owner-approved write:** the same command with `apply` → `APPLY OK`.
+6. `scripts/db-readonly-check.sh docs/migrations/T56_postcheck.sql` → 14/0, 5 nullable columns, 3 indexes, FK `ON DELETE SET NULL` validated, 0 invalid indexes, 0 rows with a new value, row counts unchanged; health `/api/health` and `/api/health/ready` 200.
+7. Merge #84 (merge commit); main CI green, Railway `jihad` SUCCESS on that commit, health 200/200, logs clean.
+
+Containment is unchanged: any refusal or failure stops the window; no destructive rollback and no `migrate resolve` without the owner.
