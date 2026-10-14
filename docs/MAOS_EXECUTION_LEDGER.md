@@ -17,19 +17,19 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 | Field | Value |
 |---|---|
 | CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 applied; all remaining dependency-ready work is owner-gated |
-| ACTIVE_TASK | none - waiting on owner gates (see OWNER_GATE_PENDING) |
-| TASK_STATUS | IDLE_AWAITING_OWNER |
+| ACTIVE_TASK | Production migration window #36 -> #38 -> #26 -> #65a -> #65b (owner-approved 2026-10-14) |
+| TASK_STATUS | STOPPED_BEFORE_STEP_1 - no production change made |
 | CURRENT_BRANCH | main |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
-| MAIN_HEAD_LAST_VERIFIED | after #73 + this ledger PR (2026-10-14; CI green, Railway SUCCESS, health 200/200) |
-| PR_URL | gated (do not merge): #36 T40, #38 D16b, #26 T44, #65 T50-T52 + F2b CLIENT invites (draft) |
-| PR_STATUS | gated PRs re-merged with main and green locally (gate 308-312, integration 291-300, full API 0 failures) |
+| MAIN_HEAD_LAST_VERIFIED | `1e565e3` (#75; docs only since audit) |
+| PR_URL | gated: #36 1b84035, #38 81b53f8, #26 2f73cf4, #65 adb341e (all = audited heads, CI SUCCESS); #76 open for owner approval (#36 write-freeze definition) |
+| PR_STATUS | unchanged since audit; main ahead by docs only |
 | CI_STATUS | main green; CI Postgres image now from mirror.gcr.io (#73) after ECR throttling |
-| COMPLETED_ATOMIC_STEP | Owner batch done: D8 enabled and verified in prod; ADR-009 amended; CLIENT invites (gated, #65); migration gate report; D2 code (#71) + runtime reinstalled; ADR-018 helpers (#72); CI image fix (#73) |
-| EXACT_NEXT_ACTION | On owner approval of docs/migrations/MIGRATION_GATE_REPORT_2026-10-13.md: run the per-migration procedure #36 -> #38 -> #26 -> #65 (fresh backup each). On "D2 configured": one off-site upload + off-site rehearsal, record. Then T56 -> T71-T74 (wire labour-cost.ts). |
-| TESTS_PENDING | none |
-| BLOCKERS | T56/T71-T74 need #65 migrated and merged; D2 activation needs the owner setup (docs/ops/OFFSITE_BACKUP_SETUP.md) |
-| OWNER_GATE_PENDING | (1) approve the migration window (one approval, report 2026-10-13); (2) pmset wake: type the admin password in the waiting Terminal tab (or run `sudo pmset repeat wake MTWRFSU 03:25:00`); (3) D2 setup gate: provider, bucket, least-privilege key, Keychain, key escrow, config |
+| COMPLETED_ATOMIC_STEP | Pre-execution reconciliation: state matches audit; STOP because the audited report requires "writes frozen" for #36 but defines no freeze mechanism (owner condition) |
+| EXACT_NEXT_ACTION | On owner approval of #76 (merge it): re-merge #36 with main, then run window step 1 (Docker check, fresh backup + sha256 + pg_restore --list + isolated rehearsal, prechecks incl. freeze proof, apply #36 only). No production action before that approval. |
+| TESTS_PENDING | per step at window time (re-merge + CI) |
+| BLOCKERS | #36 write-freeze definition not in the approved report |
+| OWNER_GATE_PENDING | (1) approve #76 (#36 write-freeze definition); (2) pmset wake password; (3) D2 off-site setup (open resilience risk; does not block the window) |
 | LAST_UPDATED | 2026-10-14 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -582,3 +582,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - 2026-10-14 owner batch result | D8: `MAOS_SCHEDULER_ENABLED=true` on `jihad`; prod logs: invite-expiry succeeded 22:05 and 22:20 (affected 0), deadline-reminders succeeded 22:20 (affected 0); one run per round (1 replica, advisory lock taken), no duplicates, 0 error lines | #69 ADR-009 amended; #70 consolidated migration gate report; #71 MAOS-T20 off-site encrypted copy + rehearsal (8/8, 4 mutations; runtime reinstalled at 93687c2; silent until configured); #72 ADR-018 labour-cost helpers (7/7, 4 mutations); #73 CI image mirror.gcr.io (same digest) | — | 0 | COMPLETE
 - D2 | Code merged (#71); activation waits for the owner setup gate `docs/ops/OFFSITE_BACKUP_SETUP.md` (provider/account/bucket/key/escrow) | T20 | — | — | OWNER_GATE
 - pmset wake | `sudo pmset repeat wake MTWRFSU 03:25:00` started in the owner's Terminal tab; waiting for the admin password (not entered by Claude) | T21 | — | — | OWNER_ACTION
+- 2026-10-14 migration window | Owner approved the audited window. Reconciliation: branch heads = audited heads, CI SUCCESS, main ahead by docs only. STOPPED before step 1 (no backup taken, no production change): the report requires writes frozen for #36 without defining how; definition proposed in #76 for owner approval | — | #76 | 0 | STOPPED_BEFORE_PRODUCTION
