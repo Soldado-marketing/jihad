@@ -18,15 +18,15 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 |---|---|
 | CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 applied; all remaining dependency-ready work is owner-gated |
 | ACTIVE_TASK | Production migration window #36 -> #38 -> #26 -> #65a -> #65b (approved 2026-10-14; #36 technical freeze approved) |
-| TASK_STATUS | IN_PROGRESS - step 3 of 5 done |
+| TASK_STATUS | IN_PROGRESS - step 4 of 5 done (#65 code not deployed) |
 | CURRENT_BRANCH | main |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
 | MAIN_HEAD_LAST_VERIFIED | `1e565e3` (#75; docs only since audit) |
 | PR_URL | gated: #36 1b84035, #38 81b53f8, #26 2f73cf4, #65 adb341e (all = audited heads, CI SUCCESS); #76 open for owner approval (#36 write-freeze definition) |
 | PR_STATUS | unchanged since audit; main ahead by docs only |
 | CI_STATUS | main green; CI Postgres image now from mirror.gcr.io (#73) after ECR throttling |
-| COMPLETED_ATOMIC_STEP | Step 3 #26 DONE: backup maos-20261014T151903Z.dump (sha256 MATCH, 416/43, REHEARSAL OK); applied 20261010134025 (finished 15:19:26Z); enum/tables/6 indexes/2 FKs ok; data unchanged; PR #26 merged a9b9040 (deploy 15:19:44Z); CI green, health 200/200, logs 0 errors |
-| EXACT_NEXT_ACTION | Step 4 #65a: re-merge #65 with main (ci.yml + schema.prisma: keep both Tenant relations), CI green, preflight (NEW backup), apply 20261013123256_add_customer ONLY (checkout without the invite folder), fill-in, verify; do NOT deploy #65 code |
+| COMPLETED_ATOMIC_STEP | Step 4 #65a DONE: backup maos-20261014T152821Z.dump (sha256 MATCH, 429/45, REHEARSAL OK); prechecks 11/0, 0 client keys; applied 20261013123256_add_customer only; schema/indexes/FKs ok; fill-in dry/apply/re-apply 0/0/0; wrong mappings 0, unlinked 0; health 200/200; #65 code NOT deployed |
+| EXACT_NEXT_ACTION | Step 5 #65b: preflight (NEW backup), apply 20261013212118_add_invite_customer only from #65 checkout ba05df2, verify; then merge/deploy #65 code and verify Customer API, invites, isolation |
 | TESTS_PENDING | per step at window time (re-merge + CI) |
 | BLOCKERS | #36 write-freeze definition not in the approved report |
 | OWNER_GATE_PENDING | (1) approve #76 (#36 write-freeze definition); (2) pmset wake password; (3) D2 off-site setup (open resilience risk; does not block the window) |
@@ -586,3 +586,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - 2026-10-14 window step 1 (#36) | NEW backup maos-20261014T144626Z.dump: sha256 MATCH, pg_restore --list 414/43, isolated restore OK; prechecks: 8/0 migrations, dup groups 0, index absent, long xacts 0; applied 20261011085435_revenue_record_unique_invoice (SHARE ROW EXCLUSIVE + in-lock check); post: 9/0, index valid+unique, dup 0, rows unchanged, no lock left; PR #36 merged 0e70d1d; CI/Railway/health/logs OK | #36 | — | 0 | DONE
 - 2026-10-14 window step 2 (#38) | NEW backup maos-20261014T145600Z.dump: sha256 MATCH, list 415/43, isolated restore OK; prechecks 9/0, objects absent; applied 20261011090404_payment_idempotency_key; post 10/0, column TEXT NULL, unique index valid, 2 payments (keys NULL) unchanged; PR #38 merged 77367f7 after the schema (14:56:17 < 14:56:55); smoke: no production payment written (safer option), route 401 unauthenticated, replay proven by CI/rehearsal | #38 | — | 0 | DONE
 - 2026-10-14 window step 3 (#26) | NEW backup maos-20261014T151903Z.dump: sha256 MATCH, list 416/43, isolated restore OK; prechecks 10/0, objects absent; applied 20261010134025_add_email_delivery_tracking; post 11/0, enum 6 values, EmailMessage/EmailEvent, 6 indexes, 2 cascade FKs, 0 invalid indexes, data unchanged; PR #26 merged a9b9040 after the schema (15:19:26 < 15:19:44); deliveries route 401 unauthenticated; send fail-safe proven by CI test | #26 | — | 0 | DONE
+- 2026-10-14 window step 4 (#65a) | NEW backup maos-20261014T152821Z.dump: sha256 MATCH, list 429/45, isolated restore OK; prechecks 11/0, objects absent, distinct client keys 0; applied 20261013123256_add_customer (checkout ba05df2 with the invite folder removed locally); post 12/0, CustomerStatus enum, nullable customerId on Project/Invoice/FileAsset, 7 indexes, FKs NO ACTION, 0 invalid; fill-in 0 created/0 changed, re-run 0/0; wrong mappings 0, unlinked 0; observation: 1 pre-existing CLIENT membership without a key (fail-closed, unchanged); #65 code not deployed | #65 | — | 0 | DONE
