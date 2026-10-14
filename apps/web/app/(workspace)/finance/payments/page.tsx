@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { ErrorState } from '@/components/states/error-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { toCents } from '@/lib/money';
+import { createIdempotencyKeys } from '@/lib/idempotency';
 
 type Payment = { id: string; amountCents: number; currency: string; method: string; status?: string; receivedAt?: string; invoice?: { invoiceNumber: string } };
 
@@ -17,6 +18,7 @@ export default function PaymentsPage() {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ amountCents: '', currency: 'EUR', method: 'MANUAL' });
+  const submitKeys = useRef(createIdempotencyKeys());
 
   useEffect(() => { load(); }, []);
   async function load() {
@@ -35,7 +37,13 @@ export default function PaymentsPage() {
       return;
     }
     try {
-      await apiFetch('/payments', { method: 'POST', body: JSON.stringify({ ...form, amountCents }) });
+      const body = JSON.stringify({ ...form, amountCents });
+      await apiFetch('/payments', {
+        method: 'POST',
+        body,
+        headers: { 'Idempotency-Key': submitKeys.current.keyFor(body) },
+      });
+      submitKeys.current.reset();
       setForm({ amountCents: '', currency: 'EUR', method: 'MANUAL' }); setShowForm(false); load();
     } catch (e: any) { alert(e.message); }
   }

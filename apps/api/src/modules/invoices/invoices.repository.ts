@@ -247,20 +247,31 @@ export class InvoicesRepository {
     });
     if (existing) return { created: false };
 
-    await this.prisma.revenueRecord.create({
-      data: {
-        tenantId: params.tenantId,
-        sourceType: 'invoice',
-        amountCents: params.amountCents,
-        currency: params.currency,
-        invoiceId: params.invoiceId,
-        projectId: params.projectId ?? undefined,
-        clientScopeKey: params.clientScopeKey ?? undefined,
-        createdByUserId: params.actorId,
-      },
-    });
-
-    return { created: true };
+    // The check above handles the ordinary case. Two concurrent settlements
+    // can both pass it; the unique (tenantId, invoiceId) constraint (MAOS-T40)
+    // then lets exactly one insert win, and the losing insert is the expected
+    // "already posted" outcome. Keeping the check makes this code safe to
+    // deploy before or after the migration.
+    try {
+      await this.prisma.revenueRecord.create({
+        data: {
+          tenantId: params.tenantId,
+          sourceType: 'invoice',
+          amountCents: params.amountCents,
+          currency: params.currency,
+          invoiceId: params.invoiceId,
+          projectId: params.projectId ?? undefined,
+          clientScopeKey: params.clientScopeKey ?? undefined,
+          createdByUserId: params.actorId,
+        },
+      });
+      return { created: true };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return { created: false };
+      }
+      throw error;
+    }
   }
 
   /** Client recipients of a project, used to address the invoice email. */
@@ -286,4 +297,34 @@ export class InvoicesRepository {
       select: { email: true },
     });
   }
+
+  /** One EmailMessage per attempted recipient of a document email (MAOS-T44). */
+  async recordEmailDeliveries(
+    tenantId: string,
+    resourceType: string,
+    resourceId: string,
+    deliveries: Array<{ recipient: string; accepted: boolean; providerMessageId: string | null }>,
+  ): Promise<void> {
+    if (deliveries.length === 0) return;
+    await this.prisma.emailMessage.createMany({
+      data: deliveries.map((d) => ({
+        tenantId,
+        resourceType,
+        resourceId,
+        recipient: d.recipient.toLowerCase(),
+        providerMessageId: d.providerMessageId,
+        status: d.accepted ? 'SENT' : 'FAILED',
+      })),
+    });
+  }
+
+  /** Delivery status per recipient for one invoice, newest first. */
+  listInvoiceDeliveries(tenantId: string, invoiceId: string) {
+    return this.prisma.emailMessage.findMany({
+      where: { tenantId, resourceType: 'Invoice', resourceId: invoiceId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, recipient: true, status: true, lastEventAt: true, createdAt: true },
+    });
+  }
+
 }
