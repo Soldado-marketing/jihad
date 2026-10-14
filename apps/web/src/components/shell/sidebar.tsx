@@ -22,6 +22,7 @@ const navGlyphs: Record<string, string> = {
   chat: 'CH',
   collaboration: 'CO',
   crm: 'CR',
+  customers: 'CU',
   dashboard: 'DA',
   files: 'FI',
   finance: 'FN',
@@ -40,7 +41,7 @@ const navGroups = [
     label: 'Workspace',
   },
   {
-    ids: ['projects', 'tasks', 'crm'],
+    ids: ['projects', 'tasks', 'customers', 'crm'],
     label: 'Delivery',
   },
   {
