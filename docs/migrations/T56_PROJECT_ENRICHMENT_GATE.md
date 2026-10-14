@@ -1,7 +1,7 @@
 # Migration gate: project enrichment (MAOS-T56/T57)
 
 Status: **GATED. Do not merge or apply without the owner's migration approval.**
-Branch: `schema/project-enrichment`. Prepared 2026-10-14. Follows the per-migration procedure of `MIGRATION_GATE_REPORT_2026-10-13.md`: a new fresh backup with sha256, `pg_restore --list` and an isolated restore, then prechecks, apply, verify, and only then the code.
+Branch: `schema/project-enrichment`. Prepared 2026-10-14; re-audited 2026-10-15 (see "Audit 2026-10-15"). Follows the per-migration procedure of `MIGRATION_GATE_REPORT_2026-10-13.md`: a new fresh backup with sha256, `pg_restore --list` and an isolated restore, then prechecks, apply, verify, and only then the code.
 
 ## The migration
 
@@ -22,7 +22,7 @@ The new code (T57) selects the new columns, so **migration first, then code**, a
 
 ## What the code does (T57)
 
-- **Budget** (`budgetCents`) is finance data. Only the OWNER may set or clear it, and it is removed from every project response for other roles: list, detail and write responses. This is checked against the database membership.
+- **Budget** (`budgetCents`) is finance data. Only the OWNER may set or clear it (403 otherwise), and it is removed from every project response for other roles: list, detail and write responses. Create, update and delete load only the id. DELETE answers 204 with no body. Every other module that reads projects selects narrow fields (search, client portal, activity, tenant references, finance names) or only counts them (customers). This is checked against the database membership.
 - **Responsible user** must be an ACTIVE internal member of the tenant.
 - **Customer:** an active Customer of the tenant. The project's `clientScopeKey` is set from it in the same write (ADR-017); `null` detaches and clears both. The client portal keeps its explicit field lists, so no new field reaches clients.
 - **Project number:** unique per tenant (409 on a clash), assigned `P-0001`, `P-0002`… when left out, retried on a concurrent create. Existing projects stay unnumbered until edited; there is no data backfill.
@@ -32,9 +32,17 @@ The new code (T57) selects the new columns, so **migration first, then code**, a
 
 13 migrations finished, 0 failed; none of the five columns exists; 1 project.
 
+## Audit 2026-10-15
+
+- The branch had fallen 9 commits behind main (T63/T64 search, docs) and was CONFLICTING. It was re-merged with main (conflict in `ci.yml` only; both suites kept) and re-merged again after the test-flake fix (#88). The migration file is unchanged (sha256 prefix `c63af1c8656f`).
+- Hardening: the project delete now loads only the id, and a test checks that DELETE answers 204 with an empty body.
+- Production precheck (read-only, PostgreSQL 18.6): 13/0 migrations, none of the 5 columns or 3 indexes present, 1 project (112 kB), 0 long transactions.
+- **Rehearsal** on one disposable PostgreSQL 18 database in production order: main's suites seed data (33 projects); T56 is the only pending migration; after applying it, 14/0 migrations, **0 rows carry a new value**, no unvalidated constraint, no invalid index. **Old code (main) on the new schema** and **new code** both run their full suites and boot with health 200/200.
+- The one failure seen in an earlier rehearsal run was a pre-existing race in the customer fill-in test (it also failed on main without T56). It was fixed in #88 and re-verified with 3 runs of 722 tests, 0 failures.
+
 ## Evidence (disposable PostgreSQL)
 
-- `project-enrichment` **8/8**, with **5/5 mutations caught**: budget not stripped, manager edits budget, client as responsible user, client key not set, archived tasks counted.
+- `project-enrichment` **9/9** (8 + the delete check), with **5/5 mutations caught**: budget not stripped, manager edits budget, client as responsible user, client key not set, archived tasks counted.
 - Gate 327/327, integration 322/322 (35 + 287, run as CI runs it), full API 437 tests with 0 failures.
 - The repository invariant (every Prisma call names its tenant) holds; `project.create` takes the tenant explicitly.
 
