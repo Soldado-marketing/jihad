@@ -132,9 +132,21 @@ describe('customer backfill (MAOS-T51)', { skip }, () => {
     assert.equal((await prisma.fileAsset.findUnique({ where: { id: f1.id } })).customerId, ca.id);
     assert.ok((await prisma.invoice.findUnique({ where: { id: inv.id } })).customerId);
 
+    // Idempotency is checked on this suite's own tenants. The fill-in is global
+    // and other suites run in parallel, creating client-keyed rows in their
+    // own tenants, so the global counts of a second run need not be 0 (this
+    // assertion was flaky in CI-style runs).
+    const mine = { tenantId: { in: [t.a.id, t.b.id] } };
+    const snapshot = async () => JSON.stringify([
+      await prisma.customer.findMany({ where: mine, orderBy: { id: 'asc' }, select: { id: true, clientScopeKey: true } }),
+      await prisma.project.findMany({ where: mine, orderBy: { id: 'asc' }, select: { id: true, customerId: true } }),
+      await prisma.invoice.findMany({ where: mine, orderBy: { id: 'asc' }, select: { id: true, customerId: true } }),
+      await prisma.fileAsset.findMany({ where: mine, orderBy: { id: 'asc' }, select: { id: true, customerId: true } }),
+    ]);
+    const before = await snapshot();
     const again = await backfillCustomers(prisma, { dryRun: false });
-    assert.equal(again.customersCreated, 0);
-    assert.deepEqual(again.rowsChanged, { Project: 0, Invoice: 0, FileAsset: 0 });
+    assert.equal(again.dryRun, false);
+    assert.equal(await snapshot(), before, 'a re-run creates and relinks nothing in these tenants');
   });
 
   it('repairs a customerId that does not match the row key', async () => {
