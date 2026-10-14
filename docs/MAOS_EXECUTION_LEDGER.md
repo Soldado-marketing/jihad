@@ -17,16 +17,16 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 | Field | Value |
 |---|---|
 | CURRENT_PHASE_OR_WAVE | Migration gate COMPLETE (2026-10-14); Customer/time-tracking chain unblocked |
-| ACTIVE_TASK | MAOS-T63 Permission-aware global search API |
+| ACTIVE_TASK | MAOS-T64 Global search UI and command palette |
 | TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/global-search-api |
+| CURRENT_BRANCH | feat/global-search-ui |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
-| MAIN_HEAD_LAST_VERIFIED | `c274413` (#83 merged) |
+| MAIN_HEAD_LAST_VERIFIED | `ab3c639` (#85 merged) |
 | PR_URL | none gated - #36, #38, #26, #65 merged after their migrations |
 | PR_STATUS | open, CI running |
 | CI_STATUS | main green |
-| COMPLETED_ATOMIC_STEP | T63 implemented and tested: global-search 6/6 (4 mutations) |
-| EXACT_NEXT_ACTION | Land T63; then T64 global search UI / command palette (deps T63). Gated: #84 (T56/T57). Then decision sheet when only gated work remains. |
+| COMPLETED_ATOMIC_STEP | T64 implemented and tested: web global-search 6/6, web 168/168, local visual check |
+| EXACT_NEXT_ACTION | Land T64. Remaining registry work is gated: #84 T56/T57 migration (unblocks T54, T58, T71-T76, T118), T45 (webhook secret), T46 (real-data gate), D2 setup, pmset. Then decision sheet. |
 | TESTS_PENDING | — |
 | BLOCKERS | none for the migration gate |
 | OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open resilience risk: backups only on this Mac); (3) future migrations (T56, T71, T77...) each need their own approval |
@@ -186,7 +186,8 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | #66 MERGED (`b8001b1`) | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_MERGED |
 | MAOS-F-UI1 | Define theme colours used by auth and settings screens | fix/theme-token-aliases | #67 MERGED (`e17e0da`) | web 152/152 (theme-tokens guard, mutation-checked) | 0 | COMPLETE_MERGED |
 | MAOS-T53 | Customer list UI | feat/customer-list-ui | #83 MERGED (`c274413`) | web customers 6/6 (2 mutations), web 162/162, build OK | 0 | COMPLETE_MERGED |
-| MAOS-T63 | Permission-aware global search API | feat/global-search-api | (this PR) | global-search 6/6 (4 mutations) | 0 | COMPLETE_AWAITING_MERGE |
+| MAOS-T63 | Permission-aware global search API | feat/global-search-api | #85 MERGED (`ab3c639`) | global-search 6/6 (4 mutations) | 0 | COMPLETE_MERGED |
+| MAOS-T64 | Global search UI and command palette | feat/global-search-ui | (this PR) | web global-search 6/6, web 168/168, local visual check | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -593,3 +594,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MIGRATION GATE COMPLETE 2026-10-14 | #36 -> #38 -> #26 -> #65a -> #65b applied in order, five distinct fresh backups (144626Z, 145600Z, 151903Z, 152821Z, 152956Z), each sha256 + pg_restore --list + isolated restore verified; #36 with the technical SHARE ROW EXCLUSIVE freeze; every PR's code deployed only after its schema (finish < deploy times recorded); no migrate resolve, no rollback, no destructive action. Safer choices recorded: no production payment written for the #38 smoke (CI/rehearsal prove replay); authenticated Customer/invite flows verified by CI + rehearsal, production checked with unauthenticated route probes and read-only invariants. Open: D2 off-site copy not configured; pmset wake pending | — | — | 0 | COMPLETE
 - MAOS-T53 | Customer list UI | feat/customer-list-ui | PR | web customers 6/6 (2 mutations), web 162/162, build OK | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T63 | Permission-aware global search API | feat/global-search-api | PR | global-search 6/6 (4 mutations) | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T64 | Global search UI and command palette | feat/global-search-ui | PR | web global-search 6/6, web 168/168, local visual check | 0 | COMPLETE_AWAITING_MERGE
