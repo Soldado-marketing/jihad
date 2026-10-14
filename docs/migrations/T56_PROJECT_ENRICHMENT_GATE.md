@@ -79,12 +79,17 @@ The 2026-10-13/14 windows used helper scripts in a session scratchpad. They are 
 - `scripts/db-readonly-check.sh`: runs a check file in `postgres:18` in a session forced read-only (`default_transaction_read_only=on`).
 - `docs/migrations/T56_precheck.sql`, `docs/migrations/T56_postcheck.sql`: the precheck and post-apply verification queries.
 
-Run from `~/Developer/MAOS/claude` with the approved commit checked out (`npm ci` done in `apps/api`):
+Run from `~/Developer/MAOS/claude` (backup, restore and read-only checks), and run the migration guard from a **clean worktree of the approved #84 head**. The main checkout keeps a local `apps/api/.env`, which the guard refuses by design. The worktree uses the main checkout's installed Prisma CLI, which is pinned by the lockfile (6.19.3, lockfile unchanged on #84):
+
+```
+git worktree add --detach ~/Developer/MAOS/windows/T56 <approved #84 head>
+export MAOS_PRISMA_BIN=~/Developer/MAOS/claude/apps/api/node_modules/.bin/prisma
+```
 
 1. `docker info`; fresh backup `MAOS_BACKUP_CREDENTIAL_SOURCE=keychain caffeinate -i scripts/nightly-backup.sh` → `SUCCESS`, new `maos-<UTC>.dump`.
 2. `shasum -a 256` of the dump equals its `.dump.sha256`; `pg_restore --list` in `postgres:18` is non-empty with every table; `scripts/restore-rehearsal.sh <dump>` → `REHEARSAL OK`.
 3. `scripts/db-readonly-check.sh docs/migrations/T56_precheck.sql` → 13 finished / 0 failed, 0 columns, 0 indexes, 0 long transactions, row counts recorded.
-4. `scripts/migrate-deploy-one.sh check 20261014155254_project_enrichment 43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c` → `CHECK OK`.
+4. In `~/Developer/MAOS/windows/T56`: `scripts/migrate-deploy-one.sh check 20261014155254_project_enrichment 43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c` → `CHECK OK`.
 5. **Owner-approved write:** the same command with `apply` → `APPLY OK`.
 6. `scripts/db-readonly-check.sh docs/migrations/T56_postcheck.sql` → 14/0, 5 nullable columns, 3 indexes, FK `ON DELETE SET NULL` validated, 0 invalid indexes, 0 rows with a new value, row counts unchanged; health `/api/health` and `/api/health/ready` 200.
 7. Merge #84 (merge commit); main CI green, Railway `jihad` SUCCESS on that commit, health 200/200, logs clean.
