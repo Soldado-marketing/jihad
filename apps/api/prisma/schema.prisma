@@ -966,6 +966,7 @@ model RevenueRecord {
   updatedAt       DateTime @updatedAt
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, invoiceId])
   @@index([tenantId, sourceType])
   @@index([tenantId, projectId])
   @@index([tenantId, invoiceId])
