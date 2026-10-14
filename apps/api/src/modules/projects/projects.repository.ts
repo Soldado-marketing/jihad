@@ -1,8 +1,18 @@
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProjectDto } from './dto/create-project.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
+
+/** Fields every project read returns; budgetCents is removed for non-OWNERs by the service. */
+const ENRICHED = {
+  serviceType: true,
+  budgetCents: true,
+  deadline: true,
+  projectNumber: true,
+  owner: { select: { id: true, displayName: true } },
+  customer: { select: { id: true, name: true } },
+} satisfies Prisma.ProjectSelect;
+
+export type ProjectWrite = Prisma.ProjectUncheckedUpdateInput;
 
 @Injectable()
 export class ProjectsRepository {
@@ -20,19 +30,14 @@ export class ProjectsRepository {
         clientVisible: true,
         createdAt: true,
         updatedAt: true,
+        ...ENRICHED,
         _count: { select: { tasks: { where: taskScope } } },
       },
     });
   }
 
-  create(tenantId: string, actorId: string, dto: CreateProjectDto) {
-    return this.prisma.project.create({
-      data: {
-        tenantId,
-        name: dto.name,
-        description: dto.description,
-      },
-    });
+  create(data: Prisma.ProjectUncheckedCreateInput) {
+    return this.prisma.project.create({ data, select: { id: true } });
   }
 
   getById(tenantId: string, id: string, scope: Prisma.ProjectWhereInput = {}, taskScope: Prisma.TaskWhereInput = {}) {
@@ -45,24 +50,51 @@ export class ProjectsRepository {
           orderBy: { createdAt: 'desc' },
           take: 20,
         },
+        owner: ENRICHED.owner,
+        customer: ENRICHED.customer,
         _count: { select: { tasks: { where: taskScope } } },
       },
     });
   }
 
-  update(tenantId: string, id: string, dto: UpdateProjectDto) {
-    return this.prisma.project.update({
-      where: { id, tenantId },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.clientVisible !== undefined && { clientVisible: dto.clientVisible }),
-      },
-    });
+  update(tenantId: string, id: string, data: ProjectWrite) {
+    return this.prisma.project.update({ where: { id, tenantId }, data, select: { id: true } });
   }
 
   delete(tenantId: string, id: string) {
     return this.prisma.project.delete({ where: { id, tenantId } });
+  }
+
+  /** Task counts per project and status, within the caller's task scope. */
+  taskStatusCounts(tenantId: string, projectIds: string[], taskScope: Prisma.TaskWhereInput = {}) {
+    if (projectIds.length === 0) return Promise.resolve([]);
+    return this.prisma.task.groupBy({
+      by: ['projectId', 'status'],
+      where: { tenantId, projectId: { in: projectIds }, AND: [taskScope] },
+      _count: { _all: true },
+    });
+  }
+
+  /** The highest automatic number ("P-0007") in the tenant, or 0. */
+  async maxAutoNumber(tenantId: string): Promise<number> {
+    const rows = await this.prisma.project.findMany({
+      where: { tenantId, projectNumber: { startsWith: 'P-' } },
+      select: { projectNumber: true },
+    });
+    return rows.reduce((max, r) => {
+      const m = /^P-(\d{1,9})$/.exec(r.projectNumber ?? '');
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 0);
+  }
+
+  membership(tenantId: string, userId: string) {
+    return this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+      select: { role: true, status: true },
+    });
+  }
+
+  customer(tenantId: string, id: string) {
+    return this.prisma.customer.findFirst({ where: { id, tenantId }, select: { id: true, status: true, clientScopeKey: true } });
   }
 }

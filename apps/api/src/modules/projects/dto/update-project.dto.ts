@@ -1,5 +1,7 @@
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
+import { MAX_BUDGET_CENTS, PROJECT_NUMBER_PATTERN } from './create-project.dto';
 
+/** null clears an optional field. */
 export class UpdateProjectDto {
   @IsOptional()
   @IsString()
@@ -26,4 +28,41 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsBoolean()
   clientVisible?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(80)
+  serviceType?: string | null;
+
+  /** Finance data: only the OWNER may change it (checked in the service). */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(MAX_BUDGET_CENTS)
+  budgetCents?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsDateString()
+  deadline?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(64)
+  ownerUserId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Matches(PROJECT_NUMBER_PATTERN, { message: 'projectNumber: 1-40 letters, digits, dot, underscore or hyphen' })
+  projectNumber?: string | null;
+
+  /** null detaches the project from its customer and clears its client key. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(64)
+  customerId?: string | null;
 }
