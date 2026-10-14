@@ -326,6 +326,7 @@ model User {
   registrationRequests RegistrationRequest[]
   reviewedRegistrations RegistrationRequest[] @relation("RegistrationReviewer")
   responsibleCustomers Customer[]           @relation("CustomerResponsible")
+  ownedProjects        Project[]            @relation("ProjectOwner")
 
   @@index([status])
 }
@@ -488,10 +489,19 @@ model Project {
   // ADR-017: set by the API from clientScopeKey, never from a request:
   // always the Customer owning the same key in this tenant, or null.
   customerId     String?
+  // T56 project enrichment (Blueprint §11). All optional; budgetCents is
+  // finance data and is returned to the OWNER only.
+  serviceType    String?
+  budgetCents    Int?
+  deadline       DateTime?
+  ownerUserId    String?
+  // Unique per tenant; assigned on create when not given.
+  projectNumber  String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: NoAction)
+  owner       User?           @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   members     ProjectMember[]
   tasks       Task[]
   fileAssets  FileAsset[]    @relation("FileAssetProject")
@@ -502,6 +512,9 @@ model Project {
   @@index([tenantId, clientVisible])
   @@index([tenantId, clientScopeKey])
   @@index([tenantId, customerId])
+  @@unique([tenantId, projectNumber])
+  @@index([tenantId, ownerUserId])
+  @@index([tenantId, deadline])
   @@index([tenantId, name])
 }
 
