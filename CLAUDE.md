@@ -57,7 +57,7 @@ curl http://localhost:3001/api/health
 ├── apps/api/            ← NestJS backend (PostgreSQL via Prisma)
 │   ├── src/
 │   │   ├── common/      ← guards, decorators, interceptors, tenant context
-│   │   └── modules/     ← 43 feature modules
+│   │   └── modules/     ← 44 feature modules
 │   └── prisma/          ← schema.prisma + migrations/
 ├── apps/web/            ← Next.js 15 frontend (App Router)
 │   ├── app/             ← routes: (auth)/, (client)/, (workspace)/
@@ -80,7 +80,7 @@ Every feature follows the same structure inside `apps/api/src/modules/<feature>/
 - `<feature>.repository.ts` — Prisma data access
 - `dto/` — request/response DTOs with `class-validator` decorators
 
-The 43 modules: `admin-users`, `approvals`, `audit`, `auth`, `calendar`, `chat`, `client-portal`, `collaboration`, `crm`, `customers`, `dashboards`, `devices`, `file-versions`, `files`, `finance`, `follow-ups`, `health`, `invites`, `invoices`, `labels`, `leads`, `login-history`, `mail`, `meetings`, `memberships`, `my-work`, `notifications`, `opportunities`, `payments`, `permissions`, `prisma`, `projects`, `reports`, `scheduler`, `sessions`, `storage`, `subtasks`, `tasks`, `tenant-context`, `tenants`, `users`, `voice-notes`, `voice-to-task`.
+The 44 modules: `admin-users`, `approvals`, `audit`, `auth`, `calendar`, `chat`, `client-portal`, `collaboration`, `crm`, `customers`, `dashboards`, `devices`, `file-versions`, `files`, `finance`, `follow-ups`, `health`, `invites`, `invoices`, `labels`, `leads`, `login-history`, `mail`, `meetings`, `memberships`, `my-work`, `notifications`, `opportunities`, `payments`, `permissions`, `prisma`, `projects`, `reports`, `scheduler`, `search`, `sessions`, `storage`, `subtasks`, `tasks`, `tenant-context`, `tenants`, `users`, `voice-notes`, `voice-to-task`.
 
 ### Multi-Tenancy
 
