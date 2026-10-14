@@ -1,10 +1,10 @@
 # Migration Gate Report: #36 → #38 → #26 → #65 (2026-10-13)
 
-**Status: PREPARED, NOT APPLIED. One owner approval covers this report. Each migration still gets its own fresh, verified backup immediately before it is applied.**
+**Status: PREPARED, NOT APPLIED. Independently re-audited 2026-10-14 (see "Audit 2026-10-14"). One owner approval covers this report. Each migration still gets its own fresh, verified backup immediately before it is applied.**
 
 This supersedes the procedure in `MIGRATION_GATE_REPORT_2026-10-11.md`, which stays as history (it applied three migrations in one `migrate deploy`). The owner's order and rule of 2026-10-13 apply: one migration at a time, each with a fresh backup, sha256 check, `pg_restore --list` and prechecks.
 
-## Production state (read-only, 2026-10-13 21:2x UTC)
+## Production state (read-only, 2026-10-13 21:2x UTC; re-checked 2026-10-14 with the same results)
 
 Read with `default_transaction_read_only = on`. The credential came from the Keychain into an env var and was never printed.
 
@@ -28,7 +28,7 @@ Starting from `main`'s 8 migrations, one `prisma migrate deploy` per step. Each 
 
 | Step | PR | Migration | Changes | Existing rows modified | Lock / downtime | Code needs schema first? |
 |---|---|---|---|---|---|---|
-| 1 | #36 T40 | `20261011085435_revenue_record_unique_invoice` | `CREATE UNIQUE INDEX "RevenueRecord_tenantId_invoiceId_key" ON "RevenueRecord"("tenantId","invoiceId")` | none | write lock on RevenueRecord during build (1 row: ms) | No (code is safe either way; the index makes the T40 race impossible) |
+| 1 | #36 T40 | `20261011085435_revenue_record_unique_invoice` | `CREATE UNIQUE INDEX "RevenueRecord_tenantId_invoiceId_key" ON "RevenueRecord"("tenantId","invoiceId")` | none | write lock on RevenueRecord during build (1 row: ms) | No crash either way, but only the index stops duplicates; precheck immediately before apply, writes frozen |
 | 2 | #38 D16b | `20261011090404_payment_idempotency_key` | `ALTER TABLE "Payment" ADD COLUMN "idempotencyKey" TEXT`; `CREATE UNIQUE INDEX "Payment_tenantId_idempotencyKey_key" ON "Payment"("tenantId","idempotencyKey")` | none (2 rows read NULL; no rewrite) | brief exclusive lock (catalog-only column) + ms index build | **Yes**, see below |
 | 3 | #26 T44 | `20261010134025_add_email_delivery_tracking` | enum `EmailDeliveryStatus` (6 values); tables `EmailMessage`, `EmailEvent`; unique `EmailMessage.providerMessageId`; indexes `(tenantId, resourceType, resourceId)`, `(emailMessageId, occurredAt)`, `EmailEvent(tenantId)`; FKs → `Tenant`, → `EmailMessage` (CASCADE) | none | new objects; brief share lock on `Tenant` for the FK | **Yes** |
 | 4 | #65 T50 | `20261013123256_add_customer` | enum `CustomerStatus`; table `Customer` (`UNIQUE(tenantId, clientScopeKey)`); nullable `customerId` on `Project`, `Invoice`, `FileAsset` + `(tenantId, customerId)` indexes; FKs `ON DELETE NO ACTION` | none (new columns NULL) | catalog-only columns; ms index builds; FK validation over NULLs | **Yes** |
@@ -38,15 +38,18 @@ Starting from `main`'s 8 migrations, one `prisma migrate deploy` per step. Each 
 
 ### Why the order is migration → then code (and never the reverse)
 
-- **#38:** the new code adds `idempotencyKey` to the Payment model. Prisma selects every scalar column by default, so with the new image and no column, **every payment read and write would fail** (`column "idempotencyKey" does not exist`). The replay lookup also queries it. The migration must be applied and verified **before** #38 is merged/deployed.
-- **#26:** the invoice-send path writes `EmailMessage` rows (that write is failure-safe), but `GET /invoices/:id/deliveries` reads the table and would answer 500. So: migration first, then the code.
-- **#65:** Project, Invoice and FileAsset gain `customerId` in the model, so the default selects on projects, invoices and files would fail without the columns, and the `/customers` routes need the table. Migration first, then the code. Both #65 migrations run before #65 is merged.
-- **#36:** the code (P2002 handling) works with or without the index. Applying first is still the rule.
+- **#38:** the new code adds `idempotencyKey` to the Payment model. Without the column: **recording any payment fails** (`payment.create` returns every scalar column), the replay lookup (`findFirst` by `idempotencyKey`) fails, and so does any payment read without an explicit `select`. Payment lists with an explicit `select` keep working. *(Corrected 2026-10-14: an earlier version said "every payment read" would fail.)* Rehearsal: #38's payment suites on the old schema, **16 of 21 failed**. The migration must be applied and verified **before** #38 is merged/deployed.
+- **#26:** the invoice-send path writes `EmailMessage` rows inside `try/catch` (`trackDeliveries` logs and continues; test "never fails a send because tracking failed"), so sending stays safe. But `GET /invoices/:id/deliveries` reads the table and would answer 500; rehearsal: the deliveries suite could not even start on the old schema. So: migration first, then the code.
+- **#65:** Project, Invoice and FileAsset gain `customerId` in the model, so the default selects on projects, invoices and files would fail without the columns, and the `/customers` routes need the table. Rehearsal: #65's suites on the old schema, **22 of 24 failed**. Migration first, then the code. Both #65 migrations run before #65 is merged.
+- **#36:** the code (P2002 handling) does not crash with or without the index, but **only the index prevents duplicate revenue rows**. Until it exists, production code can still create a duplicate `(tenantId, invoiceId)` under a concurrent double post (reproduced in the 2026-10-14 rehearsal), which would make the index build fail. Therefore the #36 precheck runs **immediately** before the apply, with writes frozen.
 - Old code on any new schema works: every change is additive and unused by old code. This is what makes "migration first" safe.
 
 ## Per-migration procedure (repeat for steps 1 → 5; stop the chain on any failure)
 
-Run from a dedicated local checkout of the step's PR branch, brought up to date with `main` by merge (no rebase). It must contain exactly the migration folders applied so far plus this step's folder (the rehearsal above). Never pass credentials on a command line.
+Run from a dedicated local checkout of the step's PR branch, **re-merged with `main` after the previous step's PR was merged** (merge commit, no rebase; CI green on the PR before continuing). It must contain exactly the migration folders applied so far plus this step's folder. Never pass credentials on a command line.
+
+- **Expected re-merge conflicts:** `.github/workflows/ci.yml` on #38, #26 and #65 (test lists and count comments: keep both sides). **#65 also conflicts with #26 in `apps/api/prisma/schema.prisma`**: both add one relation line to `model Tenant` (`emailMessages EmailMessage[]` and `customers Customer[]`); keep both lines. Neither conflict touches a migration file.
+- **Steps 4 and 5 (#65's two migrations):** step 4 runs from a local copy of the #65 checkout with the folder `20261013212118_add_invite_customer` removed (not committed), so that only `add_customer` is applied; step 5 runs from the full checkout. Each gets its own fresh backup. #65's code is deployed only after step 5.
 
 1. **Docker check:** `docker info` succeeds (lesson of 2026-10-13: the dump and rehearsal need Docker). Freeze merges to `main`.
 2. **Fresh backup, just for this migration:** `caffeinate -i ~/MAOS_BACKUPS/runtime/current/scripts/nightly-backup.sh` with `MAOS_BACKUP_CREDENTIAL_SOURCE=keychain`. Expect `SUCCESS` and a new `maos-<UTC>.dump` with `.dump.sha256`. **Never reuse the backup of a previous step.**
@@ -54,7 +57,7 @@ Run from a dedicated local checkout of the step's PR branch, brought up to date 
 4. **`pg_restore --list`:** run it in `postgres:18` against the dump. The entry count must be non-zero and every table present (the last run had 429 entries / 43 tables).
 5. **Isolated rehearsal:** `~/MAOS_BACKUPS/runtime/current/scripts/restore-rehearsal.sh <dump>` → `REHEARSAL OK`. This never touches production.
 6. **Prechecks (read-only session):** `_prisma_migrations` = expected count with none failed, and this step's objects absent. Step-specific checks:
-   - **#36:** duplicate-group query → must be **0**: `SELECT count(*) FROM (SELECT "tenantId","invoiceId" FROM "RevenueRecord" WHERE "invoiceId" IS NOT NULL GROUP BY 1,2 HAVING count(*)>1) d;`
+   - **#36:** duplicate-group query → must be **0**, run immediately before step 7 with writes frozen: `SELECT count(*) FROM (SELECT "tenantId","invoiceId" FROM "RevenueRecord" WHERE "invoiceId" IS NOT NULL GROUP BY 1,2 HAVING count(*)>1) d;`
    - **#38:** no `Payment.idempotencyKey` column and no index.
    - **#26:** no `EmailMessage` / `EmailEvent` / `EmailDeliveryStatus`.
    - **#65:** no `Customer` / `CustomerStatus` / `customerId` columns; distinct-key count recorded (now 0).
@@ -82,7 +85,7 @@ As written in `docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md`:
 ## Containment if a step fails
 
 - **Any check in steps 1–6 fails:** stop. Nothing has changed. Record the evidence.
-- **`migrate deploy` fails (step 7):**
+- **`migrate deploy` fails (step 7):** (rehearsed 2026-10-14: a duplicate made the #36 index build fail with P3018; no partial index remained; Prisma then refused every later migration with P3009, so the chain stops by itself; old code kept serving, health 200)
   1. Stop the chain and **do not deploy that step's code**.
   2. No destructive rollback and no `DROP`. Preserve the evidence: `migrate status` output, `_prisma_migrations` row, server log.
   3. Production keeps running the old code, which ignores the new objects.
@@ -91,14 +94,32 @@ As written in `docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md`:
 - **The step's code misbehaves after deploy (step 9):** roll back the Railway `jihad` deployment to the previous one. The schema stays (forward-only), and the old code works with it. Stop the chain.
 - Independent safe work continues. `REAL_CLIENT_DATA_ALLOWED` stays **NO**; this window does not change it.
 
-## Evidence on the PR branches (local, fresh disposable DBs, 2026-10-13)
+## Audit 2026-10-14 (independent re-check of the real state)
+
+- **Heads:** #36 `1b84035`, #38 `81b53f8`, #26 `2f73cf4`, #65 `adb341e`. All four are current with `main` `c86ca48`, GitHub CI SUCCESS on every head, MERGEABLE; #65 is a draft.
+- **Migration files at those heads:** exactly one folder each (#65: two). Every statement is `CREATE TYPE/TABLE/INDEX` or `ALTER TABLE … ADD COLUMN/ADD CONSTRAINT`. **No UPDATE, DELETE, DROP, RENAME, ALTER COLUMN or SET NOT NULL**, and no added column is NOT NULL or has a default. No existing row is modified, and no data can be lost.
+- **Production prechecks (read-only, 2026-10-14):**
+  - 8 migrations, none failed;
+  - **#36 duplicate groups = 0** (1 RevenueRecord row, 0 with NULL invoiceId);
+  - every new object absent;
+  - 0 client keys;
+  - 3 connections, 0 long transactions.
+- **Full sequential rehearsal** on one disposable **PostgreSQL 18** database (production's version), with the same merge and migration order as production:
+  - main's 686 tests seeded realistic data first (36 tenants, invoices, payments, revenue, client-scoped rows);
+  - each step: precheck immediately before apply → apply that step only → **old code on the new schema: 0 failures** → new code: 0 failures → app boot health 200/200;
+  - totals: #36 681 pass, #38 687, #26 694, #65 706, all 0 failures (10 todo each);
+  - after #65: fill-in dry run → apply (10 customers created, 33 rows linked) → re-apply 0/0; **0 invariant violations, 0 keyed rows left unlinked, isolation suites 100/100**;
+  - no unvalidated constraints or invalid indexes at any point; final `migrate status`: up to date.
+- **Corrections to this report found by the audit:** the #38 wording, the #36 duplicate race and precheck timing, the #65/#26 `schema.prisma` re-merge conflict, the two-step #65 procedure, and the test counts below.
+
+## Evidence on the PR branches (local, fresh disposable DBs; re-measured 2026-10-13/14)
 
 | PR | Gate | Integration | Full API | Notes |
 |---|---|---|---|---|
-| #36 | 308/308 | 293/293 | 0 failures | all four re-merged with main and re-measured 2026-10-13 22:xx |
-| #38 | 308/308 | 294/294 | 0 failures | |
-| #26 | 312/312 | 291/291 | 0 failures | |
-| #65 | 308/308 | 300/300 (incl. invites 15/15 with CLIENT invites, customers 9/9) | 0 failures | CLIENT invites (4/4 mutations caught); isolation 80/80 before and after the fill-in |
+| #36 | 323/323 | 293/293 | 0 failures | one integration flake in one run; 258/258 twice on re-run |
+| #38 | 323/323 | 294/294 | 0 failures | |
+| #26 | 327/327 | 291/291 | 0 failures | |
+| #65 | 323/323 | 300/300 (incl. invites 15/15 with CLIENT invites, customers 9/9) | 0 failures | CLIENT invites (4/4 mutations caught); isolation 80/80 before and after the fill-in |
 
 ## Decision requested (one)
 
