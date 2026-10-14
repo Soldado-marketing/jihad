@@ -203,6 +203,14 @@ describe('project enrichment (MAOS-T56/T57)', { skip }, () => {
     assert.deepEqual(Object.keys(mine).sort(), ['id', 'name', 'status']);
   });
 
+  it('deleting answers 204 with no body, so no field (budget included) is returned', async () => {
+    const tmp = await as('owner').post('/projects', { name: 'To delete', budgetCents: 500 });
+    const del = await request(server).delete(`/api/projects/${tmp.body.id}`).set('Authorization', `Bearer ${u.manager.token}`);
+    assert.equal(del.status, 204);
+    assert.equal(del.text, '');
+    assert.equal(await prisma.project.count({ where: { id: tmp.body.id } }), 0);
+  });
+
   it('rejects malformed values', async () => {
     for (const body of [{ budgetCents: -1 }, { budgetCents: 1.5 }, { deadline: 'soon' }, { serviceType: 'x'.repeat(81) }]) {
       assert.equal((await as('owner').patch(`/projects/${p1.id}`, body)).status, 400, JSON.stringify(body));

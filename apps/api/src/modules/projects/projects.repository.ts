@@ -62,7 +62,8 @@ export class ProjectsRepository {
   }
 
   delete(tenantId: string, id: string) {
-    return this.prisma.project.delete({ where: { id, tenantId } });
+    // Only the id: a deleted row must not carry budgetCents back to any caller.
+    return this.prisma.project.delete({ where: { id, tenantId }, select: { id: true } });
   }
 
   /** Task counts per project and status, within the caller's task scope. */
