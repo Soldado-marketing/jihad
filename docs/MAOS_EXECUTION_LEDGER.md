@@ -17,16 +17,16 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 | Field | Value |
 |---|---|
 | CURRENT_PHASE_OR_WAVE | Migration gate COMPLETE (2026-10-14); Customer/time-tracking chain unblocked |
-| ACTIVE_TASK | Next dependency-ready work after the migration gate (Customer chain: T53-T55; T56 needs its own migration gate) |
-| TASK_STATUS | MIGRATION_WINDOW_COMPLETE |
-| CURRENT_BRANCH | main |
+| ACTIVE_TASK | MAOS-T53 Customer list UI |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
+| CURRENT_BRANCH | feat/customer-list-ui |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
-| MAIN_HEAD_LAST_VERIFIED | `c3b593f` (#65 merged; CI green, Railway SUCCESS, health 200/200; prod migrate status: 13, up to date) |
+| MAIN_HEAD_LAST_VERIFIED | `532a5e4` |
 | PR_URL | none gated - #36, #38, #26, #65 merged after their migrations |
-| PR_STATUS | — |
+| PR_STATUS | open, CI running |
 | CI_STATUS | main green |
-| COMPLETED_ATOMIC_STEP | Migration window done: #36, #38, #26, #65a, #65b applied, each behind its own fresh verified backup; all code deployed after its schema; logs 0 errors |
-| EXACT_NEXT_ACTION | Continue the unblocked chain in registry order: Customer UI/360 (T53-T55) on main; T56 (project enrichment schema) is a NEW migration -> prepare gated PR + gate report; then T71-T74 (wire labour-cost.ts) |
+| COMPLETED_ATOMIC_STEP | T53 implemented and tested: web customers 6/6 (2 mutations), web 162/162, build OK |
+| EXACT_NEXT_ACTION | Land T53; then T56 project enrichment schema as a gated migration PR + gate report (T54/T57 depend on it); T71-T74 after T56. |
 | TESTS_PENDING | — |
 | BLOCKERS | none for the migration gate |
 | OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open resilience risk: backups only on this Mac); (3) future migrations (T56, T71, T77...) each need their own approval |
@@ -185,6 +185,7 @@ Until MAOS-T39 the full suites carried 43 API + 3 web known failures (stale sour
 | MAOS-D8 | In-process scheduler with advisory locks; invite-expiry job | feat/scheduler | #64 MERGED (`d0f346b`) | scheduler 6/6 (5 mutations) | 0 | COMPLETE_MERGED |
 | MAOS-T142 | Deadline and approval reminders on the scheduler | feat/deadline-reminders | #66 MERGED (`b8001b1`) | deadline-reminders 4/4 (6 mutations) | 0 | COMPLETE_MERGED |
 | MAOS-F-UI1 | Define theme colours used by auth and settings screens | fix/theme-token-aliases | #67 MERGED (`e17e0da`) | web 152/152 (theme-tokens guard, mutation-checked) | 0 | COMPLETE_MERGED |
+| MAOS-T53 | Customer list UI | feat/customer-list-ui | (this PR) | web customers 6/6 (2 mutations), web 162/162, build OK | 0 | COMPLETE_AWAITING_MERGE |
 
 Unregistered branches: `feat/v2-a1-notifications` (A1 writers; superseded by T47 — keep for history, do not merge), `docs/consolidate` (superseded by T12; contains SH Investments content, must not be merged).
 
@@ -589,3 +590,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - 2026-10-14 window step 4 (#65a) | NEW backup maos-20261014T152821Z.dump: sha256 MATCH, list 429/45, isolated restore OK; prechecks 11/0, objects absent, distinct client keys 0; applied 20261013123256_add_customer (checkout ba05df2 with the invite folder removed locally); post 12/0, CustomerStatus enum, nullable customerId on Project/Invoice/FileAsset, 7 indexes, FKs NO ACTION, 0 invalid; fill-in 0 created/0 changed, re-run 0/0; wrong mappings 0, unlinked 0; observation: 1 pre-existing CLIENT membership without a key (fail-closed, unchanged); #65 code not deployed | #65 | — | 0 | DONE
 - 2026-10-14 window step 5 (#65b) + #65 deploy | NEW backup maos-20261014T152956Z.dump: sha256 MATCH, list 444/46, isolated restore OK; prechecks 12/0, column absent, Customer present, 0 invites; applied 20261013212118_add_invite_customer (finished 15:30:20Z); post 13/0, Invite.customerId TEXT NULL, index, FK NO ACTION, 0 invalid; #65 marked ready and merged c3b593f (deploy 15:35:06Z, after both #65 migrations); routes: /customers 401, /admin/invites 401, invite preview bad token 400, web invites 200; logs 0 errors; prod migrate status vs main: 13, up to date | #65 | — | 0 | DONE
 - MIGRATION GATE COMPLETE 2026-10-14 | #36 -> #38 -> #26 -> #65a -> #65b applied in order, five distinct fresh backups (144626Z, 145600Z, 151903Z, 152821Z, 152956Z), each sha256 + pg_restore --list + isolated restore verified; #36 with the technical SHARE ROW EXCLUSIVE freeze; every PR's code deployed only after its schema (finish < deploy times recorded); no migrate resolve, no rollback, no destructive action. Safer choices recorded: no production payment written for the #38 smoke (CI/rehearsal prove replay); authenticated Customer/invite flows verified by CI + rehearsal, production checked with unauthenticated route probes and read-only invariants. Open: D2 off-site copy not configured; pmset wake pending | — | — | 0 | COMPLETE
+- MAOS-T53 | Customer list UI | feat/customer-list-ui | PR | web customers 6/6 (2 mutations), web 162/162, build OK | 0 | COMPLETE_AWAITING_MERGE
