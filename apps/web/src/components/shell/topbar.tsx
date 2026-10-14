@@ -5,6 +5,7 @@ import { getApiHealthReference } from '@/api/health';
 import type { SupportedLocale } from '@/i18n/direction';
 import type { WorkspaceRole } from '@/navigation/roles';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { CommandPalette } from './command-palette';
 import { TopbarActions } from './topbar-actions';
 import { UserMenu } from './user-menu';
 
@@ -30,6 +31,7 @@ export function Topbar({ locale, role }: TopbarProps) {
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <TopbarActions apiHealth={apiHealth} locale={locale} />
+        <CommandPalette role={role} />
         <NotificationBell />
         <UserMenu role={role} />
       </div>
