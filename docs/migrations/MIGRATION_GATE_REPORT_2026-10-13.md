@@ -82,15 +82,26 @@ As written in `docs/migrations/T50_CUSTOMER_MIGRATION_GATE.md`:
 3. `GET /api/customers` as OWNER → 200, list matches the dry run; CONTRACTOR/CLIENT → 403.
 4. Client separation: the portal behaves exactly as before. `clientScopeKey` stays the authorization boundary; the Customer only references it and its key is immutable. The isolation suites already proved 80/80 before and after a real fill-in on a disposable copy.
 
-## #36 write freeze (amendment proposed 2026-10-14, NOT yet approved)
+## #36 write freeze (technical; amendment 2026-10-14, awaiting owner approval)
 
-The audited report says "writes frozen" for #36 but did not define how. Proposed definition. It is reversible and involves no production configuration change:
+The freeze is enforced **by the database, inside the #36 migration itself**. The migration was amended on its branch; it has never been applied to production. Owner inactivity is not the safety boundary.
 
-1. **Operational freeze:** for the minutes of step 1, the owner records no payments, sends no invoices and marks nothing paid. These are the only paths that create `RevenueRecord` rows. Production holds test data only (`REAL_CLIENT_DATA_ALLOWED = NO`), and the owner is the only active user.
-2. **Proof the freeze held:** record `count(*)` and `max("createdAt")` of `RevenueRecord` and `Payment` with the final duplicate precheck. Read them again immediately before `migrate deploy`. Apply only if both are unchanged and the precheck is still 0.
-3. **Atomic guarantee:** `CREATE UNIQUE INDEX` takes a SHARE lock that blocks `RevenueRecord` inserts while it builds, and it checks every existing row. A duplicate that slipped in anyway makes the build fail atomically: no index is created and no row changes. Prisma then blocks all later migrations (P3018, then P3009), so the chain stops by itself. This was rehearsed on 2026-10-14.
+`20261011085435_revenue_record_unique_invoice/migration.sql` runs as **one transaction**:
+1. `SET LOCAL lock_timeout = '5s'` and `statement_timeout = '60s'`.
+2. `LOCK TABLE "RevenueRecord" IN SHARE ROW EXCLUSIVE MODE`. This conflicts with the `ROW EXCLUSIVE` lock that every INSERT, UPDATE and DELETE takes, so no write to the table can start or be in flight while it is held. Plain reads still work. If a write transaction is open, the migration fails after 5 s instead of queueing writers behind it.
+3. With the lock held, a `DO` block raises `MAOS T40 precheck failed …` if any duplicate `(tenantId, invoiceId)` exists, which rolls back everything.
+4. `CREATE UNIQUE INDEX` (it needs `SHARE`, already covered by this transaction's lock). The lock ends with the transaction.
 
-Not proposed: scaling the API to zero or any other production configuration change.
+The file has no `BEGIN`/`COMMIT`. Prisma sends a migration file as **one simple-query message** (confirmed in the PostgreSQL statement log), and PostgreSQL runs that as one implicit transaction, rolled back as a whole on error. Prisma can still record the failure in `_prisma_migrations.logs`. An explicit `BEGIN` was tried first and rejected: it left the session aborted, so Prisma could not record the failure. If statements were ever sent one by one, `LOCK TABLE` would refuse to run outside a transaction block, so the freeze cannot be silently skipped.
+
+**Proof (PostgreSQL 18, through `prisma migrate deploy`, 29/29 checks):**
+- With the critical section widened by a test-only sleep, concurrent INSERT, UPDATE and DELETE all **waited**, and the migration held `ShareRowExclusiveLock`. Reads worked. Afterwards the duplicate INSERT was **rejected (23505)**, the other writes completed, there were 0 duplicate groups, and the index was valid.
+- Clean data: applied, migration row finished, no SET LOCAL or transaction warnings, no lingering lock.
+- A committed duplicate beforehand: refused with the T40 message, logged by Prisma (P3018). No index, no invalid index, rows untouched, and the next `migrate deploy` was blocked (P3009).
+- An uncommitted duplicate held open: the migration gave up within the 5 s lock_timeout. No index.
+- A duplicate committed just before: never applied over it; the migration was marked failed.
+
+**Secondary verification only:** keep the operational pause (no payments, invoice sends or mark-paid for the minutes of step 1), and record `RevenueRecord` and `Payment` counts and `max("createdAt")` with the step-6 precheck. Neither is the safety boundary.
 
 ## Containment if a step fails
 
