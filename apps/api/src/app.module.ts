@@ -39,6 +39,7 @@ import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { InvitesModule } from './modules/invites/invites.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { SearchModule } from './modules/search/search.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { MailModule } from './modules/mail/mail.module';
 
@@ -84,6 +85,7 @@ import { MailModule } from './modules/mail/mail.module';
     CustomersModule,
     InvitesModule,
     SchedulerModule,
+    SearchModule,
     LabelsModule,
   ],
   controllers: [HealthController],
