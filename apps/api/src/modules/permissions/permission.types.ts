@@ -47,6 +47,7 @@ export enum PermissionResource {
   DASHBOARD_WIDGET = 'dashboard-widget',
   REPORT = 'report',
   REPORT_RUN = 'report-run',
+  CUSTOMER = 'customer',
 }
 
 export interface PermissionRequirement {

@@ -3,6 +3,7 @@ import { ApprovalStatus, FileVersionStatus, FileVisibility, Prisma } from '@pris
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFileDto } from './dto/create-file.dto';
 import { UpdateFileDto } from './dto/update-file.dto';
+import { customerIdForKey } from '../customers/customer-link';
 
 // Minimal type for callers that only need id + tenantId
 export type FileAssetRecord = { id: string; tenantId: string; name?: string };
@@ -87,7 +88,7 @@ export class FilesRepository {
     });
   }
 
-  create(tenantId: string, actorId: string, dto: CreateFileDto) {
+  async create(tenantId: string, actorId: string, dto: CreateFileDto) {
     const visibility = visibilityFields(dto.visibility);
 
     return this.prisma.fileAsset.create({
@@ -100,6 +101,8 @@ export class FilesRepository {
         projectId: dto.projectId,
         taskId: dto.taskId,
         clientScopeKey: dto.clientScopeKey,
+        // ADR-017: derived from the key, never from the request.
+        customerId: await customerIdForKey(this.prisma, tenantId, dto.clientScopeKey),
         ...(visibility ?? {}),
       },
     });
@@ -124,14 +127,18 @@ export class FilesRepository {
     });
   }
 
-  update(tenantId: string, id: string, dto: UpdateFileDto) {
+  async update(tenantId: string, id: string, dto: UpdateFileDto) {
     const visibility = visibilityFields(dto.visibility);
+    // ADR-017: a new key moves the file to the Customer owning that key (or none).
+    const customerId =
+      dto.clientScopeKey !== undefined ? await customerIdForKey(this.prisma, tenantId, dto.clientScopeKey) : undefined;
 
     const data: Prisma.FileAssetUpdateInput = {
       ...(dto.name !== undefined && { name: dto.name }),
       ...(dto.mimeType !== undefined && { mimeType: dto.mimeType }),
       ...(dto.sizeBytes !== undefined && { sizeBytes: dto.sizeBytes }),
       ...(dto.clientScopeKey !== undefined && { clientScopeKey: dto.clientScopeKey }),
+      ...(customerId !== undefined && { customer: customerId ? { connect: { id: customerId } } : { disconnect: true } }),
       ...(visibility ?? {}),
     };
 

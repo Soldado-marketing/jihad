@@ -165,6 +165,7 @@ jobs:
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
+            test/customers.test.mjs \
             test/email-deliveries-endpoint.test.mjs \
             test/payment-idempotency.test.mjs \
             test/revenue-posting-unique.test.mjs \

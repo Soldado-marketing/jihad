@@ -33,6 +33,8 @@ const MANAGER_WRITE_RESOURCES = new Set<PermissionResource>([
   PermissionResource.DASHBOARD_WIDGET,
   PermissionResource.REPORT,
   PermissionResource.REPORT_RUN,
+  // ADR-017: OWNER and MANAGER maintain customers; archiving is OWNER only (service).
+  PermissionResource.CUSTOMER,
 ]);
 
 // Resources that EMPLOYEE can read + write (non-sensitive, non-finance).
@@ -55,6 +57,8 @@ const EMPLOYEE_READ_RESOURCES = new Set<PermissionResource>([
   PermissionResource.APPROVAL,
   PermissionResource.CHAT_CHANNEL,
   PermissionResource.REPORT,
+  // ADR-017: employees see the customer list; CONTRACTOR has no default access.
+  PermissionResource.CUSTOMER,
 ]);
 
 // Resources CONTRACTOR can access (read + task write).

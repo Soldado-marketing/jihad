@@ -59,6 +59,7 @@ export class InvitesService {
       });
     }
 
+    const customerId = await this.customerForRole(tenantId, dto.role, dto.customerId);
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
     const { token, tokenHash } = newInviteToken();
     const expiresAt = new Date(Date.now() + INVITE_TTL_HOURS * 60 * 60 * 1000);
@@ -70,8 +71,8 @@ export class InvitesService {
         data: { status: 'REVOKED', revokedAt: new Date() },
       });
       return tx.invite.create({
-        data: { tenantId, email, role: dto.role, status: 'SENT', tokenHash, expiresAt },
-        select: { id: true, email: true, role: true, status: true, expiresAt: true, createdAt: true },
+        data: { tenantId, email, role: dto.role, status: 'SENT', tokenHash, expiresAt, customerId },
+        select: { id: true, email: true, role: true, status: true, expiresAt: true, createdAt: true, customer: { select: { id: true, name: true } } },
       });
     });
 
@@ -96,7 +97,10 @@ export class InvitesService {
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
       take: 100,
-      select: { id: true, email: true, role: true, status: true, expiresAt: true, acceptedAt: true, revokedAt: true, createdAt: true },
+      select: {
+        id: true, email: true, role: true, status: true, expiresAt: true, acceptedAt: true, revokedAt: true, createdAt: true,
+        customer: { select: { id: true, name: true } },
+      },
     });
     // EXPIRED is derived, not stored: an open invite past its time reads expired.
     return rows.map((r) => (r.status === 'SENT' && r.expiresAt <= now ? { ...r, status: 'EXPIRED' as const } : r));
@@ -116,7 +120,13 @@ export class InvitesService {
   /** What the acceptance page shows: workspace, role and the invited email. */
   async preview(token: unknown) {
     const invite = await this.findUsable(token);
-    return { email: invite.email, role: invite.role, tenantName: invite.tenant.name, expiresAt: invite.expiresAt };
+    return {
+      email: invite.email,
+      role: invite.role,
+      tenantName: invite.tenant.name,
+      expiresAt: invite.expiresAt,
+      ...(invite.customer ? { customerName: invite.customer.name } : {}),
+    };
   }
 
   async accept(dto: AcceptInviteDto) {
@@ -136,6 +146,20 @@ export class InvitesService {
         const taken = await tx.user.findUnique({ where: { email: invite.email }, select: { id: true } });
         if (taken) throw new BadRequestException(INVALID);
 
+        // CLIENT: the scope comes from the invite's Customer, re-checked now -
+        // fail closed if it is gone, archived or in another tenant.
+        let clientScopeKey: string | null = null;
+        if (invite.role === 'CLIENT') {
+          const customer = invite.customerId
+            ? await tx.customer.findFirst({
+                where: { id: invite.customerId, tenantId: invite.tenantId, status: 'ACTIVE' },
+                select: { clientScopeKey: true },
+              })
+            : null;
+          if (!customer) throw new BadRequestException(INVALID);
+          clientScopeKey = customer.clientScopeKey;
+        }
+
         const user = await tx.user.create({
           data: { email: invite.email, displayName: dto.fullName.trim(), passwordHash, status: 'APPROVED' },
           select: { id: true },
@@ -147,6 +171,7 @@ export class InvitesService {
             role: invite.role,
             status: 'ACTIVE',
             visibilityScope: effectiveVisibilityScope(invite.role),
+            clientScopeKey,
           },
         });
         await tx.invite.update({ where: { id: invite.id }, data: { acceptedByUserId: user.id } });
@@ -163,13 +188,34 @@ export class InvitesService {
     return { message: 'Invitation accepted. You can now sign in.', tenantSlug: invite.tenant.slug };
   }
 
+  /**
+   * The Customer of a CLIENT invite: required, chosen explicitly, ACTIVE and
+   * in this tenant. Any other role must not name one. Never inferred.
+   */
+  private async customerForRole(tenantId: string, role: string, customerId: string | undefined): Promise<string | null> {
+    if (role !== 'CLIENT') {
+      if (customerId !== undefined) {
+        throw new BadRequestException({ code: 'INVITE_CUSTOMER_NOT_ALLOWED', message: 'Only a client invite names a customer.' });
+      }
+      return null;
+    }
+    const customer = customerId
+      ? await this.prisma.customer.findFirst({ where: { id: customerId, tenantId, status: 'ACTIVE' }, select: { id: true } })
+      : null;
+    if (!customer) {
+      throw new BadRequestException({ code: 'INVITE_CUSTOMER_REQUIRED', message: 'A client invite needs an active customer of this workspace.' });
+    }
+    return customer.id;
+  }
+
   private async findUsable(token: unknown) {
     if (!isInviteTokenShape(token)) throw new BadRequestException(INVALID);
     const invite = await this.prisma.invite.findUnique({
       where: { tokenHash: hashInviteToken(token) },
       select: {
-        id: true, tenantId: true, email: true, role: true, status: true, expiresAt: true,
+        id: true, tenantId: true, email: true, role: true, status: true, expiresAt: true, customerId: true,
         tenant: { select: { name: true, slug: true, status: true } },
+        customer: { select: { name: true } },
       },
     });
     if (!invite || invite.status !== 'SENT' || invite.expiresAt <= new Date() || invite.tenant.status !== 'ACTIVE') {

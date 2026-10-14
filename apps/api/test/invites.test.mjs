@@ -123,7 +123,7 @@ describe('invite flow (MAOS F-2)', { skip }, () => {
     assert.equal(listByManager.status, 403);
   });
 
-  it('refuses OWNER and CLIENT roles and an email that already has an account', async () => {
+  it('refuses OWNER, a CLIENT without a customer, and an email that already has an account', async () => {
     for (const role of ['OWNER', 'CLIENT', 'NOPE']) {
       const res = await create('owner', { email: freshEmail(), role });
       assert.equal(res.status, 400, role);
@@ -302,6 +302,49 @@ describe('invite flow (MAOS F-2)', { skip }, () => {
     const after = await prisma.user.findUnique({ where: { id: squatter.id }, include: { memberships: true } });
     assert.equal(after.passwordHash, 'x');
     assert.equal(after.memberships.length, 0);
+    assert.equal((await prisma.invite.findFirst({ where: { tenantId, email } })).status, 'SENT', 'rolled back');
+  });
+
+  it('CLIENT invites need an explicit, active customer of this tenant; other roles cannot name one', async () => {
+    const mk = (tenant, key, status = 'ACTIVE') =>
+      prisma.customer.create({ data: { tenantId: tenant, clientScopeKey: `${key}-${RUN}`, name: key, status } });
+    const own = await mk(tenantId, 'own');
+    const archived = await mk(tenantId, 'arch', 'ARCHIVED');
+    const foreign = await mk(otherTenantId, 'own');
+    for (const [customerId, why] of [[undefined, 'missing'], ['nope', 'unknown'], [archived.id, 'archived'], [foreign.id, 'other tenant']]) {
+      const res = await create('owner', { email: freshEmail(), role: 'CLIENT', ...(customerId ? { customerId } : {}) });
+      assert.equal(res.status, 400, why);
+      assert.match(JSON.stringify(res.body), /INVITE_CUSTOMER_REQUIRED/, why);
+    }
+    const wrongRole = await create('owner', { email: freshEmail(), role: 'EMPLOYEE', customerId: own.id });
+    assert.equal(wrongRole.status, 400);
+    assert.match(JSON.stringify(wrongRole.body), /INVITE_CUSTOMER_NOT_ALLOWED/);
+    assert.equal((await create('manager', { email: freshEmail(), role: 'CLIENT', customerId: own.id })).status, 403);
+  });
+
+  it('accepting a CLIENT invite gives a CLIENT membership scoped to that customer only', async () => {
+    const customer = await prisma.customer.create({ data: { tenantId, clientScopeKey: `acc-${RUN}`, name: 'Acme Client Co' } });
+    const email = freshEmail();
+    const res = await create('owner', { email, role: 'CLIENT', customerId: customer.id });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.body.invite.customer.name, 'Acme Client Co');
+    const token = tokenOf(res);
+    const shown = await preview(token);
+    assert.deepEqual([shown.body.role, shown.body.customerName], ['CLIENT', 'Acme Client Co']);
+    assert.equal((await accept(token)).status, 200);
+    const m = await prisma.tenantMembership.findFirst({ where: { tenantId, user: { email } } });
+    assert.deepEqual([m.role, m.status, m.clientScopeKey], ['CLIENT', 'ACTIVE', `acc-${RUN}`]);
+  });
+
+  it('a CLIENT invite whose customer was archived after sending cannot be accepted', async () => {
+    const customer = await prisma.customer.create({ data: { tenantId, clientScopeKey: `late-${RUN}`, name: 'Late' } });
+    const email = freshEmail();
+    const token = tokenOf(await create('owner', { email, role: 'CLIENT', customerId: customer.id }));
+    await prisma.customer.update({ where: { id: customer.id }, data: { status: 'ARCHIVED' } });
+    const res = await accept(token);
+    assert.equal(res.status, 400);
+    assert.match(JSON.stringify(res.body), /INVITE_INVALID/);
+    assert.equal(await prisma.user.count({ where: { email } }), 0);
     assert.equal((await prisma.invite.findFirst({ where: { tenantId, email } })).status, 'SENT', 'rolled back');
   });
 
