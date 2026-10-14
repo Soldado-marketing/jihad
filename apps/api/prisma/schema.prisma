@@ -1050,11 +1050,13 @@ model Payment {
   clientScopeKey  String?
   receivedAt      DateTime?
   recordedByUserId String?
+  idempotencyKey  String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoice         Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
+  @@unique([tenantId, idempotencyKey])
   @@index([tenantId, invoiceId])
   @@index([tenantId, status])
   @@index([tenantId, method])

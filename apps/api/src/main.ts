@@ -69,7 +69,8 @@ async function bootstrap() {
       return callback(null, false);
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // Idempotency-Key: payment submits are safe to retry (D16).
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
     credentials: true,
   };
   app.enableCors(corsOptions);
