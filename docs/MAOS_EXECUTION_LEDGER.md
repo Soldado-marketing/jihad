@@ -16,21 +16,21 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | Migration gate complete; T53, T63, T64 live; all remaining registry work is behind an owner gate (2026-10-14) |
-| ACTIVE_TASK | none - waiting on owner gates |
-| TASK_STATUS | IDLE_AWAITING_OWNER |
+| CURRENT_PHASE_OR_WAVE | Post migration gate; T56/T57 audited SAFE TO APPROVE, awaiting owner approval |
+| ACTIVE_TASK | T56 production migration window (not started; needs owner approval) |
+| TASK_STATUS | AWAITING_OWNER_APPROVAL - no production action taken |
 | CURRENT_BRANCH | main |
-| HEAD | see MAIN_HEAD_LAST_VERIFIED |
-| MAIN_HEAD_LAST_VERIFIED | `ab3c639` (#85 merged) |
-| PR_URL | gated: #84 T56/T57 project enrichment (draft, migration) |
-| PR_STATUS | #84 CI green, not merged, not applied |
-| CI_STATUS | main green |
-| COMPLETED_ATOMIC_STEP | T53 customer list (#83), T63 search API (#85), T64 search UI (#86) merged and verified; dependency scan: 0 ungated tasks with all deps done |
-| EXACT_NEXT_ACTION | On owner approval of #84 (T56 migration per docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md): fresh verified backup, apply, merge, verify; then T54, T58, T118 and the time-tracking chain T71-T76 (T71 is another migration gate). Otherwise wait. |
-| TESTS_PENDING | — |
-| BLOCKERS | T56 (#84) blocks T54/T57/T58/T118 and T71 -> 19 tasks; T125 durable job records (migration); other schema tasks T77, T80, T83, T91, T93, T97, T105, T133 are migration gates |
-| OWNER_GATE_PENDING | (1) approve #84 T56 migration window; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-client-data gate; (6) whether to prepare further schema tasks as gated PRs now |
-| LAST_UPDATED | 2026-10-14 |
+| HEAD | main = origin/main (after #88 + this checkpoint) |
+| MAIN_HEAD_LAST_VERIFIED | `512cef9` (#88 flake fix merged; CI green, Railway SUCCESS, health 200/200) |
+| PR_URL | #84 T56/T57 project enrichment, draft, head `74f029c` (current with main, CI SUCCESS, MERGEABLE) |
+| PR_STATUS | #84 audited 2026-10-15: SAFE TO APPROVE; not merged; migration 20261014155254_project_enrichment NOT applied (prod: 13 migrations, columns absent) |
+| CI_STATUS | main green; #84 green at 74f029c |
+| COMPLETED_ATOMIC_STEP | T56 re-audit: #84 reconciled with main, delete hardened, gate doc updated; PG18 rehearsal clean (old code 0 fail, new code 0 fail, 0 rows changed); flake fixed (#88) |
+| EXACT_NEXT_ACTION | If owner approved T56: Docker check -> NEW backup + sha256 + pg_restore --list + isolated restore (scratchpad window/preflight.sh pattern) -> read-only prechecks (13/0, 5 columns + 3 indexes absent) -> apply ONLY 20261014155254_project_enrichment from #84 at 74f029c (re-merge with main first if main moved; re-run CI) -> verify 14/0, objects, rows unchanged, health -> gh pr ready 84 + merge -> CI/Railway/health/logs -> ledger. Then T54, T58, T118, T71 chain. Without approval: wait. |
+| TESTS_PENDING | none (all recorded runs green) |
+| BLOCKERS | T56 approval blocks T54/T57/T58/T118 and the T71-T76 chain |
+| OWNER_GATE_PENDING | (1) approve T56 window per docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate |
+| LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
 
@@ -596,3 +596,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T63 | Permission-aware global search API | feat/global-search-api | PR | global-search 6/6 (4 mutations) | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T64 | Global search UI and command palette | feat/global-search-ui | PR | web global-search 6/6, web 168/168, local visual check | 0 | COMPLETE_AWAITING_MERGE
 - 2026-10-14 post-gate work | #83 T53 customer list UI; #85 T63 permission-aware search API (4 mutations); #86 T64 search UI/command palette (portal + autofocus bugs found in local visual check); #84 T56/T57 project enrichment prepared as gated draft (5 mutations, budget OWNER-only, 322/322 integration); dependency scan: no ungated dependency-ready task left | — | #83 #85 #86 | 0 | IDLE_AWAITING_OWNER
+- 2026-10-15 checkpoint | #84 re-audited SAFE TO APPROVE at 74f029c (reconciled with main, delete returns id only, 9/9 + 5 mutations); PG18 rehearsal: T56 only pending, 14/0, 0 rows changed, old+new code 0 failures, health 200; #88 fixed the customer fill-in test race (3x722 tests, 0 fail); no production change | #84 #88 | — | 0 | AWAITING_OWNER
