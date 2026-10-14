@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | Migration gate COMPLETE (2026-10-14); Customer/time-tracking chain unblocked |
-| ACTIVE_TASK | MAOS-T64 Global search UI and command palette |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (PR open, landing) |
-| CURRENT_BRANCH | feat/global-search-ui |
+| CURRENT_PHASE_OR_WAVE | Migration gate complete; T53, T63, T64 live; all remaining registry work is behind an owner gate (2026-10-14) |
+| ACTIVE_TASK | none - waiting on owner gates |
+| TASK_STATUS | IDLE_AWAITING_OWNER |
+| CURRENT_BRANCH | main |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
 | MAIN_HEAD_LAST_VERIFIED | `ab3c639` (#85 merged) |
-| PR_URL | none gated - #36, #38, #26, #65 merged after their migrations |
-| PR_STATUS | open, CI running |
+| PR_URL | gated: #84 T56/T57 project enrichment (draft, migration) |
+| PR_STATUS | #84 CI green, not merged, not applied |
 | CI_STATUS | main green |
-| COMPLETED_ATOMIC_STEP | T64 implemented and tested: web global-search 6/6, web 168/168, local visual check |
-| EXACT_NEXT_ACTION | Land T64. Remaining registry work is gated: #84 T56/T57 migration (unblocks T54, T58, T71-T76, T118), T45 (webhook secret), T46 (real-data gate), D2 setup, pmset. Then decision sheet. |
+| COMPLETED_ATOMIC_STEP | T53 customer list (#83), T63 search API (#85), T64 search UI (#86) merged and verified; dependency scan: 0 ungated tasks with all deps done |
+| EXACT_NEXT_ACTION | On owner approval of #84 (T56 migration per docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md): fresh verified backup, apply, merge, verify; then T54, T58, T118 and the time-tracking chain T71-T76 (T71 is another migration gate). Otherwise wait. |
 | TESTS_PENDING | — |
-| BLOCKERS | none for the migration gate |
-| OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open resilience risk: backups only on this Mac); (3) future migrations (T56, T71, T77...) each need their own approval |
+| BLOCKERS | T56 (#84) blocks T54/T57/T58/T118 and T71 -> 19 tasks; T125 durable job records (migration); other schema tasks T77, T80, T83, T91, T93, T97, T105, T133 are migration gates |
+| OWNER_GATE_PENDING | (1) approve #84 T56 migration window; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-client-data gate; (6) whether to prepare further schema tasks as gated PRs now |
 | LAST_UPDATED | 2026-10-14 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -595,3 +595,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T53 | Customer list UI | feat/customer-list-ui | PR | web customers 6/6 (2 mutations), web 162/162, build OK | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T63 | Permission-aware global search API | feat/global-search-api | PR | global-search 6/6 (4 mutations) | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T64 | Global search UI and command palette | feat/global-search-ui | PR | web global-search 6/6, web 168/168, local visual check | 0 | COMPLETE_AWAITING_MERGE
+- 2026-10-14 post-gate work | #83 T53 customer list UI; #85 T63 permission-aware search API (4 mutations); #86 T64 search UI/command palette (portal + autofocus bugs found in local visual check); #84 T56/T57 project enrichment prepared as gated draft (5 mutations, budget OWNER-only, 322/322 integration); dependency scan: no ungated dependency-ready task left | — | #83 #85 #86 | 0 | IDLE_AWAITING_OWNER
