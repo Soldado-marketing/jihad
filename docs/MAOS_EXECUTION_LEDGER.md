@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 applied; all remaining dependency-ready work is owner-gated |
-| ACTIVE_TASK | Production migration window #36 -> #38 -> #26 -> #65a -> #65b (approved 2026-10-14; #36 technical freeze approved) |
-| TASK_STATUS | IN_PROGRESS - step 4 of 5 done (#65 code not deployed) |
+| CURRENT_PHASE_OR_WAVE | Migration gate COMPLETE (2026-10-14); Customer/time-tracking chain unblocked |
+| ACTIVE_TASK | Next dependency-ready work after the migration gate (Customer chain: T53-T55; T56 needs its own migration gate) |
+| TASK_STATUS | MIGRATION_WINDOW_COMPLETE |
 | CURRENT_BRANCH | main |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
-| MAIN_HEAD_LAST_VERIFIED | `1e565e3` (#75; docs only since audit) |
-| PR_URL | gated: #36 1b84035, #38 81b53f8, #26 2f73cf4, #65 adb341e (all = audited heads, CI SUCCESS); #76 open for owner approval (#36 write-freeze definition) |
-| PR_STATUS | unchanged since audit; main ahead by docs only |
-| CI_STATUS | main green; CI Postgres image now from mirror.gcr.io (#73) after ECR throttling |
-| COMPLETED_ATOMIC_STEP | Step 4 #65a DONE: backup maos-20261014T152821Z.dump (sha256 MATCH, 429/45, REHEARSAL OK); prechecks 11/0, 0 client keys; applied 20261013123256_add_customer only; schema/indexes/FKs ok; fill-in dry/apply/re-apply 0/0/0; wrong mappings 0, unlinked 0; health 200/200; #65 code NOT deployed |
-| EXACT_NEXT_ACTION | Step 5 #65b: preflight (NEW backup), apply 20261013212118_add_invite_customer only from #65 checkout ba05df2, verify; then merge/deploy #65 code and verify Customer API, invites, isolation |
-| TESTS_PENDING | per step at window time (re-merge + CI) |
-| BLOCKERS | #36 write-freeze definition not in the approved report |
-| OWNER_GATE_PENDING | (1) approve #76 (#36 write-freeze definition); (2) pmset wake password; (3) D2 off-site setup (open resilience risk; does not block the window) |
+| MAIN_HEAD_LAST_VERIFIED | `c3b593f` (#65 merged; CI green, Railway SUCCESS, health 200/200; prod migrate status: 13, up to date) |
+| PR_URL | none gated - #36, #38, #26, #65 merged after their migrations |
+| PR_STATUS | — |
+| CI_STATUS | main green |
+| COMPLETED_ATOMIC_STEP | Migration window done: #36, #38, #26, #65a, #65b applied, each behind its own fresh verified backup; all code deployed after its schema; logs 0 errors |
+| EXACT_NEXT_ACTION | Continue the unblocked chain in registry order: Customer UI/360 (T53-T55) on main; T56 (project enrichment schema) is a NEW migration -> prepare gated PR + gate report; then T71-T74 (wire labour-cost.ts) |
+| TESTS_PENDING | — |
+| BLOCKERS | none for the migration gate |
+| OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open resilience risk: backups only on this Mac); (3) future migrations (T56, T71, T77...) each need their own approval |
 | LAST_UPDATED | 2026-10-14 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -587,3 +587,5 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - 2026-10-14 window step 2 (#38) | NEW backup maos-20261014T145600Z.dump: sha256 MATCH, list 415/43, isolated restore OK; prechecks 9/0, objects absent; applied 20261011090404_payment_idempotency_key; post 10/0, column TEXT NULL, unique index valid, 2 payments (keys NULL) unchanged; PR #38 merged 77367f7 after the schema (14:56:17 < 14:56:55); smoke: no production payment written (safer option), route 401 unauthenticated, replay proven by CI/rehearsal | #38 | — | 0 | DONE
 - 2026-10-14 window step 3 (#26) | NEW backup maos-20261014T151903Z.dump: sha256 MATCH, list 416/43, isolated restore OK; prechecks 10/0, objects absent; applied 20261010134025_add_email_delivery_tracking; post 11/0, enum 6 values, EmailMessage/EmailEvent, 6 indexes, 2 cascade FKs, 0 invalid indexes, data unchanged; PR #26 merged a9b9040 after the schema (15:19:26 < 15:19:44); deliveries route 401 unauthenticated; send fail-safe proven by CI test | #26 | — | 0 | DONE
 - 2026-10-14 window step 4 (#65a) | NEW backup maos-20261014T152821Z.dump: sha256 MATCH, list 429/45, isolated restore OK; prechecks 11/0, objects absent, distinct client keys 0; applied 20261013123256_add_customer (checkout ba05df2 with the invite folder removed locally); post 12/0, CustomerStatus enum, nullable customerId on Project/Invoice/FileAsset, 7 indexes, FKs NO ACTION, 0 invalid; fill-in 0 created/0 changed, re-run 0/0; wrong mappings 0, unlinked 0; observation: 1 pre-existing CLIENT membership without a key (fail-closed, unchanged); #65 code not deployed | #65 | — | 0 | DONE
+- 2026-10-14 window step 5 (#65b) + #65 deploy | NEW backup maos-20261014T152956Z.dump: sha256 MATCH, list 444/46, isolated restore OK; prechecks 12/0, column absent, Customer present, 0 invites; applied 20261013212118_add_invite_customer (finished 15:30:20Z); post 13/0, Invite.customerId TEXT NULL, index, FK NO ACTION, 0 invalid; #65 marked ready and merged c3b593f (deploy 15:35:06Z, after both #65 migrations); routes: /customers 401, /admin/invites 401, invite preview bad token 400, web invites 200; logs 0 errors; prod migrate status vs main: 13, up to date | #65 | — | 0 | DONE
+- MIGRATION GATE COMPLETE 2026-10-14 | #36 -> #38 -> #26 -> #65a -> #65b applied in order, five distinct fresh backups (144626Z, 145600Z, 151903Z, 152821Z, 152956Z), each sha256 + pg_restore --list + isolated restore verified; #36 with the technical SHARE ROW EXCLUSIVE freeze; every PR's code deployed only after its schema (finish < deploy times recorded); no migrate resolve, no rollback, no destructive action. Safer choices recorded: no production payment written for the #38 smoke (CI/rehearsal prove replay); authenticated Customer/invite flows verified by CI + rehearsal, production checked with unauthenticated route probes and read-only invariants. Open: D2 off-site copy not configured; pmset wake pending | — | — | 0 | COMPLETE
