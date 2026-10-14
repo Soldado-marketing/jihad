@@ -82,6 +82,14 @@ export const workspaceNavigation: NavigationItem[] = [
   },
   // ── Sales ───────────────────────────────────────────────────────────────
   {
+    id: 'customers',
+    label: 'Customers',
+    href: '/customers',
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
     id: 'crm',
     label: 'CRM',
     href: '/crm',
