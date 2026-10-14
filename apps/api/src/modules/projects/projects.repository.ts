@@ -36,8 +36,8 @@ export class ProjectsRepository {
     });
   }
 
-  create(data: Prisma.ProjectUncheckedCreateInput) {
-    return this.prisma.project.create({ data, select: { id: true } });
+  create(tenantId: string, data: Omit<Prisma.ProjectUncheckedCreateInput, 'tenantId'>) {
+    return this.prisma.project.create({ data: { ...data, tenantId }, select: { id: true } });
   }
 
   getById(tenantId: string, id: string, scope: Prisma.ProjectWhereInput = {}, taskScope: Prisma.TaskWhereInput = {}) {

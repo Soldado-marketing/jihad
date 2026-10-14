@@ -48,8 +48,7 @@ export class ProjectsService {
   async createProject(tenantId: string, actorId: string, dto: CreateProjectDto) {
     const owner = await this.isOwner(tenantId, actorId);
     if (dto.budgetCents !== undefined && !owner) this.budgetOwnerOnly();
-    const data: Prisma.ProjectUncheckedCreateInput = {
-      tenantId,
+    const data: Omit<Prisma.ProjectUncheckedCreateInput, 'tenantId'> = {
       name: dto.name,
       description: dto.description,
       serviceType: dto.serviceType?.trim() || undefined,
@@ -62,7 +61,7 @@ export class ProjectsService {
     let id: string;
     if (dto.projectNumber) {
       try {
-        ({ id } = await this.projectsRepository.create({ ...data, projectNumber: dto.projectNumber }));
+        ({ id } = await this.projectsRepository.create(tenantId, { ...data, projectNumber: dto.projectNumber }));
       } catch (err) {
         if (isUnique(err, 'projectNumber')) this.numberTaken();
         throw err;
@@ -72,7 +71,7 @@ export class ProjectsService {
       for (let attempt = 0; ; attempt += 1) {
         const next = `P-${String((await this.projectsRepository.maxAutoNumber(tenantId)) + 1).padStart(4, '0')}`;
         try {
-          ({ id } = await this.projectsRepository.create({ ...data, projectNumber: next }));
+          ({ id } = await this.projectsRepository.create(tenantId, { ...data, projectNumber: next }));
           break;
         } catch (err) {
           if (!isUnique(err, 'projectNumber') || attempt >= 4) throw err;

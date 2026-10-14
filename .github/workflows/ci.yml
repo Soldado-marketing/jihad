@@ -81,7 +81,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (323 tests).
+      # Blocking gate: the suites that are fully green today (327 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -106,7 +106,7 @@ jobs:
             test/trust-proxy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (293/293), so it blocks.
+      # service above and drives it over HTTP. Green (314/314), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -166,6 +166,7 @@ jobs:
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
             test/customers.test.mjs \
+            test/project-enrichment.test.mjs \
             test/email-deliveries-endpoint.test.mjs \
             test/payment-idempotency.test.mjs \
             test/revenue-posting-unique.test.mjs \
