@@ -17,16 +17,16 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 | Field | Value |
 |---|---|
 | CURRENT_PHASE_OR_WAVE | Owner batch 2026-10-13 applied; all remaining dependency-ready work is owner-gated |
-| ACTIVE_TASK | Production migration window #36 -> #38 -> #26 -> #65a -> #65b (owner-approved 2026-10-14) |
-| TASK_STATUS | STOPPED_BEFORE_STEP_1 - no production change made |
+| ACTIVE_TASK | Production migration window #36 -> #38 -> #26 -> #65a -> #65b (approved 2026-10-14; #36 technical freeze approved) |
+| TASK_STATUS | IN_PROGRESS - step 1 of 5 done |
 | CURRENT_BRANCH | main |
 | HEAD | see MAIN_HEAD_LAST_VERIFIED |
 | MAIN_HEAD_LAST_VERIFIED | `1e565e3` (#75; docs only since audit) |
 | PR_URL | gated: #36 1b84035, #38 81b53f8, #26 2f73cf4, #65 adb341e (all = audited heads, CI SUCCESS); #76 open for owner approval (#36 write-freeze definition) |
 | PR_STATUS | unchanged since audit; main ahead by docs only |
 | CI_STATUS | main green; CI Postgres image now from mirror.gcr.io (#73) after ECR throttling |
-| COMPLETED_ATOMIC_STEP | Pre-execution reconciliation: state matches audit; STOP because the audited report requires "writes frozen" for #36 but defines no freeze mechanism (owner condition) |
-| EXACT_NEXT_ACTION | On owner approval of #76 (merge it): re-merge #36 with main, then run window step 1 (Docker check, fresh backup + sha256 + pg_restore --list + isolated rehearsal, prechecks incl. freeze proof, apply #36 only). No production action before that approval. |
+| COMPLETED_ATOMIC_STEP | Step 1 #36 DONE: backup maos-20261014T144626Z.dump (sha256 MATCH, 414 entries/43 tables, REHEARSAL OK); prechecks dup=0; applied 20261011085435 (technical freeze); index valid/unique; dup 0; rows unchanged; PR #36 merged 0e70d1d, main CI green, Railway SUCCESS, health 200/200, logs 0 errors |
+| EXACT_NEXT_ACTION | Step 2 #38: re-merge #38 with main (ci.yml), CI green, then preflight (NEW backup) and apply 20261011090404_payment_idempotency_key only; then merge #38 |
 | TESTS_PENDING | per step at window time (re-merge + CI) |
 | BLOCKERS | #36 write-freeze definition not in the approved report |
 | OWNER_GATE_PENDING | (1) approve #76 (#36 write-freeze definition); (2) pmset wake password; (3) D2 off-site setup (open resilience risk; does not block the window) |
@@ -583,3 +583,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - D2 | Code merged (#71); activation waits for the owner setup gate `docs/ops/OFFSITE_BACKUP_SETUP.md` (provider/account/bucket/key/escrow) | T20 | — | — | OWNER_GATE
 - pmset wake | `sudo pmset repeat wake MTWRFSU 03:25:00` started in the owner's Terminal tab; waiting for the admin password (not entered by Claude) | T21 | — | — | OWNER_ACTION
 - 2026-10-14 migration window | Owner approved the audited window. Reconciliation: branch heads = audited heads, CI SUCCESS, main ahead by docs only. STOPPED before step 1 (no backup taken, no production change): the report requires writes frozen for #36 without defining how; definition proposed in #76 for owner approval | — | #76 | 0 | STOPPED_BEFORE_PRODUCTION
+- 2026-10-14 window step 1 (#36) | NEW backup maos-20261014T144626Z.dump: sha256 MATCH, pg_restore --list 414/43, isolated restore OK; prechecks: 8/0 migrations, dup groups 0, index absent, long xacts 0; applied 20261011085435_revenue_record_unique_invoice (SHARE ROW EXCLUSIVE + in-lock check); post: 9/0, index valid+unique, dup 0, rows unchanged, no lock left; PR #36 merged 0e70d1d; CI/Railway/health/logs OK | #36 | — | 0 | DONE
