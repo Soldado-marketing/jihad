@@ -5,6 +5,7 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
+import { CustomerOverviewService } from './customer-overview.service';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { CUSTOMER_STATUSES, UpdateCustomerDto } from './dto/update-customer.dto';
@@ -17,7 +18,10 @@ import { CUSTOMER_STATUSES, UpdateCustomerDto } from './dto/update-customer.dto'
 @Controller('customers')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class CustomersController {
-  constructor(private readonly customers: CustomersService) {}
+  constructor(
+    private readonly customers: CustomersService,
+    private readonly overviews: CustomerOverviewService,
+  ) {}
 
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CUSTOMER })
@@ -32,6 +36,16 @@ export class CustomersController {
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CUSTOMER })
   get(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.customers.get(user.tenantId, id);
+  }
+
+  /**
+   * Customer 360 (MAOS-T54): sections are filtered by the caller's own
+   * permissions and work scope; money only for the OWNER.
+   */
+  @Get(':id/overview')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CUSTOMER })
+  overview(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.overviews.overview({ sub: user.sub, tenantId: user.tenantId, role: user.role }, id);
   }
 
   @Post()

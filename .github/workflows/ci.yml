@@ -107,7 +107,7 @@ jobs:
             test/migrate-deploy-one-script.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (320/320), so it blocks.
+      # service above and drives it over HTTP. Green (337/337), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -141,6 +141,7 @@ jobs:
       # approval-decisions proves only open approvals can be decided, once (T108).
       # revenue-posting-unique proves invoice revenue is posted once (T40).
       # payment-idempotency proves a repeated payment submit records once (D16).
+      # customer-overview proves Customer 360 sections follow permissions, money is OWNER only (T54).
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -168,6 +169,7 @@ jobs:
             test/notification-writers.test.mjs \
             test/project-enrichment.test.mjs \
             test/customers.test.mjs \
+            test/customer-overview.test.mjs \
             test/global-search.test.mjs \
             test/email-deliveries-endpoint.test.mjs \
             test/payment-idempotency.test.mjs \
