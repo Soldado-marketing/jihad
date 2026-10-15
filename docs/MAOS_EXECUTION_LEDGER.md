@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | T56 migration window: execution path rebuilt in the repository; apply not yet run |
-| ACTIVE_TASK | T56 production migration window (owner approved the window 2026-10-15) |
-| TASK_STATUS | PATH_READY_AWAITING_APPLY - no production write taken. The first apply attempt was blocked by the session permission check because it used a scratchpad helper; the owner then ordered a stable, auditable procedure first and "do NOT apply T56 yet" |
-| CURRENT_BRANCH | schema/project-enrichment (#84) |
-| HEAD | #84 = main (`6c2b0d8`) merged in + T56 operator procedure commit |
-| MAIN_HEAD_LAST_VERIFIED | `6c2b0d8` (#89 ledger checkpoint; code unchanged since `512cef9`) |
-| PR_URL | #84 T56/T57 project enrichment, draft |
-| PR_STATUS | #84 not merged; migration 20261014155254_project_enrichment NOT applied (prod 13/0, T56 columns and indexes absent, re-checked read-only 2026-10-15) |
-| CI_STATUS | see #84 checks for the procedure commit |
-| COMPLETED_ATOMIC_STEP | Migration sha256 verified (`43b7051b…aee1c`, one commit, never changed); gate doc prefix error corrected by a new section (history kept); stable procedure added: `scripts/migrate-deploy-one.sh`, `scripts/db-readonly-check.sh`, `docs/migrations/T56_precheck.sql`/`T56_postcheck.sql`, 17 tests (gate 344/344, 2/2 mutations caught); first window preflight 2026-10-15 OK (backup `maos-20261014T222415Z.dump`, sha256 MATCH, 446 entries/46 tables, REHEARSAL OK) |
-| EXACT_NEXT_ACTION | Owner approves the apply step (procedure in docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md, "Operator procedure"): steps 1-4 (fresh backup + restore check + precheck + `check` in the clean worktree ~/Developer/MAOS/windows/T56 at the #84 head) then step 5 `apply`, step 6 postcheck, step 7 merge #84 + CI/Railway/health/logs -> ledger. Then T54, T58, T118, T71 chain. |
-| TESTS_PENDING | none locally; #84 CI for the procedure commit |
-| BLOCKERS | T56 apply blocks T54/T57/T58/T118 and the T71-T76 chain |
-| OWNER_GATE_PENDING | (1) approve running step 5 (`migrate-deploy-one.sh apply`) of the T56 operator procedure, and allow it in the session permission rules; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate |
+| CURRENT_PHASE_OR_WAVE | W4: T56 migration applied and T57 deployed; next dependency-ready W4 work |
+| ACTIVE_TASK | none (T56/T57 COMPLETE_MERGED 2026-10-15) |
+| TASK_STATUS | T56 applied to production (14/0) and #84 merged/deployed; no task started yet |
+| CURRENT_BRANCH | main |
+| HEAD | main = origin/main (after #84 + this ledger PR) |
+| MAIN_HEAD_LAST_VERIFIED | `2d99848` (#84 merged; main CI green; Railway jihad SUCCESS on 2d99848; health 200/200; logs 0 errors) |
+| PR_URL | none open for T56 (#84 merged) |
+| PR_STATUS | #84 MERGED `2d99848`; migration 20261014155254_project_enrichment APPLIED (prod 14 finished / 0 failed) |
+| CI_STATUS | main green at 2d99848 |
+| COMPLETED_ATOMIC_STEP | T56 window: fresh backup `maos-20261015T104929Z.dump` verified (sha256, 446/46, REHEARSAL OK) -> precheck 13/0 -> CHECK OK -> APPLY OK -> postcheck OK (14/0, 5 columns, 3 indexes, FK SET NULL, 0 rows changed, counts unchanged) -> #84 merged, deployed, verified |
+| EXACT_NEXT_ACTION | Start the next dependency-ready W4 task: T54 Customer 360 aggregation API (deps T52, T57 met), then T58 (check T59 first), T118; T71 TimeEntry/Rate schema is migration-gated (needs its own owner window). Housekeeping: remove the clean worktree ~/Developer/MAOS/windows/T56 when no longer needed. |
+| TESTS_PENDING | none |
+| BLOCKERS | none for T54/T118; T71-T76 need the T71 migration gate |
+| OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open risk); (3) T45 webhook secret; (4) T46 real-data gate; (5) future T71 migration window |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -599,3 +599,6 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T64 | Global search UI and command palette | feat/global-search-ui | PR | web global-search 6/6, web 168/168, local visual check | 0 | COMPLETE_AWAITING_MERGE
 - 2026-10-14 post-gate work | #83 T53 customer list UI; #85 T63 permission-aware search API (4 mutations); #86 T64 search UI/command palette (portal + autofocus bugs found in local visual check); #84 T56/T57 project enrichment prepared as gated draft (5 mutations, budget OWNER-only, 322/322 integration); dependency scan: no ungated dependency-ready task left | — | #83 #85 #86 | 0 | IDLE_AWAITING_OWNER
 - 2026-10-15 checkpoint | #84 re-audited SAFE TO APPROVE at 74f029c (reconciled with main, delete returns id only, 9/9 + 5 mutations); PG18 rehearsal: T56 only pending, 14/0, 0 rows changed, old+new code 0 failures, health 200; #88 fixed the customer fill-in test race (3x722 tests, 0 fail); no production change | #84 #88 | — | 0 | AWAITING_OWNER
+- MAOS-T56 | Project enrichment schema (migration 20261014155254_project_enrichment, sha256 43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c) | schema/project-enrichment | #84 MERGED (`2d99848`) | prod precheck 13/0 -> APPLY OK -> postcheck 14/0, 5 nullable columns, 3 indexes, FK SET NULL validated, 0 invalid indexes, 0 rows with new values, row counts unchanged | 0 | COMPLETE_MERGED (applied 2026-10-15)
+- MAOS-T57 | Project enrichment API | schema/project-enrichment | #84 MERGED (`2d99848`) | project-enrichment 9/9 (5 mutations); main CI green; Railway jihad SUCCESS on 2d99848 (one deploy), health 200/200, logs 0 errors | 0 | COMPLETE_MERGED
+- 2026-10-15 T56 window | Owner approved window + step 5. Fresh backup `maos-20261015T104929Z.dump` (SUCCESS, sha256 MATCH, pg_restore --list 446 entries/46 tables, REHEARSAL OK) -> T56_precheck 13/0, 0 columns/indexes -> `migrate-deploy-one.sh check` CHECK OK -> `apply` (clean worktree ~/Developer/MAOS/windows/T56 at cf2d9a3, exact-command permission rule only) APPLY OK -> T56_postcheck OK -> health 200/200 -> #84 merged -> main CI green, Railway SUCCESS, health 200/200, logs clean. Web SKIPPED (no apps/web change). Earlier apply attempts in this window were blocked by the session permission check while they used scratchpad helpers; replaced by reviewed repo scripts (OPS-MIG-1) and the hash note corrected (DOC-HASH-1)
