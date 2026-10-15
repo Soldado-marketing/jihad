@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | Post migration gate; T56/T57 audited SAFE TO APPROVE, awaiting owner approval |
-| ACTIVE_TASK | T56 production migration window (not started; needs owner approval) |
-| TASK_STATUS | AWAITING_OWNER_APPROVAL - no production action taken |
-| CURRENT_BRANCH | main |
-| HEAD | main = origin/main (after #88 + this checkpoint) |
-| MAIN_HEAD_LAST_VERIFIED | `512cef9` (#88 flake fix merged; CI green, Railway SUCCESS, health 200/200) |
-| PR_URL | #84 T56/T57 project enrichment, draft, head `74f029c` (current with main, CI SUCCESS, MERGEABLE) |
-| PR_STATUS | #84 audited 2026-10-15: SAFE TO APPROVE; not merged; migration 20261014155254_project_enrichment NOT applied (prod: 13 migrations, columns absent) |
-| CI_STATUS | main green; #84 green at 74f029c |
-| COMPLETED_ATOMIC_STEP | T56 re-audit: #84 reconciled with main, delete hardened, gate doc updated; PG18 rehearsal clean (old code 0 fail, new code 0 fail, 0 rows changed); flake fixed (#88) |
-| EXACT_NEXT_ACTION | If owner approved T56: Docker check -> NEW backup + sha256 + pg_restore --list + isolated restore (scratchpad window/preflight.sh pattern) -> read-only prechecks (13/0, 5 columns + 3 indexes absent) -> apply ONLY 20261014155254_project_enrichment from #84 at 74f029c (re-merge with main first if main moved; re-run CI) -> verify 14/0, objects, rows unchanged, health -> gh pr ready 84 + merge -> CI/Railway/health/logs -> ledger. Then T54, T58, T118, T71 chain. Without approval: wait. |
-| TESTS_PENDING | none (all recorded runs green) |
-| BLOCKERS | T56 approval blocks T54/T57/T58/T118 and the T71-T76 chain |
-| OWNER_GATE_PENDING | (1) approve T56 window per docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate |
+| CURRENT_PHASE_OR_WAVE | T56 migration window: execution path rebuilt in the repository; apply not yet run |
+| ACTIVE_TASK | T56 production migration window (owner approved the window 2026-10-15) |
+| TASK_STATUS | PATH_READY_AWAITING_APPLY - no production write taken. The first apply attempt was blocked by the session permission check because it used a scratchpad helper; the owner then ordered a stable, auditable procedure first and "do NOT apply T56 yet" |
+| CURRENT_BRANCH | schema/project-enrichment (#84) |
+| HEAD | #84 = main (`6c2b0d8`) merged in + T56 operator procedure commit |
+| MAIN_HEAD_LAST_VERIFIED | `6c2b0d8` (#89 ledger checkpoint; code unchanged since `512cef9`) |
+| PR_URL | #84 T56/T57 project enrichment, draft |
+| PR_STATUS | #84 not merged; migration 20261014155254_project_enrichment NOT applied (prod 13/0, T56 columns and indexes absent, re-checked read-only 2026-10-15) |
+| CI_STATUS | see #84 checks for the procedure commit |
+| COMPLETED_ATOMIC_STEP | Migration sha256 verified (`43b7051b…aee1c`, one commit, never changed); gate doc prefix error corrected by a new section (history kept); stable procedure added: `scripts/migrate-deploy-one.sh`, `scripts/db-readonly-check.sh`, `docs/migrations/T56_precheck.sql`/`T56_postcheck.sql`, 17 tests (gate 344/344, 2/2 mutations caught); first window preflight 2026-10-15 OK (backup `maos-20261014T222415Z.dump`, sha256 MATCH, 446 entries/46 tables, REHEARSAL OK) |
+| EXACT_NEXT_ACTION | Owner approves the apply step (procedure in docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md, "Operator procedure"): steps 1-4 (fresh backup + restore check + precheck + `check` in the clean worktree ~/Developer/MAOS/windows/T56 at the #84 head) then step 5 `apply`, step 6 postcheck, step 7 merge #84 + CI/Railway/health/logs -> ledger. Then T54, T58, T118, T71 chain. |
+| TESTS_PENDING | none locally; #84 CI for the procedure commit |
+| BLOCKERS | T56 apply blocks T54/T57/T58/T118 and the T71-T76 chain |
+| OWNER_GATE_PENDING | (1) approve running step 5 (`migrate-deploy-one.sh apply`) of the T56 operator procedure, and allow it in the session permission rules; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -91,6 +91,8 @@ Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
 | CI-1 | Docker Hub pull rate limit blocked PR CI (2026-10-09). Fixed by T146 (#13 merged); PRs re-triggered and all pass. | — | RESOLVED |
 | D12 | Floor order: the protocol's floor diagram puts Operations (My Work, Calendar, Templates, Recurring, Requests) before People & Money, but its wave list puts Calendar, Templates, Recurring and Requests in W6 after W5. This registry follows the wave list. | W5/W6 order | OPEN (non-blocking) |
 | G-DATA | Real-client-data readiness | REAL_CLIENT_DATA_ALLOWED | OPEN |
+| DOC-HASH-1 | T56 gate doc recorded the migration sha256 prefix as `c63af1c8656f`; the file's real sha256 is `43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c` (one commit `26c04fb`, never changed). The recorded prefix was a documentation error; the original line is kept and a correction section supersedes it | T56 apply | RESOLVED 2026-10-15 (correction in `docs/migrations/T56_PROJECT_ENRICHMENT_GATE.md`) |
+| OPS-MIG-1 | Migration windows of 2026-10-13/14 ran apply/precheck helpers from a session scratchpad (not in Git). Replaced for T56 by reviewed repository scripts `scripts/migrate-deploy-one.sh` and `scripts/db-readonly-check.sh` (tests blocking in CI) | T56 and later windows | RESOLVED 2026-10-15 |
 
 Each schema task also needs OWNER_GATE_MIGRATION before production apply (see Database safety in the protocol).
 
