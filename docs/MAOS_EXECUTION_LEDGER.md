@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W4: T56 migration applied and T57 deployed; next dependency-ready W4 work |
-| ACTIVE_TASK | none (T56/T57 COMPLETE_MERGED 2026-10-15) |
-| TASK_STATUS | T56 applied to production (14/0) and #84 merged/deployed; no task started yet |
-| CURRENT_BRANCH | main |
-| HEAD | main = origin/main (after #84 + this ledger PR) |
-| MAIN_HEAD_LAST_VERIFIED | `2d99848` (#84 merged; main CI green; Railway jihad SUCCESS on 2d99848; health 200/200; logs 0 errors) |
-| PR_URL | none open for T56 (#84 merged) |
-| PR_STATUS | #84 MERGED `2d99848`; migration 20261014155254_project_enrichment APPLIED (prod 14 finished / 0 failed) |
-| CI_STATUS | main green at 2d99848 |
-| COMPLETED_ATOMIC_STEP | T56 window: fresh backup `maos-20261015T104929Z.dump` verified (sha256, 446/46, REHEARSAL OK) -> precheck 13/0 -> CHECK OK -> APPLY OK -> postcheck OK (14/0, 5 columns, 3 indexes, FK SET NULL, 0 rows changed, counts unchanged) -> #84 merged, deployed, verified |
-| EXACT_NEXT_ACTION | Start the next dependency-ready W4 task: T54 Customer 360 aggregation API (deps T52, T57 met), then T58 (check T59 first), T118; T71 TimeEntry/Rate schema is migration-gated (needs its own owner window). Housekeeping: remove the clean worktree ~/Developer/MAOS/windows/T56 when no longer needed. |
-| TESTS_PENDING | none |
-| BLOCKERS | none for T54/T118; T71-T76 need the T71 migration gate |
-| OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open risk); (3) T45 webhook secret; (4) T46 real-data gate; (5) future T71 migration window |
+| CURRENT_PHASE_OR_WAVE | W4: T54 Customer 360 API in PR; next dependency-ready W4 work |
+| ACTIVE_TASK | MAOS-T54 Customer 360 aggregation API |
+| TASK_STATUS | COMPLETE_AWAITING_MERGE (no migration; merge deploys the API) |
+| CURRENT_BRANCH | feat/customer-360-api |
+| HEAD | feat/customer-360-api (T54 commit on top of main `c35741b`) |
+| MAIN_HEAD_LAST_VERIFIED | `c35741b` (#90 ledger merged; code = `2d99848`, Railway SUCCESS, health 200/200) |
+| PR_URL | T54 PR (feat/customer-360-api) |
+| PR_STATUS | open, awaiting CI and owner merge |
+| CI_STATUS | local: integration 35 + 302 green, full API 454/0 fail/10 todo; PR CI pending |
+| COMPLETED_ATOMIC_STEP | T54 implemented: CustomerOverviewService + route, 8 HTTP tests (role matrix, custom deny, contractor scope, tenant 404, cross-customer leak), 7 mutations caught |
+| EXACT_NEXT_ACTION | Owner merges the T54 PR after green CI (deploys API; no migration) -> verify Railway/health. Meanwhile next dependency-ready task without approval: T58 Project enrichment UI (deps T57, T59 met), then T118; T55 Customer 360 UI after T54 is merged. T71 needs its own migration window. |
+| TESTS_PENDING | T54 PR CI |
+| BLOCKERS | none for T58/T118; T55 waits for T54 merge; T71-T76 need the T71 migration gate |
+| OWNER_GATE_PENDING | (1) merge T54 PR; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate; (6) future T71 migration window |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -602,3 +602,4 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T56 | Project enrichment schema (migration 20261014155254_project_enrichment, sha256 43b7051b6e52ca040910d0c5fcfd7d0024c9c3853b1e25c038c73867127aee1c) | schema/project-enrichment | #84 MERGED (`2d99848`) | prod precheck 13/0 -> APPLY OK -> postcheck 14/0, 5 nullable columns, 3 indexes, FK SET NULL validated, 0 invalid indexes, 0 rows with new values, row counts unchanged | 0 | COMPLETE_MERGED (applied 2026-10-15)
 - MAOS-T57 | Project enrichment API | schema/project-enrichment | #84 MERGED (`2d99848`) | project-enrichment 9/9 (5 mutations); main CI green; Railway jihad SUCCESS on 2d99848 (one deploy), health 200/200, logs 0 errors | 0 | COMPLETE_MERGED
 - 2026-10-15 T56 window | Owner approved window + step 5. Fresh backup `maos-20261015T104929Z.dump` (SUCCESS, sha256 MATCH, pg_restore --list 446 entries/46 tables, REHEARSAL OK) -> T56_precheck 13/0, 0 columns/indexes -> `migrate-deploy-one.sh check` CHECK OK -> `apply` (clean worktree ~/Developer/MAOS/windows/T56 at cf2d9a3, exact-command permission rule only) APPLY OK -> T56_postcheck OK -> health 200/200 -> #84 merged -> main CI green, Railway SUCCESS, health 200/200, logs clean. Web SKIPPED (no apps/web change). Earlier apply attempts in this window were blocked by the session permission check while they used scratchpad helpers; replaced by reviewed repo scripts (OPS-MIG-1) and the hash note corrected (DOC-HASH-1)
+- MAOS-T54 | Customer 360 aggregation API (`GET /api/customers/:id/overview`; sections projects/tasks/files/approvals/invoices/finance by live permission + contractor work scope; money OWNER only; meetings not linked to customers in the schema, so not included - needs a future schema task) | feat/customer-360-api | PR | customer-overview 8/8 (7/7 mutations caught); integration 35 + 302, full API 454 / 0 fail / 10 todo; build typecheck OK | 0 | COMPLETE_AWAITING_MERGE
