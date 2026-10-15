@@ -21,7 +21,7 @@ export function ActivityTimeline({
   resourceType,
   resourceId,
 }: {
-  resourceType: 'project' | 'task' | 'file' | 'invoice' | 'approval';
+  resourceType: 'project' | 'task' | 'file' | 'invoice' | 'approval' | 'customer';
   resourceId: string;
 }) {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null);

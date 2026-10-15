@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W4: T54 (#91) and T58 (#92) in PR awaiting owner merge |
-| ACTIVE_TASK | none in progress (T54, T58 COMPLETE_AWAITING_MERGE) |
-| TASK_STATUS | #91 CI green; #92 CI pending at checkpoint; neither has a migration; merging deploys API (#91) / web (#92) |
-| CURRENT_BRANCH | feat/customer-360-api |
-| HEAD | feat/customer-360-api (T54 commit on top of main `c35741b`) |
-| MAIN_HEAD_LAST_VERIFIED | `c35741b` (#90 ledger merged; code = `2d99848`, Railway SUCCESS, health 200/200) |
-| PR_URL | #91 T54 Customer 360 API; #92 T58 Project enrichment UI |
-| PR_STATUS | #91 open, CI green; #92 open |
-| CI_STATUS | #91 green; #92 pending; main green at c35741b |
-| COMPLETED_ATOMIC_STEP | T54 (#91: 8/8 HTTP tests, 7/7 mutations) and T58 (#92: web 8/8, 3/3 mutations, web 176/176, build OK) opened |
-| EXACT_NEXT_ACTION | Owner merges #91 then #92 (verify CI, Railway jihad + maos-web, health). Next dependency-ready without approval: T118 Import/export CSV (deps T52, T57 met); F-5 customers search fix; T55 Customer 360 UI after #91 is merged. T71 needs its own migration window. |
-| TESTS_PENDING | #92 CI |
-| BLOCKERS | T55 waits for #91 merge; T71-T76 need the T71 migration gate |
-| OWNER_GATE_PENDING | (1) merge #91 and #92; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate; (6) future T71 migration window |
+| CURRENT_PHASE_OR_WAVE | W4: T54 merged; T58 (#92) and T55 in PR |
+| ACTIVE_TASK | none in progress (T58, T55 COMPLETE_AWAITING_MERGE) |
+| TASK_STATUS | #91 merged and deployed (c18bca5); #92 and the T55 PR await owner review/merge; no migrations |
+| CURRENT_BRANCH | feat/customer-360-ui |
+| HEAD | feat/customer-360-ui (T55 on top of main `c18bca5`) |
+| MAIN_HEAD_LAST_VERIFIED | `c18bca5` (#91 merged; main CI green; Railway jihad SUCCESS; health 200/200) |
+| PR_URL | #92 T58 Project enrichment UI; T55 Customer 360 UI PR |
+| PR_STATUS | #92 open, CI green, held for owner review; T55 PR open |
+| CI_STATUS | main green at c18bca5; #92 green; T55 PR pending |
+| COMPLETED_ATOMIC_STEP | #91 merged + deploy verified; T55 implemented (web 5/5, 3 mutations; customer timeline API 8/8) |
+| EXACT_NEXT_ACTION | Owner reviews/merges #92 and the T55 PR (each deploys web; T55 also deploys API for the customer timeline) -> verify CI, Railway, health. Next without approval: T118 Import/export CSV (deps T52, T57); F-5 customers search fix (proposed as its own session). T71 needs its own migration window. |
+| TESTS_PENDING | T55 PR CI |
+| BLOCKERS | none for T118/F-5; T71-T76 need the T71 migration gate |
+| OWNER_GATE_PENDING | (1) merge #92 and the T55 PR; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate; (6) future T71 migration window |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -605,3 +605,6 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T54 | Customer 360 aggregation API (`GET /api/customers/:id/overview`; sections projects/tasks/files/approvals/invoices/finance by live permission + contractor work scope; money OWNER only; meetings not linked to customers in the schema, so not included - needs a future schema task) | feat/customer-360-api | PR | customer-overview 8/8 (7/7 mutations caught); integration 35 + 302, full API 454 / 0 fail / 10 todo; build typecheck OK | 0 | COMPLETE_AWAITING_MERGE
 - MAOS-T58 | Project enrichment UI (list on DataTable/FilterBar with number, customer, service, responsible, progress, status, deadline, OWNER-only budget; detail panel + edit form) | feat/project-enrichment-ui | #92 | web projects 8/8 (3/3 mutations), web 176/176, build OK; no local visual check yet | 0 | COMPLETE_AWAITING_MERGE
 - F-5 (found in T58) | The T53 customers page passes a filter accessor that returns null for its search keys (name, clientScopeKey), so text search on /customers matches only industry. Fix: accessor that returns those fields (as lib/projects.ts projectField does) + a test | web customers | OPEN
+- MAOS-T54 merge | #91 MERGED (`c18bca5`) 2026-10-15: main CI green; Railway jihad SUCCESS on c18bca5; health 200/200; unauthenticated overview 401. Log check: first read showed 1 line matching exception (LIKELY the warn line of that 401 probe; Railway CLI then stopped answering, not re-verified) | 0 | COMPLETE_MERGED
+- MAOS-T55 | Customer 360 UI (`/customers/[id]`: Overview with KPI row, OWNER-only finance totals, upcoming tasks, open approvals, invoices, customer activity timeline; Projects, Files, Notes tabs shown only for sections the API sent; list names link to it). API: activity timeline gains `customer` (the customer's own events, CUSTOMER read) | feat/customer-360-ui | PR | web customer-360 5/5 (3/3 mutations), web 173/173, build OK; activity-timeline 8/8; integration 35 + 303 x3 clean, full API 454/0 fail/10 todo | 0 | COMPLETE_AWAITING_MERGE
+- CI-3 (2026-10-15, local only) | One CI-equivalent local run failed the whole customer-overview suite and one scheduler test (invite-expiry); three reruns of the same sequence were clean and GitHub CI on #91/main was green. Login throttling ruled out (in-memory per suite process). Not reproduced; watch for it in CI | integration tests | OPEN (monitor)

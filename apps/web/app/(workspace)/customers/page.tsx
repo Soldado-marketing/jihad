@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { DataTable } from '@/components/ui/data-table';
 import { FilterBar, useUrlFilters, type FilterBarField } from '@/components/ui/filter-bar';
 import { PageHeader } from '@/components/ui/page-header';
@@ -204,7 +205,7 @@ function CustomersList() {
           rowKey={(c) => c.id}
           initialSort={{ key: 'name', direction: 'asc' }}
           columns={[
-            { key: 'name', header: 'Name', sortValue: (c) => c.name, render: (c) => <span className="font-medium text-ink">{c.name}</span> },
+            { key: 'name', header: 'Name', sortValue: (c) => c.name, render: (c) => <Link href={`/customers/${c.id}`} className="font-medium text-ink hover:underline">{c.name}</Link> },
             { key: 'key', header: 'Client key', sortValue: (c) => c.clientScopeKey, render: (c) => <code className="text-xs text-muted">{c.clientScopeKey}</code> },
             { key: 'industry', header: 'Industry', sortValue: (c) => c.industry ?? '', render: (c) => <span className="text-muted">{c.industry || '—'}</span> },
             {
