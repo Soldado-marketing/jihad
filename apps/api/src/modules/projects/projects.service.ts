@@ -121,7 +121,15 @@ export class ProjectsService {
 
   async deleteProject(tenantId: string, id: string, actorId: string) {
     await this.getProject(tenantId, id, actorId);
-    return this.projectsRepository.delete(tenantId, id);
+    try {
+      return await this.projectsRepository.delete(tenantId, id);
+    } catch (err) {
+      // TimeEntry.projectId is NO ACTION (T71): logged time is cost history and keeps its project.
+      if ((err as { code?: unknown } | null)?.code === 'P2003') {
+        throw new ConflictException({ code: 'PROJECT_HAS_TIME_ENTRIES', message: 'This project has logged time and cannot be deleted. Archive it instead.' });
+      }
+      throw err;
+    }
   }
 
   /** budgetCents is finance data: OWNER only (Blueprint §6). */

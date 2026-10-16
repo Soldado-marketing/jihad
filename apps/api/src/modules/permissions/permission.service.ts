@@ -35,6 +35,8 @@ const MANAGER_WRITE_RESOURCES = new Set<PermissionResource>([
   PermissionResource.REPORT_RUN,
   // ADR-017: OWNER and MANAGER maintain customers; archiving is OWNER only (service).
   PermissionResource.CUSTOMER,
+  // ADR-018 (T72): own entries; MANAGER also reads and approves every entry (service).
+  PermissionResource.TIME_ENTRY,
 ]);
 
 // Resources that EMPLOYEE can read + write (non-sensitive, non-finance).
@@ -49,6 +51,8 @@ const EMPLOYEE_WRITE_RESOURCES = new Set<PermissionResource>([
   PermissionResource.VOICE_NOTE,
   PermissionResource.VOICE_TO_TASK_DRAFT,
   PermissionResource.DASHBOARD,
+  // ADR-018 (T72): own time entries only (service).
+  PermissionResource.TIME_ENTRY,
 ]);
 
 // Resources that EMPLOYEE can READ (but not write) in addition to write set.
@@ -68,6 +72,8 @@ const CONTRACTOR_WRITE_RESOURCES = new Set<PermissionResource>([
   PermissionResource.CHAT_MESSAGE,
   PermissionResource.NOTIFICATION,
   PermissionResource.DASHBOARD,
+  // ADR-018 (T72): own time entries, only on assigned work (service).
+  PermissionResource.TIME_ENTRY,
 ]);
 
 const CONTRACTOR_READ_RESOURCES = new Set<PermissionResource>([

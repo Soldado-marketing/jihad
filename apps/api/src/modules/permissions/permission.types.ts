@@ -48,6 +48,7 @@ export enum PermissionResource {
   REPORT = 'report',
   REPORT_RUN = 'report-run',
   CUSTOMER = 'customer',
+  TIME_ENTRY = 'time-entry',
 }
 
 export interface PermissionRequirement {
