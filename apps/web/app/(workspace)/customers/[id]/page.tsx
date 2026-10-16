@@ -134,10 +134,8 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
             )}
           </div>
 
-          <section aria-label="Activity">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Activity</h2>
-            <ActivityTimeline resourceType="customer" resourceId={customer.id} />
-          </section>
+          {/* The timeline renders its own "Activity" heading. */}
+          <ActivityTimeline resourceType="customer" resourceId={customer.id} />
         </div>
       )}
 
@@ -147,12 +145,16 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
           <ul className="divide-y divide-line">
             {data.projects.items.map((p) => (
               <li key={p.id}>
-                <Link href={`/projects/${p.id}`} className="grid gap-2 px-5 py-3 text-sm hover:bg-slate-50 sm:grid-cols-6">
+                <Link href={`/projects/${p.id}`} className="grid gap-2 px-5 py-3 text-sm hover:bg-slate-50 sm:grid-cols-7">
                   <span className="font-medium text-ink sm:col-span-2">{p.projectNumber ? <code className="me-2 text-xs text-muted">{p.projectNumber}</code> : null}{p.name}</span>
                   <span className="text-muted">{p.serviceType ?? '—'}</span>
                   <span className="tabular-nums text-muted">{progressText(p.progress)}</span>
                   <span className="tabular-nums text-muted">{day(p.deadline)}</span>
-                  <span className="text-muted sm:text-right">{p.budgetCents !== undefined && p.budgetCents !== null ? formatCents(p.budgetCents) : p.status}</span>
+                  <span className="text-xs text-muted">{p.status}</span>
+                  {/* Present only for the OWNER; never derived here. */}
+                  {p.budgetCents !== undefined && (
+                    <span className="tabular-nums text-muted sm:text-right">{p.budgetCents === null ? '—' : formatCents(p.budgetCents)}</span>
+                  )}
                 </Link>
               </li>
             ))}

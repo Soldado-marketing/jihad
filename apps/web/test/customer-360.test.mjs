@@ -47,10 +47,15 @@ describe('customer 360 UI', () => {
 
   it('renders money only from the finance section and project budgets the API sent', () => {
     assert.match(page, /\{data\.finance && \(/, 'finance block guarded by the section');
-    assert.match(page, /p\.budgetCents !== undefined && p\.budgetCents !== null \? formatCents/);
+    assert.match(page, /\{p\.budgetCents !== undefined && \(/, 'budget cell only when the API sent a budget');
+    assert.match(page, /<span className="text-xs text-muted">\{p\.status\}<\/span>/, 'status always shown, never replaced by the budget');
     assert.ok(!/totalCents|amountCents/.test(page), 'no invoice or payment amounts; money only via finance totals');
     assert.match(page, /\{tab === 'projects' && data\.projects && \(/);
     assert.match(page, /\{tab === 'files' && data\.files && \(/);
+  });
+
+  it('renders the activity heading once (the timeline owns it)', () => {
+    assert.ok(!/>Activity<\/h2>/.test(page));
   });
 
   it('uses the one overview read, the customer timeline and links from the list', () => {
