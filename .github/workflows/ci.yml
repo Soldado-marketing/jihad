@@ -81,7 +81,7 @@ jobs:
         working-directory: apps/api
         run: npm run build
 
-      # Blocking gate: the suites that are fully green today (356 tests).
+      # Blocking gate: the suites that are fully green today (360 tests).
       - name: Unit and contract tests
         working-directory: apps/api
         run: |
@@ -106,10 +106,11 @@ jobs:
             test/trust-proxy.test.mjs \
             test/migrate-deploy-one-script.test.mjs \
             test/csv-transfer.test.mjs \
-            test/rate-resolution.test.mjs
+            test/rate-resolution.test.mjs \
+            test/labour-profitability.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (389/389), so it blocks.
+      # service above and drives it over HTTP. Green (394/394), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -148,6 +149,7 @@ jobs:
       # time-entry-schema proves the TimeEntry/Rate database invariants (T71, ADR-018).
       # time-entries proves the TimeEntry API: own entries, review, contractor scope, no rate leak (T72).
       # rates proves OWNER-only rates, member -> role -> tenant freezing, unchanged history, re-rating (T73).
+      # finance-labour proves stored labour in profitability and summary, unrated minutes flagged (T74).
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -180,6 +182,7 @@ jobs:
             test/time-entry-schema.test.mjs \
             test/time-entries.test.mjs \
             test/rates.test.mjs \
+            test/finance-labour.test.mjs \
             test/global-search.test.mjs \
             test/email-deliveries-endpoint.test.mjs \
             test/payment-idempotency.test.mjs \
