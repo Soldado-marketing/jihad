@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W5: T72 TimeEntry API in PR |
-| ACTIVE_TASK | MAOS-T72 TimeEntry API |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (no migration; merging deploys the API) |
-| CURRENT_BRANCH | feat/time-entry-api |
-| HEAD | feat/time-entry-api (T72 on top of main `1df0aa2`) |
-| MAIN_HEAD_LAST_VERIFIED | `1df0aa2` (#99 ledger; code = e249c1e, Railway SUCCESS, health 200/200) |
-| PR_URL | T72 PR (feat/time-entry-api) |
-| PR_STATUS | open, awaiting CI and owner merge |
-| CI_STATUS | local: gate 351/351, integration 35 + 344, full API 461/0 fail; PR CI pending |
-| COMPLETED_ATOMIC_STEP | T72 implemented and tested (15 HTTP tests, 12/13 mutations) |
-| EXACT_NEXT_ACTION | Owner merges the T72 PR after green CI (deploys API; no migration) -> verify CI, Railway, health, logs. Then T73 rate resolution and freezing (deps T71; no migration): Rate API (RATE sensitive, OWNER sets defaults), deterministic member -> role -> tenant resolution by entry date, freeze rate + cost on create (DB formula), recompute on minutes/date edit of a draft, OWNER re-rating with audit. Then T74, T76. |
-| TESTS_PENDING | T72 PR CI |
+| CURRENT_PHASE_OR_WAVE | W5: T72 merged; T73 next |
+| ACTIVE_TASK | MAOS-T73 rate resolution and freezing (starting) |
+| TASK_STATUS | T72 COMPLETE_MERGED (#100, da1e6ca); T73 in progress |
+| CURRENT_BRANCH | main |
+| HEAD | main = origin/main (after #100 + this ledger PR) |
+| MAIN_HEAD_LAST_VERIFIED | `da1e6ca` (#100 merged; main CI green; Railway jihad SUCCESS; health 200/200; logs clean) |
+| PR_URL | none open (T73 PR to follow) |
+| PR_STATUS | #100 MERGED |
+| CI_STATUS | main green at da1e6ca |
+| COMPLETED_ATOMIC_STEP | #100 merged and verified (deploy, health, unauthenticated smoke, logs) |
+| EXACT_NEXT_ACTION | T73 rate resolution and freezing (no migration expected): Rate API (OWNER only), member -> role -> tenant resolution by entry date, freeze rate + cost on create (DB formula), recompute on a draft's minutes/date/member change, OWNER re-rating with audit per entry. |
+| TESTS_PENDING | none |
 | BLOCKERS | none for T73; T69 needs a product decision |
-| OWNER_GATE_PENDING | (1) merge the T72 PR; (2) T69 navigation regrouping (product behavior); (3) pmset wake password; (4) D2 off-site setup (open risk); (5) T45 webhook secret; (6) T46 real-data gate |
+| OWNER_GATE_PENDING | (1) T69 navigation regrouping (product behavior); (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -618,7 +618,7 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - T71 first audit (2026-10-16) | NOT SAFE TO APPROVE for the draft above (sha256 9522fb63...4d441): on a disposable database (1) duplicate Rate rows with the same workspace, scope target and validFrom were accepted at every scope (ADR-018 resolution not deterministic); (2) costCents was not tied to the ADR-018 formula (60 min at 3000 cents/h stored with cost 1). Owner ordered both fixed in the same unapplied migration | — | RECORDED
 - MAOS-T71 amendment (2026-10-16) | Same migration file amended (never applied to a persistent database: prod precheck absent, Railway production-only and no auto-migrate, local dev DB no T71 row, other DBs disposable). Rate.scopeKey NOT NULL (TENANT / ROLE:<role> / MEMBER:<userId>) + Prisma @@unique(tenantId, scopeKey, validFrom) + Rate_scope_key_check (IS NOT DISTINCT FROM); TimeEntry_cost_formula_check costCents = (minutes::bigint * rateCents::bigint + 30) / 60. New sha256 489d6f63618edf030928de00039e532fcf0de1d3f6077ee7a6f1bc824b93fd7f; 7 FKs, 7 CHECKs, 9 indexes; no drift | schema/time-entries | #98 draft (GATED) | time-entry-schema 10/10; 9/9 mutations (incl. unique key, formula, +30, bigint); PG16 + PG18: integration 35 + 329, full API 461/0 fail; gate 351/351 | 0 | COMPLETE_MERGED (applied 2026-10-16, #98 e249c1e)
 - 2026-10-16 T71 window (owner approved, hash 489d6f63618edf030928de00039e532fcf0de1d3f6077ee7a6f1bc824b93fd7f, PR #98) | #98 head 39d304d re-confirmed (hash, current with main, CI green). Fresh backup `maos-20261016T145955Z.dump` (SUCCESS, sha256 MATCH 528c7e86..., pg_restore --list 450 entries / 46 tables, REHEARSAL OK) -> T71_precheck 14/0, T71 tables/types 0, long_xacts 0 -> `migrate-deploy-one.sh check` CHECK OK (only T71 pending) -> one-time exact-command rule -> `apply` APPLY OK (once) -> rule removed -> T71_postcheck 15/0, TimeEntry + Rate, 7 FKs, 7 CHECKs, 9 indexes (unique rate key 1), 0 invalid, 0 entries / 0 rates, counts unchanged (1/2/1/1/0) -> health 200/200 -> #98 MERGED `e249c1e` -> main CI green; Railway jihad SUCCESS on e249c1e (maos-web SKIPPED, no web change); health 200/200; web 200; API logs 1 start, only REDIS_URL warning | 0 | COMPLETE_MERGED (T71 applied)
-- MAOS-T72 | TimeEntry API (`/api/time-entries`: list/get/create/patch/delete + submit/approve/reject). New TIME_ENTRY resource in MANAGER, EMPLOYEE, CONTRACTOR policies (OWNER baseline, CLIENT none). Own entries for every internal role; OWNER/MANAGER read all and approve/reject SUBMITTED; edit/delete own DRAFT or REJECTED only (REJECTED edit -> DRAFT; APPROVED/BILLED locked; BILLED not reachable in T72). Project/task in tenant, task in project; CONTRACTOR on member projects or assigned tasks; customer from the project. Rate/cost never accepted, stored unrated (freezing is T73), returned to OWNER only. Conditional state updates -> 409; DB check refusals -> 400 TIME_ENTRY_INVALID; project with time -> 409 PROJECT_HAS_TIME_ENTRIES. Audit time_entry.*. No migration | feat/time-entry-api | PR | time-entries 15/15 HTTP; 12/13 mutations (survivor: service CLIENT check masked by the permission guard); gate 351/351; integration 35 + 344; full API 461/0 fail | 0 | COMPLETE_AWAITING_MERGE
+- MAOS-T72 | TimeEntry API (`/api/time-entries`: list/get/create/patch/delete + submit/approve/reject). New TIME_ENTRY resource in MANAGER, EMPLOYEE, CONTRACTOR policies (OWNER baseline, CLIENT none). Own entries for every internal role; OWNER/MANAGER read all and approve/reject SUBMITTED; edit/delete own DRAFT or REJECTED only (REJECTED edit -> DRAFT; APPROVED/BILLED locked; BILLED not reachable in T72). Project/task in tenant, task in project; CONTRACTOR on member projects or assigned tasks; customer from the project. Rate/cost never accepted, stored unrated (freezing is T73), returned to OWNER only. Conditional state updates -> 409; DB check refusals -> 400 TIME_ENTRY_INVALID; project with time -> 409 PROJECT_HAS_TIME_ENTRIES. Audit time_entry.*. No migration | feat/time-entry-api | #100 MERGED (`da1e6ca`) | time-entries 15/15 HTTP; 12/13 mutations (survivor: service CLIENT check masked by the permission guard); gate 351/351; integration 35 + 344; full API 461/0 fail | 0 | COMPLETE_MERGED (main CI green; Railway jihad SUCCESS on da1e6ca; health 200/200; all /api/time-entries routes 401 unauthenticated, no 5xx; logs 1 start, only REDIS_URL warning)
 - CI-3 root cause (2026-10-16) | customers.test ran the customer fill-in over every tenant while other suites seeded client keys in parallel, so a suite's own customer create could clash with a Customer the fill-in had just made (seen in customer-overview, data-transfer). Fix in the T118 PR: backfillCustomers takes an optional tenantIds (command line unchanged: still every tenant), and customers.test passes its own two tenants; a test proves the default stays global | integration tests | FIXED (#96 merged 8e75395)
 - CI-4 (2026-10-16, local only) | 1 of 5 local CI-equivalent runs failed payment-idempotency "refuses a malformed key ... without a key unchanged"; not reproduced in 4 further runs, error not captured; the test is scoped to its own invoice and T118 does not touch payments | integration tests | OPEN (monitor)
 - Housekeeping 2026-10-16 | ~/Developer/MAOS/windows/T56 worktree removed after checking: clean, no untracked files, HEAD cf2d9a3 contained in main, no stash | — | DONE
