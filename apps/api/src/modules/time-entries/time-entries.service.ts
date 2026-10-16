@@ -3,6 +3,8 @@ import { Prisma, TimeEntryStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { ResourceScopeService, WorkScope } from '../permissions/resource-scope.service';
+import { costCents } from '../rates/rate-resolution';
+import { RatesService } from '../rates/rates.service';
 import { CreateTimeEntryDto } from './dto/create-time-entry.dto';
 import { UpdateTimeEntryDto } from './dto/update-time-entry.dto';
 import { TimeEntriesRepository, TimeEntryRow } from './time-entries.repository';
@@ -42,9 +44,13 @@ const invalidReference = (field: string): never => {
  * - Project and task must belong to the caller's tenant, and the task to the
  *   project. A CONTRACTOR logs time only on assigned work: a member project,
  *   or a task assigned to them (T35). The customer is taken from the project.
- * - Rates and costs are never accepted from a request. T72 stores entries
- *   unrated (ADR-018 §2: rate and cost null); freezing a resolved rate onto
- *   an entry is T73. Rate and cost fields are returned to the OWNER only.
+ * - Rates and costs are never accepted from a request. On creation the rate
+ *   resolved for the member and the entry day (T73: member -> role -> tenant)
+ *   is frozen onto the entry with its cost; without one the entry is unrated.
+ *   Editing a draft's minutes recomputes the cost from the FROZEN rate (the
+ *   database formula); a date change keeps the frozen rate. Re-resolving is
+ *   the OWNER's explicit re-rating (rates module). Rate and cost fields are
+ *   returned to the OWNER only.
  * - State changes are conditional updates on the expected status, so a
  *   concurrent change answers 409 instead of overwriting.
  */
@@ -56,6 +62,7 @@ export class TimeEntriesService {
     private readonly repo: TimeEntriesRepository,
     private readonly resourceScope: ResourceScopeService,
     private readonly audit: AuditService,
+    private readonly rates: RatesService,
   ) {}
 
   async caller(tenantId: string, userId: string): Promise<Caller> {
@@ -91,6 +98,11 @@ export class TimeEntriesService {
   async create(c: Caller, dto: CreateTimeEntryDto) {
     const date = parseDay(dto.date, 'date');
     const { customerId } = await this.checkWork(c, dto.projectId, dto.taskId ?? null);
+    // Frozen at creation (ADR-018 §3); later rate changes never alter this entry.
+    const rate = await this.rates.resolve(c.tenantId, c.userId, date);
+    const frozen = rate
+      ? { rateCents: rate.rateCents, rateSource: rate.rateSource, currency: rate.currency, costCents: costCents(dto.minutes, rate.rateCents) }
+      : {};
     const { id } = await this.write(() =>
       this.repo.create(c.tenantId, {
         userId: c.userId,
@@ -102,6 +114,7 @@ export class TimeEntriesService {
         customerId,
         billable: dto.billable ?? true,
         note: dto.note,
+        ...frozen,
       }),
     );
     await this.record(c, 'time_entry.created', id, { minutes: dto.minutes });
@@ -113,7 +126,11 @@ export class TimeEntriesService {
     if (!EDITABLE.includes(entry.status)) this.locked();
     const data: Prisma.TimeEntryUncheckedUpdateManyInput = { status: 'DRAFT' };
     if (dto.date !== undefined) data.date = parseDay(dto.date, 'date');
-    if (dto.minutes !== undefined) data.minutes = dto.minutes;
+    if (dto.minutes !== undefined) {
+      data.minutes = dto.minutes;
+      // Same frozen rate, new minutes: the cost follows the database formula.
+      if (entry.rateCents !== null) data.costCents = costCents(dto.minutes, entry.rateCents);
+    }
     if (dto.billable !== undefined) data.billable = dto.billable;
     if (dto.note !== undefined) data.note = dto.note;
     if (dto.projectId !== undefined || dto.taskId !== undefined) {

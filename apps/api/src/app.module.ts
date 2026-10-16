@@ -42,6 +42,7 @@ import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { SearchModule } from './modules/search/search.module';
 import { ImportExportModule } from './modules/import-export/import-export.module';
 import { TimeEntriesModule } from './modules/time-entries/time-entries.module';
+import { RatesModule } from './modules/rates/rates.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { MailModule } from './modules/mail/mail.module';
 
@@ -90,6 +91,7 @@ import { MailModule } from './modules/mail/mail.module';
     SearchModule,
     ImportExportModule,
     TimeEntriesModule,
+    RatesModule,
     LabelsModule,
   ],
   controllers: [HealthController],

@@ -260,10 +260,28 @@ describe('time entries: changes and review (MAOS-T72)', { skip }, () => {
 });
 
 describe('time entries: database rules surface safely (MAOS-T72)', { skip }, () => {
-  it('editing minutes of a rated entry that would break the frozen cost answers 400, not 500', async () => {
+  it('editing minutes of a rated draft recomputes the cost from its frozen rate (T73)', async () => {
     const res = await as('employee').patch(`/time-entries/${d.rated}`, { minutes: 60 });
-    assert.deepEqual([res.status, res.body.code], [400, 'TIME_ENTRY_INVALID']);
-    assert.equal((await prisma.timeEntry.findUnique({ where: { id: d.rated } })).minutes, 1, 'unchanged');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(rateKeysIn(res.body), [], 'the member still sees no rate or cost');
+    const row = await prisma.timeEntry.findUnique({ where: { id: d.rated } });
+    assert.deepEqual([row.minutes, row.rateCents, row.costCents], [60, 3000, 3000]);
+  });
+
+  it('a database refusal answers 400, not 500', async () => {
+    // A check violation raised by the database (here by a test-only trigger) is mapped, never leaked.
+    const fn = `tm_check_${RUN}`;
+    await prisma.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION ${fn}() RETURNS trigger AS $$ BEGIN IF NEW.note = 'BOOM' THEN RAISE EXCEPTION 'new row violates check constraint "test"' USING ERRCODE = 'check_violation'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql`);
+    await prisma.$executeRawUnsafe(`CREATE TRIGGER ${fn} BEFORE UPDATE ON "TimeEntry" FOR EACH ROW EXECUTE FUNCTION ${fn}()`);
+    try {
+      const e = (await as('employee').post('/time-entries', entry(d.P, { minutes: 10 }))).body.id;
+      const res = await as('employee').patch(`/time-entries/${e}`, { note: 'BOOM' });
+      assert.deepEqual([res.status, res.body.code], [400, 'TIME_ENTRY_INVALID']);
+      assert.ok(!JSON.stringify(res.body).includes('constraint'), 'no driver text');
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${fn} ON "TimeEntry"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS ${fn}()`);
+    }
   });
 
   it('a project with logged time cannot be deleted (409); one without can', async () => {

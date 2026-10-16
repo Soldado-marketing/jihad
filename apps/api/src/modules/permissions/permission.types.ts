@@ -49,6 +49,8 @@ export enum PermissionResource {
   REPORT_RUN = 'report-run',
   CUSTOMER = 'customer',
   TIME_ENTRY = 'time-entry',
+  // ADR-018 (T73): rates are sensitive; in no role policy (OWNER baseline only).
+  RATE = 'rate',
 }
 
 export interface PermissionRequirement {
