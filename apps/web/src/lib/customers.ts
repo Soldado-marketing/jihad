@@ -48,6 +48,22 @@ export function statusChoices(role: string | undefined, current: CustomerStatus)
   return current === 'ARCHIVED' ? ['ARCHIVED'] : ['ACTIVE', 'INACTIVE'];
 }
 
+/**
+ * Values for the filter bar and its text search. applyFilters reads the
+ * searchable keys through this accessor too, so every searchable key must
+ * resolve here (F-5: name and key used to return null, so search matched
+ * only industry).
+ */
+export function customerField(c: CustomerRow, key: string): string | null {
+  switch (key) {
+    case 'status': return c.status;
+    case 'industry': return c.industry;
+    case 'name': return c.name;
+    case 'clientScopeKey': return c.clientScopeKey;
+    default: return null;
+  }
+}
+
 /** Industry filter options from the loaded rows, sorted, without blanks. */
 export function industryOptions(rows: readonly CustomerRow[]): string[] {
   return [...new Set(rows.map((r) => r.industry?.trim()).filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b));
