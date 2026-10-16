@@ -11,4 +11,7 @@ export class FinanceService {
 
   /** Phase 4 - revenue, cost and margin broken down per project. */
   getProfitability(tenantId: string) { return this.repo.getProfitability(tenantId); }
+
+  /** MAOS-T75 - the same revenue, cost and stored labour, summed per customer. */
+  getCustomerProfitability(tenantId: string) { return this.repo.getCustomerProfitability(tenantId); }
 }

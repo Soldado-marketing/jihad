@@ -2,8 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { summariseLabour } from './labour-cost';
 import {
+  CustomerPart,
+  CustomerProfitability,
   ProjectLabour,
   ProjectProfitability,
+  buildCustomerProfitability,
   buildProjectProfitability,
   computeProfitability,
 } from './profitability';
@@ -162,6 +165,48 @@ export class FinanceRepository {
       currency: currencyRow?.currency ?? 'EUR',
       projects: buildProjectProfitability(revenueByProject, costByProject, labourByProject),
     };
+  }
+
+  /**
+   * Customer profitability (MAOS-T75). Attribution, all within the tenant:
+   * - revenue: the customer of the record's own client key (the invoice's
+   *   customer, ADR-017), otherwise the customer of its project;
+   * - recorded costs and stored labour: the customer of their project;
+   * - anything without a customer stays in the row with customerId null.
+   * Labour uses the costs stored on the entries (never current rates), every
+   * stored entry counts (owner decision 2026-10-16), unrated minutes apart.
+   */
+  async getCustomerProfitability(tenantId: string): Promise<{ currency: string; customers: CustomerProfitability[] }> {
+    const [revenueGroups, costGroups, labourGroups, currencyRow] = await Promise.all([
+      this.prisma.revenueRecord.groupBy({ by: ['projectId', 'clientScopeKey'], where: { tenantId }, _sum: { amountCents: true } }),
+      this.prisma.costRecord.groupBy({ by: ['projectId'], where: { tenantId }, _sum: { amountCents: true } }),
+      this.labourGroups(tenantId),
+      this.prisma.invoice.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' }, select: { currency: true } }),
+    ]);
+    const projectIds = [...new Set([...revenueGroups, ...costGroups, ...labourGroups].map((g) => g.projectId).filter((id): id is string => typeof id === 'string'))];
+    const keys = [...new Set(revenueGroups.map((g) => g.clientScopeKey).filter((k): k is string => typeof k === 'string'))];
+    const [projects, keyed] = await Promise.all([
+      projectIds.length
+        ? this.prisma.project.findMany({ where: { tenantId, id: { in: projectIds } }, select: { id: true, customer: { select: { id: true, name: true } } } })
+        : [],
+      keys.length ? this.prisma.customer.findMany({ where: { tenantId, clientScopeKey: { in: keys } }, select: { id: true, name: true, clientScopeKey: true } }) : [],
+    ]);
+    const customerOfProject = new Map(projects.map((p) => [p.id, p.customer]));
+    const customerOfKey = new Map(keyed.map((c) => [c.clientScopeKey, { id: c.id, name: c.name }]));
+    const of = (c: { id: string; name: string } | null | undefined) => ({ customerId: c?.id ?? null, customerName: c?.name ?? null });
+
+    const parts: CustomerPart[] = [
+      ...revenueGroups.map((g) => ({
+        ...of((g.clientScopeKey ? customerOfKey.get(g.clientScopeKey) : undefined) ?? (g.projectId ? customerOfProject.get(g.projectId) : null)),
+        revenueCents: g._sum.amountCents ?? 0,
+      })),
+      ...costGroups.map((g) => ({ ...of(g.projectId ? customerOfProject.get(g.projectId) : null), recordedCostCents: g._sum.amountCents ?? 0 })),
+      ...labourGroups.map((g) => {
+        const l = summariseLabour([{ minutes: g._sum.minutes ?? 0, costCents: g._sum.costCents }]);
+        return { ...of(customerOfProject.get(g.projectId)), labourCostCents: l.costCents, ratedMinutes: l.ratedMinutes, unratedMinutes: l.unratedMinutes };
+      }),
+    ];
+    return { currency: currencyRow?.currency ?? 'EUR', customers: buildCustomerProfitability(parts) };
   }
 
   /**
