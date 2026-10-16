@@ -25,9 +25,20 @@ export interface BackfillReport {
  * transaction and idempotent: a second run creates and changes nothing.
  * The report carries tenant ids and counts only - never keys or names.
  */
-export async function backfillCustomers(prisma: PrismaClient, opts: { dryRun: boolean }): Promise<BackfillReport> {
+export async function backfillCustomers(
+  prisma: PrismaClient,
+  opts: { dryRun: boolean; /** Limit to these tenants (tests); default every tenant. */ tenantIds?: string[] },
+): Promise<BackfillReport> {
+  // The command line never passes tenantIds, so production runs stay global.
+  // Tests pass their own tenants: a global run raced with suites seeding keys in parallel (CI-3).
+  const only = (alias: string) =>
+    !opts.tenantIds
+      ? Prisma.empty
+      : opts.tenantIds.length === 0
+        ? Prisma.sql` AND FALSE`
+        : Prisma.sql` AND ${Prisma.raw(alias)}."tenantId" IN (${Prisma.join(opts.tenantIds)})`;
   const union = Prisma.join(
-    KEY_TABLES.map((t) => Prisma.sql`SELECT "tenantId", "clientScopeKey" FROM ${Prisma.raw(`"${t}"`)} WHERE "clientScopeKey" IS NOT NULL`),
+    KEY_TABLES.map((t) => Prisma.sql`SELECT "tenantId", "clientScopeKey" FROM ${Prisma.raw(`"${t}"`)} x WHERE "clientScopeKey" IS NOT NULL${only('x')}`),
     ' UNION ',
   );
 
@@ -52,8 +63,8 @@ export async function backfillCustomers(prisma: PrismaClient, opts: { dryRun: bo
         const counts = await tx.$queryRaw<{ tenantId: string; n: number }[]>`
           SELECT r."tenantId", count(*)::int AS n FROM ${t} r
           LEFT JOIN "Customer" c ON c."tenantId" = r."tenantId" AND c."clientScopeKey" = r."clientScopeKey"
-          WHERE (r."clientScopeKey" IS NOT NULL AND (c.id IS NULL OR r."customerId" IS DISTINCT FROM c.id))
-             OR (r."clientScopeKey" IS NULL AND r."customerId" IS NOT NULL)
+          WHERE ((r."clientScopeKey" IS NOT NULL AND (c.id IS NULL OR r."customerId" IS DISTINCT FROM c.id))
+             OR (r."clientScopeKey" IS NULL AND r."customerId" IS NOT NULL))${only('r')}
           GROUP BY r."tenantId"`;
         for (const c of counts) {
           const r = tenants.get(c.tenantId) ?? { tenantId: c.tenantId, distinctKeys: 0, customersToCreate: 0, rowsToLink: {} };
@@ -73,7 +84,15 @@ export async function backfillCustomers(prisma: PrismaClient, opts: { dryRun: bo
         });
         report.customersCreated = created.count;
       }
-      report.rowsChanged = await relinkCustomers(tx, null);
+      if (!opts.tenantIds) {
+        report.rowsChanged = await relinkCustomers(tx, null);
+      } else {
+        for (const tenantId of opts.tenantIds) {
+          for (const [table, n] of Object.entries(await relinkCustomers(tx, tenantId))) {
+            report.rowsChanged[table] = (report.rowsChanged[table] ?? 0) + n;
+          }
+        }
+      }
       return report;
     },
     { timeout: 5 * 60 * 1000, maxWait: 10_000 },

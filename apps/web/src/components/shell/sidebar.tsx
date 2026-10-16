@@ -49,7 +49,7 @@ const navGroups = [
     label: 'Team',
   },
   {
-    ids: ['files', 'approvals', 'voice', 'finance', 'reports', 'audit', 'settings'],
+    ids: ['files', 'approvals', 'voice', 'finance', 'reports', 'audit', 'data', 'settings'],
     label: 'Operations',
   },
 ];
