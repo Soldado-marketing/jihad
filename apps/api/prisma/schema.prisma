@@ -32,6 +32,23 @@ enum MembershipRole {
   CLIENT
 }
 
+/// ADR-018 (MAOS-T71): DRAFT -> SUBMITTED -> APPROVED -> BILLED; REJECTED goes back to DRAFT.
+enum TimeEntryStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  BILLED
+  REJECTED
+}
+
+/// ADR-018: where a frozen rate came from (first match wins: member, role default, tenant default).
+enum RateScope {
+  MEMBER
+  ROLE
+  TENANT
+}
+
+
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
@@ -292,6 +309,8 @@ model Tenant {
   taskLabels           TaskLabel[]
   customers   Customer[]
   emailMessages        EmailMessage[]
+  timeEntries TimeEntry[]
+  rates       Rate[]
 
   @@index([status])
 }
@@ -327,6 +346,8 @@ model User {
   reviewedRegistrations RegistrationRequest[] @relation("RegistrationReviewer")
   responsibleCustomers Customer[]           @relation("CustomerResponsible")
   ownedProjects        Project[]            @relation("ProjectOwner")
+  timeEntries TimeEntry[] @relation("TimeEntryUser")
+  rates       Rate[]      @relation("RateUser")
 
   @@index([status])
 }
@@ -507,6 +528,7 @@ model Project {
   fileAssets  FileAsset[]    @relation("FileAssetProject")
   voiceNotes  VoiceNote[]    @relation("VoiceNoteProject")
   invoices    Invoice[]      @relation("InvoiceProject")
+  timeEntries TimeEntry[]
 
   @@index([tenantId, status])
   @@index([tenantId, clientVisible])
@@ -539,6 +561,7 @@ model Customer {
   invoices          Invoice[]
   fileAssets        FileAsset[]
   invites           Invite[]
+  timeEntries TimeEntry[]
 
   @@unique([tenantId, clientScopeKey])
   @@index([tenantId, status])
@@ -584,6 +607,7 @@ model Task {
   fileAssets       FileAsset[]  @relation("FileAssetTask")
   voiceNotes       VoiceNote[]  @relation("VoiceNoteTask")
   labels           TaskLabel[]
+  timeEntries TimeEntry[]
 
   @@index([tenantId, status])
   @@index([tenantId, priority])
@@ -1037,6 +1061,74 @@ model RevenueRecord {
   @@index([tenantId, invoiceId])
   @@index([tenantId, clientScopeKey])
   @@index([tenantId, recordedAt])
+}
+
+/// ADR-018 (MAOS-T71). One block of work by one member on one project day.
+/// rateCents, rateSource, currency and costCents are frozen when the entry is
+/// created (never recomputed from current rates); null means "unrated"
+/// (cost unknown, never counted as 0). Rates and costs are OWNER-only data.
+/// minutes 1-1440 and non-negative cents are CHECK constraints in the migration.
+model TimeEntry {
+  id              String          @id @default(cuid())
+  tenantId        String
+  userId          String
+  date            DateTime        @db.Date
+  minutes         Int
+  projectId       String
+  taskId          String?
+  customerId      String?
+  billable        Boolean         @default(true)
+  note            String?
+  status          TimeEntryStatus @default(DRAFT)
+  rateCents       Int?
+  rateSource      RateScope?
+  currency        String?
+  costCents       Int?
+  createdByUserId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // NoAction: logged time is cost history, so a member or project with time
+  // cannot be deleted; checked at statement end, so a tenant delete still cascades.
+  user            User            @relation("TimeEntryUser", fields: [userId], references: [id], onDelete: NoAction)
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: NoAction)
+  task            Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  customer        Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, userId, date])
+  @@index([tenantId, projectId, date])
+  @@index([tenantId, taskId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+}
+
+/// ADR-018 (MAOS-T71). An hourly rate in integer cents, effective from validFrom.
+/// scope MEMBER: userId set, role null; ROLE: role set, userId null; TENANT: both
+/// null (CHECK in the migration). Resolution for an entry date takes the newest
+/// validFrom <= date in the first scope that has one.
+///
+/// scopeKey makes that unambiguous: "TENANT", "ROLE:<role>" or "MEMBER:<userId>",
+/// held equal to scope/role/userId by a CHECK in the migration. It is never null,
+/// so the unique key (tenantId, scopeKey, validFrom) admits exactly one rate per
+/// workspace, scope target and day, without relying on NULL semantics.
+model Rate {
+  id              String          @id @default(cuid())
+  tenantId        String
+  scope           RateScope
+  scopeKey        String
+  userId          String?
+  role            MembershipRole?
+  rateCents       Int
+  currency        String          @default("EUR")
+  validFrom       DateTime        @db.Date
+  createdByUserId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User?           @relation("RateUser", fields: [userId], references: [id], onDelete: NoAction)
+
+  @@unique([tenantId, scopeKey, validFrom])
+  @@index([tenantId, userId, validFrom])
 }
 
 model CostRecord {

@@ -108,7 +108,7 @@ jobs:
             test/csv-transfer.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
-      # service above and drives it over HTTP. Green (354/354), so it blocks.
+      # service above and drives it over HTTP. Green (364/364), so it blocks.
       # security-gate-authz proves the guards are actually wired: a controller
       # can carry every decorator and still answer 200 if its module never
       # imported PermissionsModule, which source assertions cannot catch.
@@ -144,6 +144,7 @@ jobs:
       # payment-idempotency proves a repeated payment submit records once (D16).
       # customer-overview proves Customer 360 sections follow permissions, money is OWNER only (T54).
       # data-transfer proves CSV export/import follow permissions and tenants, all-or-nothing (T118).
+      # time-entry-schema proves the TimeEntry/Rate database invariants (T71, ADR-018).
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -173,6 +174,7 @@ jobs:
             test/customers.test.mjs \
             test/customer-overview.test.mjs \
             test/data-transfer.test.mjs \
+            test/time-entry-schema.test.mjs \
             test/global-search.test.mjs \
             test/email-deliveries-endpoint.test.mjs \
             test/payment-idempotency.test.mjs \
