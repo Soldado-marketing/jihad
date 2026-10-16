@@ -17,19 +17,19 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 | Field | Value |
 |---|---|
 | CURRENT_PHASE_OR_WAVE | W4 done except T69 (product gate); W5 starts at T71 (migration gate) |
-| ACTIVE_TASK | MAOS-T71 TimeEntry + Rate schema - gate preparation only (audit/report, draft PR); no apply |
-| TASK_STATUS | T118 COMPLETE_MERGED (#96, 8e75395). Every remaining task is behind a gate: T69 OWNER_GATE_PRODUCT_BEHAVIOR; T71 OWNER_GATE_MIGRATION (next in order); T72-T86, W6-W10 depend on T71 or other migration/owner gates |
-| CURRENT_BRANCH | main |
-| HEAD | main = origin/main (after #96 + this ledger PR) |
-| MAIN_HEAD_LAST_VERIFIED | `8e75395` (#96 merged; main CI green; Railway jihad + maos-web SUCCESS; health 200/200; logs clean) |
-| PR_URL | none open (T71 gate PR to follow, draft) |
-| PR_STATUS | #96 MERGED |
-| CI_STATUS | main green at 8e75395 |
-| COMPLETED_ATOMIC_STEP | #96 merged and verified (deploys, health, /data, logs) |
-| EXACT_NEXT_ACTION | Prepare the T71 migration gate (ADR-018 TimeEntry + Rate): schema change on a branch, migration via prisma migrate diff on a disposable DB, rehearsal on PostgreSQL 18, gate doc docs/migrations/T71_*_GATE.md; draft PR marked GATED. Do NOT apply. Owner decisions needed: T71 migration window; T69 navigation regrouping (product behavior). |
-| TESTS_PENDING | none |
-| BLOCKERS | All remaining work is gated: T71 migration (blocks T72-T76, T120 chain), T69 product decision, other schema tasks |
-| OWNER_GATE_PENDING | (1) T71 migration window (report to follow); (2) T69 navigation regrouping (product behavior); (3) pmset wake password; (4) D2 off-site setup (open risk); (5) T45 webhook secret; (6) T46 real-data gate |
+| ACTIVE_TASK | MAOS-T71 TimeEntry + Rate schema - gate prepared, awaiting owner migration approval |
+| TASK_STATUS | AWAITING_OWNER_APPROVAL - migration not applied; draft PR GATED |
+| CURRENT_BRANCH | schema/time-entries (draft, GATED) |
+| HEAD | schema/time-entries on top of main `75dea28` |
+| MAIN_HEAD_LAST_VERIFIED | `75dea28` (#97 ledger; code = 8e75395, Railway SUCCESS, health 200/200) |
+| PR_URL | T71 draft PR (schema/time-entries), GATED - DO NOT MERGE |
+| PR_STATUS | draft; migration 20261016133407_time_entries_and_rates NOT applied (prod 14/0, T71 objects absent) |
+| CI_STATUS | main green; T71 PR CI pending |
+| COMPLETED_ATOMIC_STEP | T71 gate prepared: schema, migration + CHECKs, schema test 7/7 (4 mutations), rehearsal PG16 + PG18 green, read-only prod precheck, gate doc |
+| EXACT_NEXT_ACTION | Owner decides the T71 migration window per docs/migrations/T71_TIME_ENTRIES_GATE.md. If approved: fresh backup + restore check -> T71_precheck -> migrate-deploy-one.sh check/apply (exact hash) in a clean worktree -> T71_postcheck -> merge PR -> CI/Railway/health/logs -> ledger. Then T72, T73 (no migration). Without approval: nothing else is dependency-ready (T69 needs a product decision). |
+| TESTS_PENDING | T71 PR CI |
+| BLOCKERS | T71 approval blocks T72-T76 and the T120 metrics chain; T69 needs a product decision |
+| OWNER_GATE_PENDING | (1) approve the T71 migration window (docs/migrations/T71_TIME_ENTRIES_GATE.md) and allow the exact apply command; (2) T69 navigation regrouping (product behavior); (3) pmset wake password; (4) D2 off-site setup (open risk); (5) T45 webhook secret; (6) T46 real-data gate |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -614,6 +614,7 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - 2026-10-16 merges (owner approved order #92, #94, #93) | #92 T58 MERGED `e21e1ba` (main CI green; maos-web SUCCESS; jihad SKIPPED, web only; /projects 200; web logs 0 errors). #94 F-5 MERGED `7996ba4` (main CI green; maos-web SUCCESS; /customers 200; logs 0 errors). #93 reconciled with main in `ce6315f` (no conflicts; customers/page.tsx auto-merged keeping customerField + 360 link; web 184/184, build, PR CI green) -> MERGED `01cba31` (main CI green; jihad + maos-web SUCCESS; health 200/200; /api/activity/customer/x 401 unauthenticated; API logs: 1 start, only the expected REDIS_URL warning; web logs 0 errors) | 0 | COMPLETE_MERGED (T58, T55, F-5)
 - MAOS-T118 | CSV import/export for customers, projects, tasks (`GET /api/data/export/:type`, `POST /api/data/import/:type` {csv, commit}; web `/data`). Export: READ on the type + contractor work scope; e-mail columns only with MEMBERSHIP read; budgetCents only for the ACTIVE OWNER (same rule as T57); formula injection neutralised. Import: CREATE on the type; create-only; no ids in files (customers by clientScopeKey, projects by projectNumber, people by e-mail, all looked up in the caller's tenant); whole file validated first, any error -> report and nothing written; valid file in one transaction (P2002 -> 409, nothing written); duplicates existing or in-file are errors; strict dates/cents/enums; 96 000 chars, 500 rows; audit `export.*`/`import.*`. No migration | feat/csv-import-export | #96 MERGED (`8e75395`) | csv 7/7; data-transfer 16/16 HTTP; 11/11 mutations; web data-transfer 5/5, web 189/189, build; gate 351/351; integration 35 + 319 (4/5 clean runs, see CI-4); full API 461/0 fail/10 todo; runtime check PASS; main CI green; Railway jihad + maos-web SUCCESS on 8e75395; health 200/200; /data 200; export/import 401 unauthenticated; API logs 1 start + expected REDIS_URL warning only; web logs 0 errors | 0 | COMPLETE_MERGED
 - Runtime check #96 (2026-10-16) | Local API + Next dev at #96 head 5bd07a0 on a disposable PostgreSQL 18 with two tenants and every role. API probe 50/50: export headers/values per role (e-mail + budget only OWNER, formula escaped, tenant-only rows, CONTRACTOR only P-0001), CLIENT 403 on all, cross-tenant key/number unknown, duplicates, malformed CSV, strict dates/cents, nothing written by any invalid file, role import rules, valid imports create the expected rows, export -> import round trip, write failure -> 500 + full rollback. Browser (OWNER, MANAGER, CONTRACTOR, CLIENT): export downloads, check -> report -> Import disabled, new file clears report, imports create rows, CONTRACTOR non-member refused, CLIENT no /data link; console clean. Found 3 UI text bugs ("Import 1 rows"; owner-only columns listed to every role; "export can be imported as is" untrue for a create-only import) -> fixed with regression tests (web 8/8, web 192/192, build) | — | VERIFIED
+- MAOS-T71 | TimeEntry + Rate schema (ADR-018): migration 20261016133407_time_entries_and_rates (sha256 9522fb633c1a31cffdaf7b625f3e12449995149692feaecbeb5bcc21eac4d441), additive: 2 enums, 2 tables, 7 indexes, 7 FKs (tenant CASCADE; member/project NO ACTION; task/customer SET NULL), 5 CHECKs (minutes 1-1440, cents >= 0, frozen rate complete or absent, rate scope shape). Gate doc docs/migrations/T71_TIME_ENTRIES_GATE.md; prod precheck read-only 14/0, tables/types absent | schema/time-entries | draft PR (GATED) | time-entry-schema 7/7 (4/4 mutations); current code on new schema PG16 + PG18: integration 35 + 326, full API 461/0 fail; no drift | 0 | AWAITING_OWNER_MIGRATION_APPROVAL
 - CI-3 root cause (2026-10-16) | customers.test ran the customer fill-in over every tenant while other suites seeded client keys in parallel, so a suite's own customer create could clash with a Customer the fill-in had just made (seen in customer-overview, data-transfer). Fix in the T118 PR: backfillCustomers takes an optional tenantIds (command line unchanged: still every tenant), and customers.test passes its own two tenants; a test proves the default stays global | integration tests | FIXED (#96 merged 8e75395)
 - CI-4 (2026-10-16, local only) | 1 of 5 local CI-equivalent runs failed payment-idempotency "refuses a malformed key ... without a key unchanged"; not reproduced in 4 further runs, error not captured; the test is scoped to its own invoice and T118 does not touch payments | integration tests | OPEN (monitor)
 - Housekeeping 2026-10-16 | ~/Developer/MAOS/windows/T56 worktree removed after checking: clean, no untracked files, HEAD cf2d9a3 contained in main, no stash | — | DONE
