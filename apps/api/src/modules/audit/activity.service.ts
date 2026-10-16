@@ -11,6 +11,9 @@ const TIMELINE_RESOURCES = {
   file: PermissionResource.FILE,
   invoice: PermissionResource.INVOICE,
   approval: PermissionResource.APPROVAL,
+  // The customer's own events (created/updated), not those of its projects
+  // or invoices: each of those keeps its own timeline and permission.
+  customer: PermissionResource.CUSTOMER,
 } as const;
 
 export type TimelineResource = keyof typeof TIMELINE_RESOURCES;
@@ -128,6 +131,10 @@ export class ActivityService {
       case 'approval': {
         const row = await this.prisma.approvalRequest.findFirst({ where: { id, tenantId }, select: { id: true } });
         return row ? [{ type: 'approval', ids: [id] }] : null;
+      }
+      case 'customer': {
+        const row = await this.prisma.customer.findFirst({ where: { id, tenantId }, select: { id: true } });
+        return row ? [{ type: 'customer', ids: [id] }] : null;
       }
     }
   }

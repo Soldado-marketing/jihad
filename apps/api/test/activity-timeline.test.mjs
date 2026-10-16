@@ -120,7 +120,9 @@ before(async () => {
   await prisma.fileVersion.create({ data: { tenantId: t, fileAssetId: ids.F1, versionNumber: 1 } });
   await prisma.fileVersion.create({ data: { tenantId: t, fileAssetId: ids.F3, versionNumber: 1 } });
 
+  ids.CU = (await prisma.customer.create({ data: { tenantId: t, clientScopeKey: `cu-${RUN}`, name: `Customer ${RUN}` }, select: { id: true } })).id;
   const other = await seedTenant('other');
+  ids.FCU = (await prisma.customer.create({ data: { tenantId: other.id, clientScopeKey: `cu-${RUN}`, name: `Foreign customer ${RUN}` }, select: { id: true } })).id;
   ids.FT = (await prisma.task.create({ data: { tenantId: other.id, title: `Foreign ${RUN}` }, select: { id: true } })).id;
   ids.V1 = (await prisma.fileVersion.findFirst({ where: { fileAssetId: ids.F1 }, select: { id: true } })).id;
   ids.INV = (await prisma.invoice.create({ data: { tenantId: t, invoiceNumber: `A-${RUN}`, currency: 'EUR' }, select: { id: true } })).id;
@@ -135,6 +137,8 @@ before(async () => {
   await event('task', ids.T3, 'task.updated');
   await event('file-version', ids.V1, 'file.version.upload');
   await event('invoice', ids.INV, 'invoice.sent');
+  await event('customer', ids.CU, 'customer.updated');
+  await event('customer', ids.FCU, 'customer.updated', other.id);
   await event('task', ids.FT, 'task.updated', other.id);
   // Defence in depth: an event in another tenant that names our task's id.
   await event('task', ids.T1a, 'foreign.planted', other.id);
@@ -204,6 +208,18 @@ describe('activity timeline', { skip }, () => {
   it('keeps a contractor inside their assigned work', async () => {
     assert.equal((await timeline('contractor', 'task', ids.T1a)).status, 200);
     assert.equal((await timeline('contractor', 'task', ids.T3)).status, 404);
+  });
+
+  it('shows a customer\'s own events to roles that read customers only (T55)', async () => {
+    const res = await timeline('owner', 'customer', ids.CU);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body.items.map((e) => e.action), ['customer.updated']);
+    assert.ok(!JSON.stringify(res.body).includes(`internal-${RUN}`));
+    assert.equal((await timeline('employee', 'customer', ids.CU)).status, 200);
+    // CONTRACTOR and CLIENT have no customer read.
+    assert.equal((await timeline('contractor', 'customer', ids.CU)).status, 403);
+    assert.equal((await timeline('client', 'customer', ids.CU)).status, 403);
+    assert.equal((await timeline('owner', 'customer', ids.FCU)).status, 404);
   });
 
   it('rejects an unsupported resource type and needs a session', async () => {
