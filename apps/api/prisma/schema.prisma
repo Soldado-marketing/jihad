@@ -1106,10 +1106,16 @@ model TimeEntry {
 /// scope MEMBER: userId set, role null; ROLE: role set, userId null; TENANT: both
 /// null (CHECK in the migration). Resolution for an entry date takes the newest
 /// validFrom <= date in the first scope that has one.
+///
+/// scopeKey makes that unambiguous: "TENANT", "ROLE:<role>" or "MEMBER:<userId>",
+/// held equal to scope/role/userId by a CHECK in the migration. It is never null,
+/// so the unique key (tenantId, scopeKey, validFrom) admits exactly one rate per
+/// workspace, scope target and day, without relying on NULL semantics.
 model Rate {
   id              String          @id @default(cuid())
   tenantId        String
   scope           RateScope
+  scopeKey        String
   userId          String?
   role            MembershipRole?
   rateCents       Int
@@ -1121,7 +1127,7 @@ model Rate {
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user            User?           @relation("RateUser", fields: [userId], references: [id], onDelete: NoAction)
 
-  @@index([tenantId, scope, validFrom])
+  @@unique([tenantId, scopeKey, validFrom])
   @@index([tenantId, userId, validFrom])
 }
 

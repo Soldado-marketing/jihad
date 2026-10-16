@@ -33,6 +33,7 @@ CREATE TABLE "Rate" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "scope" "RateScope" NOT NULL,
+    "scopeKey" TEXT NOT NULL,
     "userId" TEXT,
     "role" "MembershipRole",
     "rateCents" INTEGER NOT NULL,
@@ -61,10 +62,10 @@ CREATE INDEX "TimeEntry_tenantId_customerId_idx" ON "TimeEntry"("tenantId", "cus
 CREATE INDEX "TimeEntry_tenantId_status_idx" ON "TimeEntry"("tenantId", "status");
 
 -- CreateIndex
-CREATE INDEX "Rate_tenantId_scope_validFrom_idx" ON "Rate"("tenantId", "scope", "validFrom");
+CREATE INDEX "Rate_tenantId_userId_validFrom_idx" ON "Rate"("tenantId", "userId", "validFrom");
 
 -- CreateIndex
-CREATE INDEX "Rate_tenantId_userId_validFrom_idx" ON "Rate"("tenantId", "userId", "validFrom");
+CREATE UNIQUE INDEX "Rate_tenantId_scopeKey_validFrom_key" ON "Rate"("tenantId", "scopeKey", "validFrom");
 
 -- AddForeignKey
 ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -98,10 +99,25 @@ ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_frozen_rate_check" CHECK (
   ("rateCents" IS NULL AND "rateSource" IS NULL AND "costCents" IS NULL)
   OR ("rateCents" IS NOT NULL AND "rateSource" IS NOT NULL AND "currency" IS NOT NULL AND "costCents" IS NOT NULL)
 );
+-- ADR-018 §4: costCents = round_half_up(minutes x rateCents / 60). For non-negative values,
+-- integer division of (minutes x rate + 30) by 60 is exactly half-up rounding. bigint
+-- arithmetic: 1440 x 2147483647 + 30 does not fit in integer but fits in bigint.
+ALTER TABLE "TimeEntry" ADD CONSTRAINT "TimeEntry_cost_formula_check" CHECK (
+  "rateCents" IS NULL
+  OR "costCents"::bigint = ("minutes"::bigint * "rateCents"::bigint + 30) / 60
+);
 ALTER TABLE "Rate" ADD CONSTRAINT "Rate_rateCents_check" CHECK ("rateCents" >= 0);
 -- MEMBER: a member and no role; ROLE: an internal role and no member; TENANT: neither.
 ALTER TABLE "Rate" ADD CONSTRAINT "Rate_scope_check" CHECK (
   ("scope" = 'MEMBER' AND "userId" IS NOT NULL AND "role" IS NULL)
   OR ("scope" = 'ROLE' AND "role" IS NOT NULL AND "role" <> 'CLIENT' AND "userId" IS NULL)
   OR ("scope" = 'TENANT' AND "userId" IS NULL AND "role" IS NULL)
+);
+-- The unique key's scopeKey must name exactly this rate's target, so (tenantId, scopeKey, validFrom)
+-- is one rate per workspace, member / role / tenant default and day. IS NOT DISTINCT FROM keeps this
+-- check false (not NULL, which a CHECK would accept) when role or userId is missing.
+ALTER TABLE "Rate" ADD CONSTRAINT "Rate_scope_key_check" CHECK (
+  ("scope" = 'TENANT' AND "scopeKey" = 'TENANT')
+  OR ("scope" = 'ROLE' AND "scopeKey" IS NOT DISTINCT FROM ('ROLE:' || "role"::text))
+  OR ("scope" = 'MEMBER' AND "scopeKey" IS NOT DISTINCT FROM ('MEMBER:' || "userId"))
 );

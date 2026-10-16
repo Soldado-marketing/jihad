@@ -5,7 +5,8 @@ SELECT migration_name, finished_at IS NOT NULL AS finished FROM "_prisma_migrati
 SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('TimeEntry', 'Rate') ORDER BY 1;
 SELECT typname, array_to_string(enum_range(NULL::"TimeEntryStatus")::text[], ',') AS values FROM pg_type WHERE typname = 'TimeEntryStatus';
 SELECT conname, contype, confdeltype FROM pg_constraint WHERE conrelid IN ('"TimeEntry"'::regclass, '"Rate"'::regclass) AND contype IN ('f', 'c') ORDER BY 1;
-SELECT count(*) AS t71_indexes FROM pg_indexes WHERE tablename IN ('TimeEntry', 'Rate');
+SELECT count(*) FILTER (WHERE contype = 'f') AS foreign_keys, count(*) FILTER (WHERE contype = 'c') AS check_constraints FROM pg_constraint WHERE conrelid IN ('"TimeEntry"'::regclass, '"Rate"'::regclass);
+SELECT count(*) AS t71_indexes, count(*) FILTER (WHERE indexname = 'Rate_tenantId_scopeKey_validFrom_key') AS rate_unique_key FROM pg_indexes WHERE tablename IN ('TimeEntry', 'Rate');
 SELECT count(*) AS invalid_indexes FROM pg_index WHERE NOT indisvalid;
 SELECT (SELECT count(*) FROM "TimeEntry") AS time_entries, (SELECT count(*) FROM "Rate") AS rates;
 SELECT (SELECT count(*) FROM "Tenant") AS tenants, (SELECT count(*) FROM "User") AS users, (SELECT count(*) FROM "Project") AS projects, (SELECT count(*) FROM "Task") AS tasks, (SELECT count(*) FROM "Customer") AS customers;
