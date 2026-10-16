@@ -41,7 +41,7 @@ const navGroups = [
     label: 'Workspace',
   },
   {
-    ids: ['projects', 'tasks', 'customers', 'crm'],
+    ids: ['projects', 'tasks', 'time', 'customers', 'crm'],
     label: 'Delivery',
   },
   {
