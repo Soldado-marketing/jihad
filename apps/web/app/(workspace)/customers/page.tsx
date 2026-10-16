@@ -9,6 +9,7 @@ import {
   canWriteCustomers,
   createPayload,
   CUSTOMER_STATUSES,
+  customerField,
   industryOptions,
   STATUS_LABEL,
   statusChoices,
@@ -80,7 +81,7 @@ function CustomersList() {
     [rows],
   );
   const filters = useUrlFilters(fields);
-  const visible = applyFilters(rows, filters, (r, key) => (key === 'status' ? r.status : key === 'industry' ? r.industry : null), ['name', 'clientScopeKey', 'industry']);
+  const visible = applyFilters(rows, filters, customerField, ['name', 'clientScopeKey', 'industry']);
   const writer = canWriteCustomers(role);
 
   async function handleCreate(e: React.FormEvent) {
