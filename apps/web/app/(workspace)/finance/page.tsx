@@ -4,7 +4,18 @@ import Link from 'next/link';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 
-type Summary = { totalRevenueCents: number; totalCostCents: number; totalInvoicedCents: number; totalPaidCents: number; currency: string };
+// T74: totalCostCents includes the labour stored on time entries; unratedMinutes have no rate yet.
+type Summary = {
+  totalRevenueCents: number;
+  totalCostCents: number;
+  totalInvoicedCents: number;
+  totalPaidCents: number;
+  currency: string;
+  recordedCostCents?: number;
+  labourCostCents?: number;
+  unratedMinutes?: number;
+  incomplete?: boolean;
+};
 
 function fmt(cents: number, currency = 'EUR') {
   return new Intl.NumberFormat('en', { style: 'currency', currency }).format(cents / 100);
@@ -21,7 +32,11 @@ export default function FinancePage() {
 
   const cards = summary ? [
     { label: 'Total Revenue', value: fmt(summary.totalRevenueCents, summary.currency), color: 'text-green-600' },
-    { label: 'Total Costs', value: fmt(summary.totalCostCents, summary.currency), color: 'text-red-500' },
+    {
+      label: summary.labourCostCents ? `Total Costs (incl. labour ${fmt(summary.labourCostCents, summary.currency)})` : 'Total Costs',
+      value: `${summary.incomplete ? '≥ ' : ''}${fmt(summary.totalCostCents, summary.currency)}`,
+      color: 'text-red-500',
+    },
     { label: 'Invoiced', value: fmt(summary.totalInvoicedCents, summary.currency), color: 'text-blue-600' },
     { label: 'Collected', value: fmt(summary.totalPaidCents, summary.currency), color: 'text-emerald-600' },
   ] : [];
@@ -38,6 +53,12 @@ export default function FinancePage() {
       <PageHeader eyebrow="Finance" title="Financial Overview" description="Aggregated financial position across all projects." />
       {loading && <p className="text-sm text-muted">Loading…</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}
+      {summary?.incomplete && (
+        <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {Math.floor((summary.unratedMinutes ?? 0) / 60)}:{String((summary.unratedMinutes ?? 0) % 60).padStart(2, '0')} h of logged time have no rate yet, so total costs are a minimum.
+          Set rates and re-rate the period to complete them.
+        </p>
+      )}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {cards.map(c => (
