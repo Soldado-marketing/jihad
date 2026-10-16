@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canExport, canImport, MAX_CSV_CHARS, reportSummary, tooLarge, TRANSFER_TYPES } from '../src/lib/data-transfer.ts';
+import { canExport, canImport, columnsHint, importLabel, MAX_CSV_CHARS, reportSummary, tooLarge, TRANSFER_TYPES } from '../src/lib/data-transfer.ts';
 
 const webRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (p) => readFileSync(join(webRoot, p), 'utf8');
@@ -30,6 +30,28 @@ describe('import/export page', () => {
     assert.equal(reportSummary({ rows: 3, valid: true, committed: false, created: 0, errors: [] }), '3 rows checked, no problems. Nothing has been written yet.');
     assert.equal(reportSummary({ rows: 3, valid: true, committed: true, created: 3, errors: [] }), 'Imported 3 rows.');
     assert.match(reportSummary({ rows: 3, valid: false, committed: false, created: 0, errors: [{}], errorCount: 4 }), /^4 problems found\. Nothing was imported/);
+  });
+
+  it('shows owner-only columns to the OWNER only (runtime check finding)', () => {
+    assert.equal(columnsHint('projects', 'MANAGER'), 'name*, projectNumber, status (ACTIVE|PAUSED|ARCHIVED), customerKey, serviceType, deadline (YYYY-MM-DD), description');
+    assert.match(columnsHint('projects', 'OWNER'), /, ownerEmail, budgetCents \(whole cents\)$/);
+    for (const role of ['MANAGER', 'EMPLOYEE', 'CONTRACTOR']) {
+      for (const t of TRANSFER_TYPES) assert.ok(!/Email|budgetCents/.test(columnsHint(t, role)), `${role} ${t}`);
+    }
+  });
+
+  it('labels the import button with a correct row count (runtime check finding)', () => {
+    assert.equal(importLabel(null), 'Import');
+    assert.equal(importLabel({ rows: 1, valid: true, committed: false }), 'Import 1 row');
+    assert.equal(importLabel({ rows: 2, valid: true, committed: false }), 'Import 2 rows');
+    assert.equal(importLabel({ rows: 2, valid: false, committed: false }), 'Import');
+    assert.equal(importLabel({ rows: 2, valid: true, committed: true }), 'Import');
+    assert.equal(reportSummary({ rows: 1, valid: true, committed: true, created: 1, errors: [] }), 'Imported 1 row.');
+  });
+
+  it('does not claim an export re-imports as is (create-only)', () => {
+    assert.ok(!page.includes('can be imported as is'));
+    assert.match(page, /already exists is reported as a duplicate/);
   });
 
   it('checks before it imports and imports only a valid, unchanged file', () => {

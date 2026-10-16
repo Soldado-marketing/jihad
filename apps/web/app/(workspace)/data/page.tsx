@@ -6,7 +6,8 @@ import { getStoredUser } from '@/lib/auth';
 import {
   canExport,
   canImport,
-  IMPORT_COLUMNS,
+  columnsHint,
+  importLabel,
   MAX_ROWS,
   reportSummary,
   tooLarge,
@@ -92,7 +93,10 @@ function TransferCard({ type, role }: { type: TransferType; role?: string }) {
       </div>
       {canImport(role, type) && (
         <div className="space-y-3">
-          <p className="text-xs text-muted">Columns: {IMPORT_COLUMNS[type]}. Up to {MAX_ROWS} rows. An export file can be imported as is; its read-only columns are ignored.</p>
+          <p className="text-xs text-muted">
+            Columns: {columnsHint(type, role)}. Up to {MAX_ROWS} rows. Import only adds new records: a client key or project number that
+            already exists is reported as a duplicate. Read-only columns of an export file (names) are ignored.
+          </p>
           <div className="flex flex-wrap items-center gap-3">
             <label className="cursor-pointer rounded-lg border border-line px-4 py-2 text-sm font-medium">
               Choose CSV…
@@ -107,7 +111,7 @@ function TransferCard({ type, role }: { type: TransferType; role?: string }) {
               onClick={() => void send(true)}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              Import {report?.valid && !report.committed ? `${report.rows} rows` : ''}
+              {importLabel(report)}
             </button>
           </div>
         </div>
