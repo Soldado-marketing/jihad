@@ -109,7 +109,7 @@ describe('customer backfill (MAOS-T51)', { skip }, () => {
     await prisma.task.create({ data: { tenantId: t.a.id, title: 'only on a task', clientScopeKey: `bf-gamma-${RUN}` } });
     const pb = await prisma.project.create({ data: { tenantId: t.b.id, name: 'PB', clientScopeKey: ka }, select: { id: true } });
 
-    const dry = await backfillCustomers(prisma, { dryRun: true });
+    const dry = await backfillCustomers(prisma, { dryRun: true, tenantIds: [t.a.id, t.b.id] });
     assert.equal(dry.dryRun, true);
     const ra = dry.tenants.find((x) => x.tenantId === t.a.id);
     const rb = dry.tenants.find((x) => x.tenantId === t.b.id);
@@ -119,8 +119,13 @@ describe('customer backfill (MAOS-T51)', { skip }, () => {
     assert.deepEqual([rb.distinctKeys, rb.customersToCreate, rb.rowsToLink.Project], [1, 1, 1]);
     assert.ok(!JSON.stringify(dry).includes(ka), 'the report carries counts, never keys');
     assert.equal(await prisma.customer.count({ where: { tenantId: { in: [t.a.id, t.b.id] } } }), 0, 'dry run wrote nothing');
+    // tenantIds limits the run to those tenants (tests); the default - what the
+    // command line uses in production - still covers every tenant.
+    assert.deepEqual(dry.tenants.map((x) => x.tenantId).sort(), [t.a.id, t.b.id].sort());
+    const global = await backfillCustomers(prisma, { dryRun: true });
+    assert.ok([t.a.id, t.b.id].every((id) => global.tenants.some((x) => x.tenantId === id)));
 
-    const real = await backfillCustomers(prisma, { dryRun: false });
+    const real = await backfillCustomers(prisma, { dryRun: false, tenantIds: [t.a.id, t.b.id] });
     assert.ok(real.customersCreated >= 5);
     const ca = await prisma.customer.findUnique({ where: { tenantId_clientScopeKey: { tenantId: t.a.id, clientScopeKey: ka } } });
     const cb = await prisma.customer.findUnique({ where: { tenantId_clientScopeKey: { tenantId: t.b.id, clientScopeKey: ka } } });
@@ -144,7 +149,7 @@ describe('customer backfill (MAOS-T51)', { skip }, () => {
       await prisma.fileAsset.findMany({ where: mine, orderBy: { id: 'asc' }, select: { id: true, customerId: true } }),
     ]);
     const before = await snapshot();
-    const again = await backfillCustomers(prisma, { dryRun: false });
+    const again = await backfillCustomers(prisma, { dryRun: false, tenantIds: [t.a.id, t.b.id] });
     assert.equal(again.dryRun, false);
     assert.equal(await snapshot(), before, 'a re-run creates and relinks nothing in these tenants');
   });
@@ -157,7 +162,7 @@ describe('customer backfill (MAOS-T51)', { skip }, () => {
     // A row whose key changed outside the API after it was linked.
     const p = await prisma.project.create({ data: { tenantId: t.a.id, name: 'drifted', clientScopeKey: k2, customerId: c1.id } });
     const q = await prisma.project.create({ data: { tenantId: t.a.id, name: 'unkeyed', clientScopeKey: null, customerId: c1.id } });
-    await backfillCustomers(prisma, { dryRun: false });
+    await backfillCustomers(prisma, { dryRun: false, tenantIds: [t.a.id, t.b.id] });
     const c2 = await prisma.customer.findUnique({ where: { tenantId_clientScopeKey: { tenantId: t.a.id, clientScopeKey: k2 } } });
     assert.equal((await prisma.project.findUnique({ where: { id: p.id } })).customerId, c2.id);
     assert.equal((await prisma.project.findUnique({ where: { id: q.id } })).customerId, null);

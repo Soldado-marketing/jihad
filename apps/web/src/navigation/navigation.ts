@@ -97,6 +97,15 @@ export const workspaceNavigation: NavigationItem[] = [
     sprint2Status: 'active',
     clientSafe: false,
   },
+  // ── Data ────────────────────────────────────────────────────────────────
+  {
+    id: 'data',
+    label: 'Import & export',
+    href: '/data',
+    allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
   // ── Account ─────────────────────────────────────────────────────────────
   {
     id: 'settings',
