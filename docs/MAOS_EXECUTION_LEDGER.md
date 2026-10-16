@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W4: #92 (T58), #93 (T55), #94 (F-5) runtime-checked, awaiting owner merge |
-| ACTIVE_TASK | none in progress (T58, T55 COMPLETE_AWAITING_MERGE) |
-| TASK_STATUS | #92 PASS, #93 PASS after fix aa64e9c, #91 logs CLEAN; #94 F-5 opened; nothing merged |
-| CURRENT_BRANCH | feat/customer-360-ui |
-| HEAD | feat/customer-360-ui (T55 on top of main `c18bca5`) |
-| MAIN_HEAD_LAST_VERIFIED | `c18bca5` (#91 merged; main CI green; Railway jihad SUCCESS; health 200/200) |
-| PR_URL | #92 T58; #93 T55; #94 F-5 |
-| PR_STATUS | #92, #93, #94 open; #92/#93 CI green |
-| CI_STATUS | main green at c18bca5; #92 green; #93 green at aa64e9c; #94 pending |
-| COMPLETED_ATOMIC_STEP | Runtime checks of #92 and #93 against a running API; #93 UI fixes; F-5 fix PR #94 |
-| EXACT_NEXT_ACTION | Owner decides merges of #92, #93, #94 (each deploys web; #93 also API). After merges: verify CI, Railway jihad + maos-web, health, logs (`railway logs --lines`). T118 only after those decisions (owner instruction 2026-10-16). |
-| TESTS_PENDING | #94 CI |
-| BLOCKERS | T118 held by owner until #92/#93/#94 are decided; T71-T76 need the T71 migration gate |
-| OWNER_GATE_PENDING | (1) merge decisions #92, #93, #94; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate; (6) future T71 migration window |
+| CURRENT_PHASE_OR_WAVE | W4: T54, T55, T58 and F-5 merged and deployed; next dependency-ready work |
+| ACTIVE_TASK | none |
+| TASK_STATUS | #92, #94, #93 merged and verified 2026-10-16; no task started |
+| CURRENT_BRANCH | main |
+| HEAD | main = origin/main (after #93 + this ledger PR) |
+| MAIN_HEAD_LAST_VERIFIED | `01cba31` (#93 merged; main CI green; Railway jihad + maos-web SUCCESS; health 200/200; logs clean) |
+| PR_URL | none open |
+| PR_STATUS | #92, #93, #94 MERGED |
+| CI_STATUS | main green at 01cba31 |
+| COMPLETED_ATOMIC_STEP | Owner-approved merges #92 -> #94 -> #93 (reconciled, CI green), each deploy verified |
+| EXACT_NEXT_ACTION | Next dependency-ready W4 task: T118 Import/export CSV (deps T52, T57 met; owner hold lifted once #92/#93/#94 were merged and verified). T71 TimeEntry/Rate schema needs its own migration window. Housekeeping: remove ~/Developer/MAOS/windows/T56 worktree. |
+| TESTS_PENDING | none |
+| BLOCKERS | T71-T76 need the T71 migration gate |
+| OWNER_GATE_PENDING | (1) pmset wake password; (2) D2 off-site setup (open risk); (3) T45 webhook secret; (4) T46 real-data gate; (5) future T71 migration window |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -610,4 +610,5 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - CI-3 (2026-10-15, local only) | One CI-equivalent local run failed the whole customer-overview suite and one scheduler test (invite-expiry); three reruns of the same sequence were clean and GitHub CI on #91/main was green. Login throttling ruled out (in-memory per suite process). Not reproduced; watch for it in CI | integration tests | OPEN (monitor)
 - #91 log re-check (2026-10-16) | `railway logs --lines` (non-streaming; the earlier hangs were streaming mode) on deployment ae021adc: 1 start, no restart, 117 INFO, 2 WARN = `REDIS_URL is not set` (expected) and the 401 of the unauthenticated probe `/api/customers/x/overview`. CLEAN | — | VERIFIED
 - Runtime check #92 + #93 (2026-10-16) | Local API (#93 branch) + Next dev per branch on a disposable PostgreSQL 18 with seeded tenants/roles. #92: list values, progress, OWNER budget column, MANAGER none (API body has no budgetCents), filters + search in URL, overdue red / due-soon amber / archived none, OWNER edit (cents 350050, client key derived by server), MANAGER edit (no budget field, responsible read-only: /users/members is OWNER-only), console no errors -> PASS. #93: counts and OWNER finance totals exact, tabs per section (EMPLOYEE with project deny: no Projects tab), no amounts for MANAGER/EMPLOYEE, timeline customer-scoped, CONTRACTOR/CLIENT 403, foreign tenant 404 -> found 2 UI bugs (budget replaced status in Projects tab; duplicate Activity heading), fixed in `aa64e9c` with regression tests, rechecked -> PASS | — | VERIFIED
-- F-5 | Fix in #94 (fix/customers-search, from main c18bca5): customerField accessor; web customers 8/8, web 170/170 | web customers | FIX IN PR
+- F-5 | Fix in #94 (fix/customers-search, from main c18bca5): customerField accessor; web customers 8/8, web 170/170 | web customers | FIXED (#94 merged 7996ba4)
+- 2026-10-16 merges (owner approved order #92, #94, #93) | #92 T58 MERGED `e21e1ba` (main CI green; maos-web SUCCESS; jihad SKIPPED, web only; /projects 200; web logs 0 errors). #94 F-5 MERGED `7996ba4` (main CI green; maos-web SUCCESS; /customers 200; logs 0 errors). #93 reconciled with main in `ce6315f` (no conflicts; customers/page.tsx auto-merged keeping customerField + 360 link; web 184/184, build, PR CI green) -> MERGED `01cba31` (main CI green; jihad + maos-web SUCCESS; health 200/200; /api/activity/customer/x 401 unauthenticated; API logs: 1 start, only the expected REDIS_URL warning; web logs 0 errors) | 0 | COMPLETE_MERGED (T58, T55, F-5)
