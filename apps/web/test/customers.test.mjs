@@ -8,7 +8,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canArchive, canWriteCustomers, createPayload, industryOptions, statusChoices, updatePayload } from '../src/lib/customers.ts';
+import { canArchive, canWriteCustomers, createPayload, customerField, industryOptions, statusChoices, updatePayload } from '../src/lib/customers.ts';
+import { applyFilters } from '../src/lib/filters.ts';
 
 const webRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (p) => readFileSync(join(webRoot, p), 'utf8');
@@ -28,6 +29,20 @@ describe('customer list UI', () => {
     assert.deepEqual(statusChoices('OWNER', 'ACTIVE'), ['ACTIVE', 'INACTIVE', 'ARCHIVED']);
     assert.deepEqual(statusChoices('MANAGER', 'ACTIVE'), ['ACTIVE', 'INACTIVE']);
     assert.deepEqual(statusChoices('MANAGER', 'ARCHIVED'), ['ARCHIVED'], 'a manager cannot restore');
+  });
+
+  it('text search matches name and client key, not only industry (F-5)', () => {
+    const rows = [row({ id: 'a', name: 'Acme GmbH', clientScopeKey: 'acme', industry: 'Retail' }), row({ id: 'b', name: 'Beta AG', clientScopeKey: 'beta-key', industry: 'Auto' })];
+    const search = (q, values = {}) => applyFilters(rows, { q, values }, customerField, ['name', 'clientScopeKey', 'industry']).map((r) => r.id);
+    assert.deepEqual(search('acme gm'), ['a'], 'by name');
+    assert.deepEqual(search('BETA-K'), ['b'], 'by key, case-insensitive');
+    assert.deepEqual(search('auto'), ['b'], 'by industry');
+    assert.deepEqual(search('', { status: 'ACTIVE', industry: 'Retail' }), ['a'], 'filters still apply');
+    assert.equal(customerField(rows[0], 'unknown'), null);
+  });
+
+  it('the page searches through customerField', () => {
+    assert.match(read('app/(workspace)/customers/page.tsx'), /applyFilters\(rows, filters, customerField,/);
   });
 
   it('builds industry filter options from the data, sorted and without blanks', () => {
