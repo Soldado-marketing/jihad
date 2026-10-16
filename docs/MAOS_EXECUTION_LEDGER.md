@@ -16,20 +16,20 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W4: T54 merged; T58 (#92) and T55 in PR |
+| CURRENT_PHASE_OR_WAVE | W4: #92 (T58), #93 (T55), #94 (F-5) runtime-checked, awaiting owner merge |
 | ACTIVE_TASK | none in progress (T58, T55 COMPLETE_AWAITING_MERGE) |
-| TASK_STATUS | #91 merged and deployed (c18bca5); #92 and the T55 PR await owner review/merge; no migrations |
+| TASK_STATUS | #92 PASS, #93 PASS after fix aa64e9c, #91 logs CLEAN; #94 F-5 opened; nothing merged |
 | CURRENT_BRANCH | feat/customer-360-ui |
 | HEAD | feat/customer-360-ui (T55 on top of main `c18bca5`) |
 | MAIN_HEAD_LAST_VERIFIED | `c18bca5` (#91 merged; main CI green; Railway jihad SUCCESS; health 200/200) |
-| PR_URL | #92 T58 Project enrichment UI; T55 Customer 360 UI PR |
-| PR_STATUS | #92 open, CI green, held for owner review; T55 PR open |
-| CI_STATUS | main green at c18bca5; #92 green; T55 PR pending |
-| COMPLETED_ATOMIC_STEP | #91 merged + deploy verified; T55 implemented (web 5/5, 3 mutations; customer timeline API 8/8) |
-| EXACT_NEXT_ACTION | Owner reviews/merges #92 and the T55 PR (each deploys web; T55 also deploys API for the customer timeline) -> verify CI, Railway, health. Next without approval: T118 Import/export CSV (deps T52, T57); F-5 customers search fix (proposed as its own session). T71 needs its own migration window. |
-| TESTS_PENDING | T55 PR CI |
-| BLOCKERS | none for T118/F-5; T71-T76 need the T71 migration gate |
-| OWNER_GATE_PENDING | (1) merge #92 and the T55 PR; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate; (6) future T71 migration window |
+| PR_URL | #92 T58; #93 T55; #94 F-5 |
+| PR_STATUS | #92, #93, #94 open; #92/#93 CI green |
+| CI_STATUS | main green at c18bca5; #92 green; #93 green at aa64e9c; #94 pending |
+| COMPLETED_ATOMIC_STEP | Runtime checks of #92 and #93 against a running API; #93 UI fixes; F-5 fix PR #94 |
+| EXACT_NEXT_ACTION | Owner decides merges of #92, #93, #94 (each deploys web; #93 also API). After merges: verify CI, Railway jihad + maos-web, health, logs (`railway logs --lines`). T118 only after those decisions (owner instruction 2026-10-16). |
+| TESTS_PENDING | #94 CI |
+| BLOCKERS | T118 held by owner until #92/#93/#94 are decided; T71-T76 need the T71 migration gate |
+| OWNER_GATE_PENDING | (1) merge decisions #92, #93, #94; (2) pmset wake password; (3) D2 off-site setup (open risk); (4) T45 webhook secret; (5) T46 real-data gate; (6) future T71 migration window |
 | LAST_UPDATED | 2026-10-15 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
@@ -608,3 +608,6 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - MAOS-T54 merge | #91 MERGED (`c18bca5`) 2026-10-15: main CI green; Railway jihad SUCCESS on c18bca5; health 200/200; unauthenticated overview 401. Log check: first read showed 1 line matching exception (LIKELY the warn line of that 401 probe; Railway CLI then stopped answering, not re-verified) | 0 | COMPLETE_MERGED
 - MAOS-T55 | Customer 360 UI (`/customers/[id]`: Overview with KPI row, OWNER-only finance totals, upcoming tasks, open approvals, invoices, customer activity timeline; Projects, Files, Notes tabs shown only for sections the API sent; list names link to it). API: activity timeline gains `customer` (the customer's own events, CUSTOMER read) | feat/customer-360-ui | PR | web customer-360 5/5 (3/3 mutations), web 173/173, build OK; activity-timeline 8/8; integration 35 + 303 x3 clean, full API 454/0 fail/10 todo | 0 | COMPLETE_AWAITING_MERGE
 - CI-3 (2026-10-15, local only) | One CI-equivalent local run failed the whole customer-overview suite and one scheduler test (invite-expiry); three reruns of the same sequence were clean and GitHub CI on #91/main was green. Login throttling ruled out (in-memory per suite process). Not reproduced; watch for it in CI | integration tests | OPEN (monitor)
+- #91 log re-check (2026-10-16) | `railway logs --lines` (non-streaming; the earlier hangs were streaming mode) on deployment ae021adc: 1 start, no restart, 117 INFO, 2 WARN = `REDIS_URL is not set` (expected) and the 401 of the unauthenticated probe `/api/customers/x/overview`. CLEAN | — | VERIFIED
+- Runtime check #92 + #93 (2026-10-16) | Local API (#93 branch) + Next dev per branch on a disposable PostgreSQL 18 with seeded tenants/roles. #92: list values, progress, OWNER budget column, MANAGER none (API body has no budgetCents), filters + search in URL, overdue red / due-soon amber / archived none, OWNER edit (cents 350050, client key derived by server), MANAGER edit (no budget field, responsible read-only: /users/members is OWNER-only), console no errors -> PASS. #93: counts and OWNER finance totals exact, tabs per section (EMPLOYEE with project deny: no Projects tab), no amounts for MANAGER/EMPLOYEE, timeline customer-scoped, CONTRACTOR/CLIENT 403, foreign tenant 404 -> found 2 UI bugs (budget replaced status in Projects tab; duplicate Activity heading), fixed in `aa64e9c` with regression tests, rechecked -> PASS | — | VERIFIED
+- F-5 | Fix in #94 (fix/customers-search, from main c18bca5): customerField accessor; web customers 8/8, web 170/170 | web customers | FIX IN PR
