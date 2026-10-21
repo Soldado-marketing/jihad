@@ -113,3 +113,56 @@ export function buildProjectProfitability(
 
   return rows.sort((a, b) => a.marginCents - b.marginCents);
 }
+
+/** One attributable amount for customer profitability (MAOS-T75); customerId null = no customer. */
+export interface CustomerPart {
+  customerId: string | null;
+  customerName: string | null;
+  revenueCents?: number;
+  recordedCostCents?: number;
+  labourCostCents?: number;
+  ratedMinutes?: number;
+  unratedMinutes?: number;
+}
+
+export interface CustomerProfitability extends Profitability {
+  customerId: string | null;
+  customerName: string | null;
+  recordedCostCents: number;
+  labourCostCents: number;
+  ratedMinutes: number;
+  unratedMinutes: number;
+  incomplete: boolean;
+}
+
+/**
+ * Customer profitability (MAOS-T75): the T74 project rules summed per
+ * customer. Cost = recorded costs + stored labour; unrated minutes are kept
+ * apart and make the row incomplete. Amounts that belong to no customer stay
+ * in one row with customerId null, so the customer rows plus that row always
+ * add up to the workspace totals. Worst margin first; the unattributed row last.
+ */
+export function buildCustomerProfitability(parts: readonly CustomerPart[]): CustomerProfitability[] {
+  const byCustomer = new Map<string | null, { name: string | null; revenue: number; recorded: number; labour: number; rated: number; unrated: number }>();
+  for (const p of parts) {
+    const acc = byCustomer.get(p.customerId) ?? { name: p.customerName, revenue: 0, recorded: 0, labour: 0, rated: 0, unrated: 0 };
+    acc.name = acc.name ?? p.customerName;
+    acc.revenue += Math.trunc(p.revenueCents ?? 0);
+    acc.recorded += Math.trunc(p.recordedCostCents ?? 0);
+    acc.labour += Math.trunc(p.labourCostCents ?? 0);
+    acc.rated += p.ratedMinutes ?? 0;
+    acc.unrated += p.unratedMinutes ?? 0;
+    byCustomer.set(p.customerId, acc);
+  }
+  const rows = [...byCustomer].map(([customerId, a]) => ({
+    customerId,
+    customerName: customerId === null ? null : a.name,
+    ...computeProfitability({ revenueCents: a.revenue, costCents: a.recorded + a.labour }),
+    recordedCostCents: a.recorded,
+    labourCostCents: a.labour,
+    ratedMinutes: a.rated,
+    unratedMinutes: a.unrated,
+    incomplete: a.unrated > 0,
+  }));
+  return rows.sort((x, y) => (x.customerId === null ? 1 : 0) - (y.customerId === null ? 1 : 0) || x.marginCents - y.marginCents);
+}

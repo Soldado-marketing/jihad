@@ -41,3 +41,24 @@ describe('project profitability with stored labour', () => {
     assert.deepEqual([row.costCents, row.marginCents, row.recordedCostCents, row.labourCostCents, row.incomplete], [100, 200, 100, 0, false]);
   });
 });
+
+describe('customer profitability (MAOS-T75)', () => {
+  it('sums revenue, recorded cost and stored labour per customer; unrated stays apart', async () => {
+    const { buildCustomerProfitability } = await import('../src/modules/finance/profitability.ts');
+    const rows = buildCustomerProfitability([
+      { customerId: 'c1', customerName: 'Acme', revenueCents: 100000 },
+      { customerId: 'c1', customerName: 'Acme', recordedCostCents: 20000 },
+      { customerId: 'c1', customerName: 'Acme', labourCostCents: 9000, ratedMinutes: 90, unratedMinutes: 0 },
+      { customerId: 'c1', customerName: 'Acme', labourCostCents: 0, ratedMinutes: 0, unratedMinutes: 30 },
+      { customerId: 'c2', customerName: 'Beta', labourCostCents: 5000, ratedMinutes: 50, unratedMinutes: 0 },
+      { customerId: null, customerName: null, revenueCents: 700, recordedCostCents: 100 },
+    ]);
+    assert.deepEqual(rows.map((r) => [r.customerId, r.revenueCents, r.recordedCostCents, r.labourCostCents, r.costCents, r.marginCents, r.marginPercent, r.unratedMinutes, r.incomplete]), [
+      ['c2', 0, 0, 5000, 5000, -5000, null, 0, false],
+      ['c1', 100000, 20000, 9000, 29000, 71000, 71, 30, true],
+      [null, 700, 100, 0, 100, 600, 85.7, 0, false],
+    ]);
+    const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
+    assert.deepEqual([sum('revenueCents'), sum('costCents')], [100700, 34100], 'rows add up to the workspace totals');
+  });
+});
