@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRateDto, RerateDto, UpdateRateDto } from './dto/rate.dto';
-import { costCents, pickRate, ResolvedRate, scopeKeyFor } from './rate-resolution';
+import { costCents, pickRate, ResolvedRate, scopeKeyFor } from '../finance/labour-cost';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
