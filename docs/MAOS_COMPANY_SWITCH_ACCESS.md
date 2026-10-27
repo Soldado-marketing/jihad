@@ -7,7 +7,7 @@ Product owner decision (2026-10-27):
 - EMPLOYEE, CONTRACTOR and CLIENT cannot switch by default. Only an OWNER of each destination/current company can explicitly grant the exception to that tenant membership.
 - Even with switching rights, a user sees only the resources permitted by their role in the selected company. CLIENT remains client-portal scoped, never internal access.
 - Only owners can grant or revoke an exception. No global view of tenants, no cross-tenant reads, no universal OWNER.
-- Switching must be validated by API and create a correctly scoped session; old JWT session revoked. Client UI must reload to clear tenant-local state.
+- Switching must be validated by API and create a correctly scoped session; old JWT session revoked. Client UI and any other open tabs must reload to clear tenant-local state.
 
 Implementation:
 - Existing TenantMembership and MembershipPermission models; exception: action=switch, resource=tenant, granted true/false; no migration.

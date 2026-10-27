@@ -86,3 +86,24 @@ export function getStoredTenant(): StoredTenant | null {
 export function isAuthenticated(): boolean {
   return Boolean(getAccessToken());
 }
+
+
+/**
+ * Multi-tab isolation: a tenant switch (or logout) in another tab must flush
+ * old tenant data. The switcher already reloads its own tab; this handles the
+ * other tabs through browser storage events, without trusting the stored ID
+ * for server authorization.
+ */
+export function watchTenantSessionChanges(): () => void {
+  const initialTenantId = getStoredTenant()?.id ?? null;
+  const initialRole = getStoredUser()?.role ?? null;
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== KEYS.TENANT && event.key !== KEYS.USER) return;
+    const tenant = getStoredTenant();
+    const role = getStoredUser()?.role ?? null;
+    if ((tenant?.id ?? null) === initialTenantId && role === initialRole) return;
+    window.location.replace(!tenant ? '/auth/login' : role === 'CLIENT' ? '/client' : '/dashboard');
+  };
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
+}
