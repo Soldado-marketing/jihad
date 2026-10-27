@@ -349,6 +349,11 @@ describe('nightly-backup.sh - duration guard', () => {
  *   stay    starts a real TCP listener child on the port (the "SSH child") and waits
  *   orphan  starts the listener child and exits at once (child outlives the parent)
  *   delayed exits at once; its child starts listening only 1.5 s later (slow SSH start)
+ *   chain   the real macOS shape (2026-10-27): wrapper -> native child -> listener as a
+ *           GRANDCHILD in a process group of its own; wrapper and native keep running
+ *           (stricter than the CLI: the native child also gets its own group)
+ *   started marks $STUB_DIR/tunnel.started and waits without listening (the test then
+ *           puts an unrelated listener on the port)
  *   fail    exits 1 without listening
  *   hang    waits without ever listening
  * The listener is a real node process, so readiness, ownership and cleanup are
@@ -378,6 +383,11 @@ listen() {
 case "$mode" in
   stay)   listen; sleep 60 & wait $! ;;
   orphan) listen; exit 0 ;;
+  chain)  set -m
+          /bin/bash -c 'set -m; "$1" "$2/listen.js" "$3" & echo "$!" > "$2/listener.pid"; ps -o pgid= -p "$!" | tr -d " " > "$2/listener.pgid"; sleep 60 & wait $!' chain "${NODE}" "$STUB_DIR" "$port" &
+          echo "$!" > "$STUB_DIR/native.pid"; ps -o pgid= -p "$!" | tr -d " " > "$STUB_DIR/native.pgid"
+          set +m; sleep 60 & wait $! ;;
+  started) touch "$STUB_DIR/tunnel.started"; sleep 60 & wait $! ;;
   delayed) ( sleep 1.5; exec "${NODE}" -e "require('net').createServer(s=>s.end()).listen(Number(process.argv[1]),'127.0.0.1')" "$port" ) &
           echo "$!" > "$STUB_DIR/listener.pid"; exit 0 ;;
   fail)   exit 1 ;;
@@ -414,6 +424,7 @@ function privateCase({ tunnel = 'stay', backup = 'ok', keychain = PRIVATE_KEYCHA
   installPrivateBackup(c);
   installKeychain(c, keychain);
   writeFileSync(join(c.stub, 'tunnel.mode'), tunnel);
+  writeFileSync(join(c.stub, 'listen.js'), "require('net').createServer(s=>s.end()).listen(Number(process.argv[2]),'127.0.0.1')");
   writeFileSync(join(c.stub, 'backup.mode'), backup);
   c.port = freePort();
   return c;
@@ -515,6 +526,63 @@ describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
     assert.match(logOf(c), /private tunnel ready after [1-9]\d*s/);
     assert.match(logOf(c), /SUCCESS: exit 0/);
     assertTunnelClosed(c);
+  });
+
+  it('owns and closes the real macOS shape: SSH listener as a grandchild in its own process group (2026-10-27)', () => {
+    const c = privateCase({ tunnel: 'chain' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    const tunnelPid = pidFrom(c, 'tunnel.pid');
+    const listenerPid = pidFrom(c, 'listener.pid');
+    const listenerGroup = Number(readFileSync(join(c.stub, 'listener.pgid'), 'utf8'));
+    assert.ok(listenerPid > 0 && listenerGroup > 0);
+    assert.notEqual(listenerGroup, tunnelPid, 'premise: the listener is NOT in the tunnel group');
+    assert.notEqual(Number(readFileSync(join(c.stub, 'native.pgid'), 'utf8')), tunnelPid, 'premise: the native process is NOT in the tunnel group');
+    const log = logOf(c);
+    assert.doesNotMatch(log, /does not belong to this run's tunnel/);
+    assert.doesNotMatch(log, /WARNING/);
+    assert.match(log, /private tunnel closed/);
+    assert.match(log, /SUCCESS: exit 0/);
+    assert.equal(alive(listenerPid), false, 'grandchild SSH listener still running');
+    assert.equal(alive(pidFrom(c, 'native.pid')), false, 'native railway process still running');
+    assertTunnelClosed(c);
+  });
+
+  it('refuses a listener that appears after the tunnel starts but is not part of it, never kills it, never reports it closed', async () => {
+    const c = privateCase({ tunnel: 'started' });
+    const { spawn } = await import('node:child_process');
+    const child = spawn('/bin/bash', [NIGHTLY], {
+      env: {
+        PATH: '/usr/bin:/bin',
+        HOME: c.dir,
+        STUB_DIR: c.stub,
+        MAOS_BACKUP_HOME: c.home,
+        DOCKER_BIN: join(c.bin, 'docker'),
+        RAILWAY_BIN: join(c.bin, 'railway'),
+        MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
+        MAOS_BACKUP_PG_DUMP: 'path',
+        SECURITY_BIN: join(c.bin, 'security'),
+        ...privateEnv(c, { MAOS_BACKUP_TUNNEL_READY_SECONDS: '10' }),
+      },
+    });
+    const exited = new Promise((r) => child.on('exit', (code) => r(code)));
+    let deadline = Date.now() + 10000;
+    while (!existsSync(join(c.stub, 'tunnel.started')) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(existsSync(join(c.stub, 'tunnel.started')), 'tunnel stub did not start');
+    const foreign = spawn(NODE, [join(c.stub, 'listen.js'), String(c.port)], { stdio: 'ignore', detached: true });
+    try {
+      const code = await exited;
+      assert.equal(code, 5, logOf(c));
+      const log = logOf(c);
+      assert.match(log, /FAIL: the listener on port \d+ does not belong to this run's tunnel/);
+      assert.match(log, new RegExp(`WARNING: port ${c.port} is still listening after the tunnel was closed \\(pid ${foreign.pid}`));
+      assert.doesNotMatch(log, /private tunnel closed/);
+      assert.equal(alive(foreign.pid), true, 'unrelated listener was killed');
+      assert.ok(!existsSync(join(c.stub, 'backup.pid')), 'backup must not start');
+      assert.equal(alive(pidFrom(c, 'tunnel.pid')), false, 'own tunnel process still running');
+    } finally {
+      process.kill(foreign.pid, 'SIGKILL');
+    }
   });
 
   it('fails with exit 5 and an alert-worthy log line when the tunnel cannot start', () => {
