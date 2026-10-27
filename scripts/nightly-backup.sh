@@ -117,22 +117,13 @@ redact() { sed -e 's#postgres[a-zA-Z]*://[^ "]*#<REDACTED>#g'; }
 # ── Private tunnel helpers (MAOS-R01) ─────────────────────────────────────────
 TUNNEL_PID=""      # the `railway connect` process
 TUNNEL_GROUP=""    # its own process group, when it has one (never ours)
-TUNNEL_OWNED=""    # listener pids on TUNNEL_PORT that this run started
+TUNNEL_LEADER_ID="" # identity (start time|executable) of TUNNEL_PID at start
+TUNNEL_OWNED=""    # "pid|identity" lines: listeners on TUNNEL_PORT this run started
+TUNNEL_READY=0
 
 # Is anything accepting connections on the local tunnel port? (bash built-in,
 # no extra tool; the connection is closed again at once.)
 tunnel_listening() { (exec 3<>"/dev/tcp/127.0.0.1/$TUNNEL_PORT") 2>/dev/null; }
-
-# Is any process of this run's tunnel still running? With its own process
-# group, the whole group counts: `railway connect` may exit while the SSH child
-# it started is still coming up (seen on Linux CI), and that is not a failure.
-tunnel_running() {
-  if [ -n "$TUNNEL_GROUP" ]; then
-    kill -0 -- "-$TUNNEL_GROUP" 2>/dev/null
-  else
-    kill -0 "$TUNNEL_PID" 2>/dev/null
-  fi
-}
 
 tunnel_listener_pids() {
   "$LSOF_BIN" -nP -iTCP:"$TUNNEL_PORT" -sTCP:LISTEN -t 2>/dev/null | sort -u
@@ -148,37 +139,80 @@ proc_identity() {
   printf '%s|%s' "$start" "$comm"
 }
 
-# Stop the tunnel: its whole process group, then every listener it spawned
-# (the SSH child can outlive `railway connect`). Only processes this run
-# started are signalled. Idempotent.
+# Processes of this run's tunnel that are alive AND still the same process
+# (identity unchanged): the leader and every recorded listener. A reused PID
+# never appears here.
+tunnel_verified_pids() {
+  local rec p want
+  if [ -n "$TUNNEL_LEADER_ID" ] && [ "$(proc_identity "$TUNNEL_PID" || true)" = "$TUNNEL_LEADER_ID" ]; then
+    echo "$TUNNEL_PID"
+  fi
+  while IFS= read -r rec; do
+    [ -n "$rec" ] || continue
+    p="${rec%%|*}"
+    want="${rec#*|}"
+    [ "$(proc_identity "$p" || true)" = "$want" ] && echo "$p"
+  done <<EOF_OWNED
+$TUNNEL_OWNED
+EOF_OWNED
+}
+
+# May the tunnel's process group be signalled? Only if it still exists and is
+# provably ours. Until the tunnel is ready the group is checked every second
+# (an id cannot be reused while its group exists); after that, a member whose
+# identity is verified must still be in it.
+tunnel_group_ours() {
+  local p
+  [ -n "$TUNNEL_GROUP" ] || return 1
+  kill -0 -- "-$TUNNEL_GROUP" 2>/dev/null || return 1
+  [ "$TUNNEL_READY" = 1 ] || return 0
+  for p in $(tunnel_verified_pids); do
+    [ "$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')" = "$TUNNEL_GROUP" ] && return 0
+  done
+  return 1
+}
+
+# Is the tunnel still starting or running? `railway connect` may exit while
+# the SSH child it started is still coming up (seen on Linux CI): with its own
+# group, any member counts.
+tunnel_running() {
+  if [ -n "$TUNNEL_GROUP" ]; then
+    kill -0 -- "-$TUNNEL_GROUP" 2>/dev/null
+  else
+    kill -0 "$TUNNEL_PID" 2>/dev/null
+  fi
+}
+
+# Stop the tunnel: its process group (if provably ours), then every verified
+# process of it (the SSH child can outlive `railway connect`). Nothing else is
+# ever signalled. Idempotent.
 close_tunnel() {
   [ -n "$TUNNEL_PID" ] || return 0
   local p still="" i=0
-  [ -n "$TUNNEL_GROUP" ] && kill -TERM -- "-$TUNNEL_GROUP" 2>/dev/null
-  kill -TERM "$TUNNEL_PID" 2>/dev/null
-  for p in $TUNNEL_OWNED; do kill -TERM "$p" 2>/dev/null; done
+  tunnel_group_ours && kill -TERM -- "-$TUNNEL_GROUP" 2>/dev/null
+  for p in $(tunnel_verified_pids); do kill -TERM "$p" 2>/dev/null; done
   while [ "$i" -lt 5 ]; do
-    still=""
-    for p in $TUNNEL_PID $TUNNEL_OWNED; do kill -0 "$p" 2>/dev/null && still="$still $p"; done
-    [ -z "$still" ] && break
+    still="$(tunnel_verified_pids | tr '\n' ' ')"
+    if [ -z "${still// /}" ] && ! tunnel_group_ours; then still=""; break; fi
     sleep 1
     i=$((i + 1))
   done
-  if [ -n "$still" ]; then
-    [ -n "$TUNNEL_GROUP" ] && kill -KILL -- "-$TUNNEL_GROUP" 2>/dev/null
-    for p in $still; do kill -KILL "$p" 2>/dev/null; done
+  if [ -n "${still// /}" ] || tunnel_group_ours; then
+    tunnel_group_ours && kill -KILL -- "-$TUNNEL_GROUP" 2>/dev/null
+    for p in $(tunnel_verified_pids); do kill -KILL "$p" 2>/dev/null; done
     sleep 1
   fi
-  still=""
-  for p in $TUNNEL_PID $TUNNEL_OWNED; do kill -0 "$p" 2>/dev/null && still="$still $p"; done
-  if [ -n "$still" ]; then
-    log "WARNING: private tunnel process(es)${still} could not be stopped"
+  still="$(tunnel_verified_pids | tr '\n' ' ')"
+  if [ -n "${still// /}" ] || tunnel_group_ours; then
+    log "WARNING: private tunnel process(es) ${still}could not be stopped"
   else
     log "private tunnel closed"
   fi
   TUNNEL_PID=""
   TUNNEL_GROUP=""
+  TUNNEL_LEADER_ID=""
   TUNNEL_OWNED=""
+  TUNNEL_READY=0
   rm -f "$LOCK/tunnel.pids"
 }
 
@@ -379,11 +413,12 @@ if [ "$CONNECTION" = private ]; then
     </dev/null >/dev/null 2>&1 &
   TUNNEL_PID=$!
   set +m
-  # Group signals only if the tunnel really leads its own group: a group shared
-  # with this runner must never be signalled.
+  TUNNEL_LEADER_ID="$(proc_identity "$TUNNEL_PID" || true)"
+  # Monitor mode put the job in its own group, whose id is TUNNEL_PID. Use it
+  # only if that group exists right now (the leader itself may already have
+  # exited: Linux CI) and is not this runner's own group.
   OWN_GROUP="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
-  T_GROUP="$(ps -o pgid= -p "$TUNNEL_PID" 2>/dev/null | tr -d ' ')"
-  if [ "$T_GROUP" = "$TUNNEL_PID" ] && [ "$T_GROUP" != "$OWN_GROUP" ]; then
+  if [ "$TUNNEL_PID" != "$OWN_GROUP" ] && kill -0 -- "-$TUNNEL_PID" 2>/dev/null; then
     TUNNEL_GROUP="$TUNNEL_PID"
   fi
   log "private tunnel starting on 127.0.0.1:$TUNNEL_PORT (pid $TUNNEL_PID; pg_dump via $TUNNEL_HOST)"
@@ -401,22 +436,22 @@ if [ "$CONNECTION" = private ]; then
   done
 
   # The listener must belong to this tunnel: its process group, or a direct
-  # child of `railway connect`.
+  # child of `railway connect`. Each owned listener is recorded with its
+  # identity (PID, start time, executable).
   for p in $(tunnel_listener_pids); do
     PGID="$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')"
     PPID_OF="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')"
     if [ "$p" = "$TUNNEL_PID" ] || { [ -n "$TUNNEL_GROUP" ] && [ "$PGID" = "$TUNNEL_GROUP" ]; } || [ "$PPID_OF" = "$TUNNEL_PID" ]; then
-      TUNNEL_OWNED="${TUNNEL_OWNED:+$TUNNEL_OWNED }$p"
+      ID="$(proc_identity "$p" || true)"
+      [ -n "$ID" ] && TUNNEL_OWNED="${TUNNEL_OWNED:+$TUNNEL_OWNED
+}$p|$ID"
     fi
   done
   if [ -z "$TUNNEL_OWNED" ]; then
     finish "FAIL: the listener on port $TUNNEL_PORT does not belong to this run's tunnel" 5
   fi
-  : > "$LOCK/tunnel.pids"
-  for p in $TUNNEL_OWNED; do
-    ID="$(proc_identity "$p" || true)"
-    [ -n "$ID" ] && printf '%s|%s\n' "$p" "$ID" >> "$LOCK/tunnel.pids"
-  done
+  printf '%s\n' "$TUNNEL_OWNED" > "$LOCK/tunnel.pids"
+  TUNNEL_READY=1
   log "private tunnel ready after ${WAITED}s"
 fi
 export DATABASE_URL
