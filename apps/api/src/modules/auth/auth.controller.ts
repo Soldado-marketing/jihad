@@ -1,11 +1,14 @@
 import {
   Body,
+  BadRequestException,
   ForbiddenException,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
   Post,
+  Patch,
+  Param,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -68,6 +71,43 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   logoutAll(@CurrentUser() user: JwtPayload) {
     return this.authService.logoutAll(user.sub, user.tenantId);
+  }
+
+  // Tenant lists and token rotations are server-authorized: UI visibility is
+  // never an authorization boundary.
+  @Get('companies')
+  @UseGuards(JwtAuthGuard)
+  companies(@CurrentUser() user: JwtPayload) {
+    return this.authService.availableCompanies(user);
+  }
+
+  @Post('companies/switch')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  switchCompany(
+    @CurrentUser() user: JwtPayload,
+    @Body('tenantId') tenantId: string,
+  ) {
+    return this.authService.switchCompany(user, tenantId);
+  }
+
+  @Get('company-members')
+  @UseGuards(JwtAuthGuard)
+  companyMembers(@CurrentUser() user: JwtPayload) {
+    return this.authService.companyMembers(user);
+  }
+
+  @Patch('company-members/:userId/switch')
+  @UseGuards(JwtAuthGuard)
+  setCompanySwitchPermission(
+    @CurrentUser() user: JwtPayload,
+    @Param('userId') userId: string,
+    @Body() body: { enabled?: boolean },
+  ) {
+    if (typeof body?.enabled !== 'boolean') {
+      throw new BadRequestException('enabled must be a boolean');
+    }
+    return this.authService.setCompanySwitchPermission(user, userId, body.enabled);
   }
 
   @Get('me')

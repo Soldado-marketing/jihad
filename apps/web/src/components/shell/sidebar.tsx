@@ -16,6 +16,7 @@ type SidebarProps = {
 const navGlyphs: Record<string, string> = {
   'admin-invites': 'IN',
   'admin-users': 'AU',
+  'company-access': 'CP',
   approvals: 'AP',
   audit: 'AL',
   calendar: 'CA',
@@ -37,7 +38,7 @@ const navGlyphs: Record<string, string> = {
 
 const navGroups = [
   {
-    ids: ['dashboard', 'my-work', 'calendar', 'admin-users', 'admin-invites'],
+    ids: ['dashboard', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
     label: 'Workspace',
   },
   {
