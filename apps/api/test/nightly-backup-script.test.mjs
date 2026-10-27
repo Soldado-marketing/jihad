@@ -14,7 +14,10 @@
  *   - only one run can be active at a time, and a stale lock is taken over;
  *   - a run that exceeds its time limit is stopped, logged as a timeout and
  *     leaves no partial dump behind;
- *   - the shim keeps the URL and the password out of every argument list.
+ *   - the shim keeps the URL and the password out of every argument list;
+ *   - private tunnel mode (MAOS-R01): Keychain only, bounded readiness,
+ *     rewritten URL, no secret in the log, no public fallback, and the tunnel
+ *     (including an SSH child that outlives it) closed on every exit path.
  *
  * Every test works in its own temporary directory, removed afterwards.
  */
@@ -337,6 +340,470 @@ describe('nightly-backup.sh - duration guard', () => {
     assert.ok(files.includes('maos-20261001T013000Z.dump'), 'older complete dumps must be kept');
     const pid = Number(readFileSync(join(c.stub, 'backup.pid'), 'utf8'));
     assert.throws(() => process.kill(pid, 0), 'backup process must be stopped');
+  });
+});
+
+/**
+ * Private tunnel mode (MAOS-R01). The railway stub stands in for
+ * `railway connect Postgres --ssh --tunnel-only -P <port>`; $STUB_DIR/tunnel.mode:
+ *   stay    starts a real TCP listener child on the port (the "SSH child") and waits
+ *   orphan  starts the listener child and exits at once (child outlives the parent)
+ *   delayed exits at once; its child starts listening only 1.5 s later (slow SSH start)
+ *   chain   the real macOS shape (2026-10-27): wrapper -> native child -> listener as a
+ *           GRANDCHILD in a process group of its own; wrapper and native keep running
+ *           (stricter than the CLI: the native child also gets its own group)
+ *   started marks $STUB_DIR/tunnel.started and waits without listening (the test then
+ *           puts an unrelated listener on the port)
+ *   fail    exits 1 without listening
+ *   hang    waits without ever listening
+ * The listener is a real node process, so readiness, ownership and cleanup are
+ * checked against real processes. Ports are free ephemeral ports.
+ */
+const NODE = process.execPath;
+
+function freePort() {
+  const r = spawnSync(NODE, ['-e', "const s=require('net').createServer().listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})"], { encoding: 'utf8' });
+  return Number(r.stdout.trim());
+}
+
+function installTunnelRailway(c) {
+  writeExe(
+    join(c.bin, 'railway'),
+    `printf '%s\\n' "$@" >> "$STUB_DIR/railway.args"
+echo "connection details: postgresql://user:Tunn3l%40Secret@127.0.0.1:x/railway"
+[ "$1" = connect ] || exit 9
+port=""; prev=""
+for a in "$@"; do [ "$prev" = "-P" ] && port="$a"; prev="$a"; done
+echo "$$" > "$STUB_DIR/tunnel.pid"
+mode="$(cat "$STUB_DIR/tunnel.mode" 2>/dev/null || echo stay)"
+listen() {
+  "${NODE}" -e "require('net').createServer(s=>s.end()).listen(Number(process.argv[1]),'127.0.0.1')" "$port" &
+  echo "$!" > "$STUB_DIR/listener.pid"
+}
+case "$mode" in
+  stay)   listen; sleep 60 & wait $! ;;
+  orphan) listen; exit 0 ;;
+  chain)  set -m
+          /bin/bash -c 'set -m; "$1" "$2/listen.js" "$3" & echo "$!" > "$2/listener.pid"; ps -o pgid= -p "$!" | tr -d " " > "$2/listener.pgid"; sleep 60 & wait $!' chain "${NODE}" "$STUB_DIR" "$port" &
+          echo "$!" > "$STUB_DIR/native.pid"; ps -o pgid= -p "$!" | tr -d " " > "$STUB_DIR/native.pgid"
+          set +m; sleep 60 & wait $! ;;
+  started) touch "$STUB_DIR/tunnel.started"; sleep 60 & wait $! ;;
+  delayed) ( sleep 1.5; exec "${NODE}" -e "require('net').createServer(s=>s.end()).listen(Number(process.argv[1]),'127.0.0.1')" "$port" ) &
+          echo "$!" > "$STUB_DIR/listener.pid"; exit 0 ;;
+  fail)   exit 1 ;;
+  hang)   sleep 60 & wait $! ;;
+esac`,
+  );
+}
+
+/** backup-db.sh stand-in that records the URL it got (outside the log) and can drop the tunnel. */
+function installPrivateBackup(c) {
+  writeExe(
+    join(c.bin, 'backup-db.sh'),
+    `out="$1"; mkdir -p "$out"
+printf '%s' "$DATABASE_URL" > "$STUB_DIR/url.received"
+echo "received DATABASE_URL=$DATABASE_URL"
+echo "$$" > "$STUB_DIR/backup.pid"
+mode="$(cat "$STUB_DIR/backup.mode" 2>/dev/null || echo ok)"
+case "$mode" in
+  ok)   echo PGDMP > "$out/maos-20261026T013000Z.dump"; echo "abc  x" > "$out/maos-20261026T013000Z.dump.sha256"; exit 0 ;;
+  drop) kill "$(cat "$STUB_DIR/listener.pid")"; sleep 1; echo "pg_dump: error: connection to server failed" >&2; exit 1 ;;
+  hang) echo partial > "$out/maos-20261026T013000Z.dump.partial-1"; sleep 30 & wait $!; exit 0 ;;
+  snap) cp "$MAOS_BACKUP_HOME/.nightly-backup.lock/tunnel.pids" "$STUB_DIR/tunnel.pids.snap"; echo PGDMP > "$out/maos-20261026T013000Z.dump"; exit 0 ;;
+esac`,
+  );
+}
+
+const PRIVATE_KEYCHAIN_URL =
+  'postgresql://backup:Tunn3l%40Secret@old-public.proxy.example:16699/railway?sslmode=verify-full&connect_timeout=10&host=evil.example';
+
+function privateCase({ tunnel = 'stay', backup = 'ok', keychain = PRIVATE_KEYCHAIN_URL } = {}) {
+  const c = makeCase();
+  installDocker(c);
+  installTunnelRailway(c);
+  installPrivateBackup(c);
+  installKeychain(c, keychain);
+  writeFileSync(join(c.stub, 'tunnel.mode'), tunnel);
+  writeFileSync(join(c.stub, 'listen.js'), "require('net').createServer(s=>s.end()).listen(Number(process.argv[2]),'127.0.0.1')");
+  writeFileSync(join(c.stub, 'backup.mode'), backup);
+  c.port = freePort();
+  return c;
+}
+
+// macOS has lsof in /usr/sbin (the script's default), Linux CI in /usr/bin.
+const LSOF = spawnSync('/bin/sh', ['-c', 'command -v lsof || ls /usr/sbin/lsof /usr/bin/lsof 2>/dev/null | head -1'], {
+  encoding: 'utf8',
+  env: { PATH: '/usr/sbin:/usr/bin:/sbin:/bin' },
+}).stdout.trim();
+
+const privateEnv = (c, extra = {}) => ({
+  MAOS_BACKUP_CONNECTION: 'private',
+  LSOF_BIN: LSOF,
+  MAOS_BACKUP_TUNNEL_PORT: String(c.port),
+  MAOS_BACKUP_TUNNEL_READY_SECONDS: '5',
+  MAOS_RAILWAY_DIR: c.dir,
+  ...extra,
+});
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const pidFrom = (c, name) => (existsSync(join(c.stub, name)) ? Number(readFileSync(join(c.stub, name), 'utf8')) : 0);
+const portOpen = (port) =>
+  spawnSync('/bin/bash', ['-c', `(exec 3<>/dev/tcp/127.0.0.1/${port}) 2>/dev/null`]).status === 0;
+
+function assertTunnelClosed(c) {
+  for (const name of ['tunnel.pid', 'listener.pid']) {
+    const pid = pidFrom(c, name);
+    if (pid) assert.equal(alive(pid), false, `${name} ${pid} still running`);
+  }
+  assert.equal(portOpen(c.port), false, 'tunnel port still listening');
+}
+
+function assertNoSecret(c, r) {
+  for (const out of [logOf(c), r.stdout, r.stderr]) {
+    assert.ok(!out.includes('Tunn3l'), 'password leaked');
+    assert.ok(!out.includes('old-public.proxy.example'), 'stored host leaked');
+    assert.ok(!/postgres(ql)?:\/\/[^<\s]/.test(out.replace(/<REDACTED>/g, '')), 'connection string leaked');
+  }
+}
+
+describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
+  it('opens the tunnel, backs up through it with the rewritten URL, closes it and exits 0', () => {
+    const c = privateCase();
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    const log = logOf(c);
+    assert.match(log, /credential source: keychain/);
+    assert.match(log, /private tunnel ready after/);
+    assert.match(log, /private tunnel closed/);
+    assert.match(log, /SUCCESS: exit 0/);
+    const args = readFileSync(join(c.stub, 'railway.args'), 'utf8').trim().split('\n');
+    assert.deepEqual(args, ['connect', 'Postgres', '--ssh', '--tunnel-only', '-P', String(c.port)]);
+    assertTunnelClosed(c);
+    assert.ok(log.indexOf('private tunnel closed') < log.indexOf('SUCCESS: exit 0'), 'closed before the result is logged');
+  });
+
+  it('keeps user, password, database and options; replaces host and port; forces sslmode=require', () => {
+    const c = privateCase();
+    assert.equal(runNightly(c, privateEnv(c)).status, 0, logOf(c));
+    const url = readFileSync(join(c.stub, 'url.received'), 'utf8');
+    assert.equal(url, `postgresql://backup:Tunn3l%40Secret@127.0.0.1:${c.port}/railway?connect_timeout=10&sslmode=require`);
+  });
+
+  it('uses host.docker.internal when pg_dump runs in Docker', () => {
+    const c = privateCase();
+    assert.equal(runNightly(c, privateEnv(c, { MAOS_BACKUP_PG_DUMP: 'docker' })).status, 0, logOf(c));
+    assert.match(readFileSync(join(c.stub, 'url.received'), 'utf8'), new RegExp(`@host\\.docker\\.internal:${c.port}/railway\\?`));
+  });
+
+  it('never writes the password, the stored host or any connection string to the log or output', () => {
+    const c = privateCase();
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    assertNoSecret(c, r);
+    assert.match(logOf(c), /received DATABASE_URL=<REDACTED>/);
+  });
+
+  it('closes the SSH child that outlives `railway connect`', () => {
+    const c = privateCase({ tunnel: 'orphan' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    assert.ok(pidFrom(c, 'listener.pid') > 0);
+    assertTunnelClosed(c);
+  });
+
+  it('waits for an SSH child that starts listening after `railway connect` has exited', () => {
+    const c = privateCase({ tunnel: 'delayed' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    assert.doesNotMatch(logOf(c), /exited before it was ready/);
+    assert.match(logOf(c), /private tunnel ready after [1-9]\d*s/);
+    assert.match(logOf(c), /SUCCESS: exit 0/);
+    assertTunnelClosed(c);
+  });
+
+  it('owns and closes the real macOS shape: SSH listener as a grandchild in its own process group (2026-10-27)', () => {
+    const c = privateCase({ tunnel: 'chain' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    const tunnelPid = pidFrom(c, 'tunnel.pid');
+    const listenerPid = pidFrom(c, 'listener.pid');
+    const listenerGroup = Number(readFileSync(join(c.stub, 'listener.pgid'), 'utf8'));
+    assert.ok(listenerPid > 0 && listenerGroup > 0);
+    assert.notEqual(listenerGroup, tunnelPid, 'premise: the listener is NOT in the tunnel group');
+    assert.notEqual(Number(readFileSync(join(c.stub, 'native.pgid'), 'utf8')), tunnelPid, 'premise: the native process is NOT in the tunnel group');
+    const log = logOf(c);
+    assert.doesNotMatch(log, /does not belong to this run's tunnel/);
+    assert.doesNotMatch(log, /WARNING/);
+    assert.match(log, /private tunnel closed/);
+    assert.match(log, /SUCCESS: exit 0/);
+    assert.equal(alive(listenerPid), false, 'grandchild SSH listener still running');
+    assert.equal(alive(pidFrom(c, 'native.pid')), false, 'native railway process still running');
+    assertTunnelClosed(c);
+  });
+
+  it('refuses a listener that appears after the tunnel starts but is not part of it, never kills it, never reports it closed', async () => {
+    const c = privateCase({ tunnel: 'started' });
+    const { spawn } = await import('node:child_process');
+    const child = spawn('/bin/bash', [NIGHTLY], {
+      env: {
+        PATH: '/usr/bin:/bin',
+        HOME: c.dir,
+        STUB_DIR: c.stub,
+        MAOS_BACKUP_HOME: c.home,
+        DOCKER_BIN: join(c.bin, 'docker'),
+        RAILWAY_BIN: join(c.bin, 'railway'),
+        MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
+        MAOS_BACKUP_PG_DUMP: 'path',
+        SECURITY_BIN: join(c.bin, 'security'),
+        ...privateEnv(c, { MAOS_BACKUP_TUNNEL_READY_SECONDS: '10' }),
+      },
+    });
+    const exited = new Promise((r) => child.on('exit', (code) => r(code)));
+    let deadline = Date.now() + 10000;
+    while (!existsSync(join(c.stub, 'tunnel.started')) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(existsSync(join(c.stub, 'tunnel.started')), 'tunnel stub did not start');
+    const foreign = spawn(NODE, [join(c.stub, 'listen.js'), String(c.port)], { stdio: 'ignore', detached: true });
+    try {
+      const code = await exited;
+      assert.equal(code, 5, logOf(c));
+      const log = logOf(c);
+      assert.match(log, /FAIL: the listener on port \d+ does not belong to this run's tunnel/);
+      assert.match(log, new RegExp(`WARNING: port ${c.port} is still listening after the tunnel was closed \\(pid ${foreign.pid}`));
+      assert.doesNotMatch(log, /private tunnel closed/);
+      assert.equal(alive(foreign.pid), true, 'unrelated listener was killed');
+      assert.ok(!existsSync(join(c.stub, 'backup.pid')), 'backup must not start');
+      assert.equal(alive(pidFrom(c, 'tunnel.pid')), false, 'own tunnel process still running');
+    } finally {
+      process.kill(foreign.pid, 'SIGKILL');
+    }
+  });
+
+  it('fails with exit 5 and an alert-worthy log line when the tunnel cannot start', () => {
+    const c = privateCase({ tunnel: 'fail' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 5, logOf(c));
+    assert.match(logOf(c), /FAIL: private tunnel exited before it was ready/);
+    assert.ok(!existsSync(join(c.stub, 'backup.pid')), 'backup must not start');
+    assertTunnelClosed(c);
+    assertNoSecret(c, r);
+  });
+
+  it('stops waiting after the readiness limit, exits 5 and stops the tunnel', () => {
+    const c = privateCase({ tunnel: 'hang' });
+    const started = Date.now();
+    const r = runNightly(c, privateEnv(c, { MAOS_BACKUP_TUNNEL_READY_SECONDS: '2' }));
+    assert.equal(r.status, 5, logOf(c));
+    assert.ok(Date.now() - started < 15000, 'readiness must be bounded');
+    assert.match(logOf(c), /FAIL: private tunnel not ready within 2s/);
+    assert.ok(!existsSync(join(c.stub, 'backup.pid')), 'backup must not start');
+    assertTunnelClosed(c);
+  });
+
+  it('reports a tunnel that drops during the backup, fails with the backup status and cleans up', () => {
+    const c = privateCase({ backup: 'drop' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 1, logOf(c));
+    const log = logOf(c);
+    assert.match(log, /private tunnel was no longer listening when the backup ended/);
+    assert.match(log, /FAIL: exit 1/);
+    assertTunnelClosed(c);
+    assertNoSecret(c, r);
+  });
+
+  it('closes the tunnel when the duration guard stops the backup', () => {
+    const c = privateCase({ backup: 'hang' });
+    const r = runNightly(c, privateEnv(c, { MAOS_BACKUP_MAX_SECONDS: '2' }));
+    assert.equal(r.status, 4, logOf(c));
+    assert.match(logOf(c), /private tunnel closed/);
+    assertTunnelClosed(c);
+  });
+
+  it('closes the tunnel and stops the backup on SIGTERM', async () => {
+    const c = privateCase({ backup: 'hang' });
+    const { spawn } = await import('node:child_process');
+    const child = spawn('/bin/bash', [NIGHTLY], {
+      env: {
+        PATH: '/usr/bin:/bin',
+        HOME: c.dir,
+        STUB_DIR: c.stub,
+        MAOS_BACKUP_HOME: c.home,
+        DOCKER_BIN: join(c.bin, 'docker'),
+        RAILWAY_BIN: join(c.bin, 'railway'),
+        MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
+        MAOS_BACKUP_PG_DUMP: 'path',
+        SECURITY_BIN: join(c.bin, 'security'),
+        ...privateEnv(c),
+      },
+    });
+    const deadline = Date.now() + 15000;
+    while (!existsSync(join(c.stub, 'backup.pid')) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+    assert.ok(existsSync(join(c.stub, 'backup.pid')), 'backup did not start');
+    child.kill('SIGTERM');
+    const code = await new Promise((r) => child.on('exit', (code) => r(code)));
+    assert.equal(code, 143, logOf(c));
+    assert.match(logOf(c), /FAIL: stopped by SIGTERM/);
+    assert.match(logOf(c), /private tunnel closed/);
+    assertTunnelClosed(c);
+    assert.equal(alive(pidFrom(c, 'backup.pid')), false, 'backup still running');
+    assert.ok(!readdirSync(c.out).some((f) => f.includes('.partial-')), 'partial dump left');
+  });
+
+  it('never falls back to Railway variables or the public URL when the Keychain item is missing', () => {
+    const c = privateCase({ keychain: undefined });
+    rmSync(join(c.stub, 'keychain.value'), { force: true });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 3, logOf(c));
+    assert.match(logOf(c), /FAIL: no Keychain item maos-backup-database-url/);
+    assert.equal(existsSync(join(c.stub, 'railway.args')), false, 'Railway must not be called at all');
+  });
+
+  it('refuses MAOS_BACKUP_CREDENTIAL_SOURCE=railway in private mode', () => {
+    const c = privateCase();
+    const r = runNightly(c, privateEnv(c, { MAOS_BACKUP_CREDENTIAL_SOURCE: 'railway' }));
+    assert.equal(r.status, 3);
+    assert.match(logOf(c), /private mode reads the credential from the Keychain only/);
+    assert.equal(existsSync(join(c.stub, 'railway.args')), false);
+  });
+
+  it('refuses a Keychain URL without user or database, without echoing it', () => {
+    const c = privateCase({ keychain: 'postgresql://old-public.proxy.example:16699' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 3);
+    assert.match(logOf(c), /is not a usable PostgreSQL URL/);
+    assertNoSecret(c, r);
+  });
+
+  it('refuses to use, and never stops, a listener it did not start', () => {
+    const c = privateCase();
+    const foreign = spawnSync('/bin/bash', ['-c', `"${NODE}" -e "require('net').createServer(s=>s.end()).listen(${c.port},'127.0.0.1')" >/dev/null 2>&1 & echo $!`], { encoding: 'utf8' });
+    const foreignPid = Number(foreign.stdout.trim());
+    try {
+      const deadline = Date.now() + 5000;
+      while (!portOpen(c.port) && Date.now() < deadline) spawnSync('sleep', ['0.1']);
+      const r = runNightly(c, privateEnv(c));
+      assert.equal(r.status, 5, logOf(c));
+      assert.match(logOf(c), /port \d+ is already in use; refusing to use a listener this run did not start/);
+      assert.equal(existsSync(join(c.stub, 'railway.args')), false, 'tunnel must not start');
+      assert.equal(alive(foreignPid), true, 'foreign listener must not be killed');
+    } finally {
+      process.kill(foreignPid, 'SIGKILL');
+    }
+  });
+
+  describe('stale-run recovery fails closed (PID reuse)', () => {
+    /** A real listener on c.port that this run did not start; returns its pid. */
+    function startListener(c) {
+      const r = spawnSync('/bin/bash', ['-c', `"${NODE}" -e "require('net').createServer(s=>s.end()).listen(${c.port},'127.0.0.1')" >/dev/null 2>&1 & echo $!`], { encoding: 'utf8' });
+      const pid = Number(r.stdout.trim());
+      const deadline = Date.now() + 5000;
+      while (!portOpen(c.port) && Date.now() < deadline) spawnSync('sleep', ['0.1']);
+      return pid;
+    }
+    const identity = (pid) => {
+      const start = spawnSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8' }).stdout.replace(/\s+/g, ' ').trim();
+      const comm = spawnSync('ps', ['-o', 'comm=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim();
+      return `${start}|${comm}`;
+    };
+    function staleLock(c, record) {
+      const lock = join(c.home, '.nightly-backup.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(lock, 'pid'), '999999'); // the dead run
+      writeFileSync(join(lock, 'tunnel.pids'), record);
+    }
+
+    it('does not stop an unrelated listener whose PID matches the record but whose identity differs', () => {
+      const c = privateCase();
+      const pid = startListener(c);
+      try {
+        // Same PID, different start time: what a reused PID looks like.
+        staleLock(c, `${pid}|Thu Jan  1 00:00:00 1970|/usr/sbin/sshd\n`);
+        const r = runNightly(c, privateEnv(c));
+        assert.equal(alive(pid), true, 'unrelated listener was killed');
+        assert.equal(r.status, 5, logOf(c));
+        assert.match(logOf(c), new RegExp(`not stopping pid ${pid}: its identity does not match the stale tunnel record`));
+        assert.match(logOf(c), /port \d+ is already in use; refusing to use a listener this run did not start/);
+        assert.equal(existsSync(join(c.stub, 'railway.args')), false, 'no tunnel may start');
+      } finally {
+        process.kill(pid, 'SIGKILL');
+      }
+    });
+
+    it('does not stop a listener when the record carries no identity (PID only)', () => {
+      const c = privateCase();
+      const pid = startListener(c);
+      try {
+        staleLock(c, `${pid}\n`);
+        const r = runNightly(c, privateEnv(c));
+        assert.equal(alive(pid), true, 'listener was killed on a PID-only record');
+        assert.equal(r.status, 5, logOf(c));
+        assert.match(logOf(c), new RegExp(`not stopping pid ${pid}: the stale tunnel record has no process identity`));
+      } finally {
+        process.kill(pid, 'SIGKILL');
+      }
+    });
+
+    it('does not stop the recorded PID when it is alive but not listening on the tunnel port', () => {
+      const c = privateCase();
+      const other = spawnSync('/bin/bash', ['-c', 'sleep 30 >/dev/null 2>&1 & echo $!'], { encoding: 'utf8' });
+      const pid = Number(other.stdout.trim());
+      try {
+        staleLock(c, `${pid}|${identity(pid)}\n`);
+        const r = runNightly(c, privateEnv(c));
+        assert.equal(alive(pid), true, 'a non-listening process was killed');
+        assert.equal(r.status, 0, logOf(c));
+        assertTunnelClosed(c);
+      } finally {
+        process.kill(pid, 'SIGKILL');
+      }
+    });
+
+    it('still stops a genuine leftover tunnel listener whose recorded identity matches, then runs', () => {
+      const c = privateCase();
+      const pid = startListener(c);
+      try {
+        staleLock(c, `${pid}|${identity(pid)}\n`);
+        const r = runNightly(c, privateEnv(c));
+        assert.equal(r.status, 0, logOf(c));
+        assert.match(logOf(c), new RegExp(`stopped tunnel listener ${pid} left by the stale run`));
+        assert.equal(alive(pid), false, 'leftover listener still running');
+        assertTunnelClosed(c);
+      } finally {
+        if (alive(pid)) process.kill(pid, 'SIGKILL');
+      }
+    });
+
+    it('records PID with start time and executable for every owned listener', () => {
+      const c = privateCase({ backup: 'snap' });
+      const r = runNightly(c, privateEnv(c));
+      assert.equal(r.status, 0, logOf(c));
+      const rec = readFileSync(join(c.stub, 'tunnel.pids.snap'), 'utf8').trim();
+      const listener = pidFrom(c, 'listener.pid');
+      assert.match(rec, new RegExp(`^${listener}\\|\\w{3} \\w{3} +\\d+ \\d\\d:\\d\\d:\\d\\d \\d{4}\\|\\S*node$`), rec);
+    });
+  });
+
+  it('rejects an unknown connection mode and an invalid port', () => {
+    const c1 = privateCase();
+    assert.equal(runNightly(c1, privateEnv(c1, { MAOS_BACKUP_CONNECTION: 'tcp-proxy' })).status, 3);
+    const c2 = privateCase();
+    assert.equal(runNightly(c2, privateEnv(c2, { MAOS_BACKUP_TUNNEL_PORT: '80' })).status, 5);
+    assert.equal(existsSync(join(c2.stub, 'railway.args')), false);
+  });
+
+  it('stays off by default: without MAOS_BACKUP_CONNECTION the direct path is unchanged', () => {
+    const c = privateCase();
+    const r = runNightly(c, { MAOS_RAILWAY_DIR: c.dir });
+    assert.equal(r.status, 0, logOf(c));
+    assert.doesNotMatch(logOf(c), /private tunnel/);
+    assert.equal(existsSync(join(c.stub, 'railway.args')), false, 'no tunnel in direct mode');
+    assert.equal(readFileSync(join(c.stub, 'url.received'), 'utf8'), PRIVATE_KEYCHAIN_URL);
   });
 });
 
