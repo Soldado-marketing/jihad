@@ -19,8 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
-    const valid = await this.authService.validateSession(payload.sessionId, payload);
-    if (!valid) throw new UnauthorizedException('Session expired or revoked');
-    return payload;
+    const liveRole = await this.authService.validateSession(payload.sessionId, payload);
+    if (!liveRole) throw new UnauthorizedException('Session expired or revoked');
+    // Role is reloaded on every request: a demotion must never retain an old
+    // OWNER claim, and an authorized role change needn't force logout.
+    return { ...payload, role: liveRole };
   }
 }

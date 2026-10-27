@@ -98,10 +98,14 @@ describe('Multi-company: active tenant memberships and explicit owner grants', {
     assert.deepEqual(res.body.companies.map((c) => c.id), [companies.a.id]);
     const denied = await as(users.employeeToken, request(server).post('/api/auth/companies/switch').send({ tenantId: companies.b.id }));
     assert.equal(denied.status, 403);
-    const bypass = await request(server).post('/api/auth/login').send({
+    const loginToOwnMembership = await request(server).post('/api/auth/login').send({
       email: users.employee.email, passwordOrMagicCode: PASSWORD, tenantSlug: companies.b.slug,
     });
-    assert.equal(bypass.status, 403);
+    assert.equal(loginToOwnMembership.status, 200, 'password login may enter a company where the user has an active membership');
+    const noForeignMembership = await request(server).post('/api/auth/login').send({
+      email: users.employee.email, passwordOrMagicCode: PASSWORD, tenantSlug: companies.c.slug,
+    });
+    assert.equal(noForeignMembership.status, 403, 'unjoined company is never accessible by slug');
   });
   it('Owner can grant employee switching only in their own tenant', async () => {
     const outsider = await as(users.ownerTokenA, request(server)
@@ -161,5 +165,14 @@ describe('Multi-company: active tenant memberships and explicit owner grants', {
     const res = await as(users.managerToken, request(server)
       .post('/api/auth/companies/switch').send({ tenantId: companies.b.id }));
     assert.equal(res.status, 403);
+  });
+  it('Role changes take effect on the same JWT without preserving a stale elevated role', async () => {
+    await prisma.tenantMembership.update({
+      where: { tenantId_userId: { tenantId: companies.a.id, userId: users.manager.id } },
+      data: { role: 'CONTRACTOR' },
+    });
+    const res = await as(users.managerToken, request(server).get('/api/auth/me'));
+    assert.equal(res.status, 200);
+    assert.equal(res.body.role, 'CONTRACTOR');
   });
 });

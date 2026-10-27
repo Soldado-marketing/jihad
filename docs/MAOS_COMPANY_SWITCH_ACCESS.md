@@ -14,7 +14,7 @@ Implementation:
 - Auth routes: GET /auth/companies (authorized tenant list), POST /auth/companies/switch (rotate session), GET /auth/company-members (OWNER only), PATCH /auth/company-members/:userId/switch (OWNER only).
 - Owner management page /dashboard/admin/company-access.
 - Navbar only displays switcher if server responds with multiple permitted companies. Current company name shown to any authenticated member.
-- Validations: active user, active source+target memberships, active companies, source+target switching capability, source role match, revocation of source token after switch. Login tenantSlug may not bypass switch permissions.
+- Validations: active user, active source+target memberships, active companies, source+target switching capability, source role match, revocation of source token after switch. Explicit password login can select an ACTIVE membership; it cannot log into unjoined companies. In-session switching still requires switch rights.
 - Tests: local isolated PostgreSQL + Nest HTTP apps/api/test/company-access-isolation.test.mjs, active in GitHub CI integration suite; no live production access.
 
 Deployment instructions:

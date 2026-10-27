@@ -281,10 +281,11 @@ export class AuthService {
     let membership = activeMemberships[0];
     if (tenantSlug) {
       const selected = activeMemberships.find((m) => m.tenant.slug === tenantSlug);
-      // A supplied tenant slug must never bypass switching permissions. Login
-      // without a slug still enters the user's primary ACTIVE membership.
-      if (!selected || (selected !== membership &&
-        (!this.companySwitchAllowed(membership) || !this.companySwitchAllowed(selected)))) {
+      // An explicit credential-based login can select an ACTIVE membership
+      // (even without in-session switching rights). This preserves legitimate
+      // multi-membership logins; it never creates access to an unjoined tenant.
+      // The authenticated switch endpoint separately enforces switch grants.
+      if (!selected) {
         await blocked('COMPANY_ACCESS_DENIED');
         throw new ForbiddenException('Company access denied');
       }
@@ -648,7 +649,7 @@ export class AuthService {
 
   // ── Session validation (used by JWT strategy) ──────────────────────────────
 
-  async validateSession(sessionId: string, expected?: Pick<JwtPayload, 'sub' | 'tenantId' | 'role'>): Promise<boolean> {
+  async validateSession(sessionId: string, expected?: Pick<JwtPayload, 'sub' | 'tenantId'>): Promise<string | false> {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
       select: {
@@ -671,14 +672,16 @@ export class AuthService {
     }
     const membership = session.user.memberships.find((m) => m.tenantId === session.tenantId);
     if (!membership || membership.status !== 'ACTIVE' ||
-      (expected && (expected.sub !== session.userId || expected.tenantId !== session.tenantId || expected.role !== membership.role))) {
+      (expected && (expected.sub !== session.userId || expected.tenantId !== session.tenantId))) {
       return false;
     }
     void this.prisma.session.update({
       where: { id: sessionId },
       data: { lastSeenAt: new Date() },
     });
-    return true;
+    // JWT role may be stale after an OWNER-approved role change. Always return
+    // the live DB role; revocation/suspension still fails closed above.
+    return membership.role;
   }
 
   // ── Set password (invite flow) ─────────────────────────────────────────────
