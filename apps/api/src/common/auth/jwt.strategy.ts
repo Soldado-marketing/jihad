@@ -19,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
-    const valid = await this.authService.validateSession(payload.sessionId);
+    const valid = await this.authService.validateSession(payload.sessionId, payload);
     if (!valid) throw new UnauthorizedException('Session expired or revoked');
     return payload;
   }
