@@ -180,6 +180,7 @@ export class AuthService {
         tenantId: string;
         role: string;
         status: string; // included so we can filter in code rather than relying on Prisma enum filter
+        permissions?: { granted: boolean }[];
         tenant: { id: string; name: string; slug: string; status: string };
       }>;
     };
@@ -191,7 +192,14 @@ export class AuthService {
       where: { email: email.toLowerCase() },
       include: {
         memberships: {
-          include: { tenant: true },
+          orderBy: { createdAt: 'asc' },
+          include: {
+            tenant: true,
+            permissions: {
+              where: { action: 'switch', resource: 'tenant' },
+              select: { granted: true },
+            },
+          },
         },
       },
     }) as LoginUser | null;
@@ -272,7 +280,16 @@ export class AuthService {
 
     let membership = activeMemberships[0];
     if (tenantSlug) {
-      membership = activeMemberships.find((m) => m.tenant.slug === tenantSlug) ?? membership;
+      const selected = activeMemberships.find((m) => m.tenant.slug === tenantSlug);
+      // An explicit credential-based login can select an ACTIVE membership
+      // (even without in-session switching rights). This preserves legitimate
+      // multi-membership logins; it never creates access to an unjoined tenant.
+      // The authenticated switch endpoint separately enforces switch grants.
+      if (!selected) {
+        await blocked('COMPANY_ACCESS_DENIED');
+        throw new ForbiddenException('Company access denied');
+      }
+      membership = selected;
     }
 
     if (!membership) {
@@ -455,6 +472,165 @@ export class AuthService {
     return { accessToken, refreshToken: newRefreshToken, expiresIn: this.getExpiresInSeconds() };
   }
 
+  // ── Company switching (tenant-isolated, opt-in for non-managers) ───────────
+  // Existing MembershipPermission is reused: action=switch, resource=tenant.
+  // No new roles or database migrations. Never trust a tenant id from a header.
+  private companySwitchAllowed(membership: { role: string; permissions?: { granted: boolean }[] }): boolean {
+    if (membership.role === 'OWNER') return true;
+    const override = membership.permissions?.[0];
+    if (override) return override.granted;
+    return membership.role === 'MANAGER';
+  }
+
+  private async companyAccessContext(actor: JwtPayload) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.sub },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        status: true,
+        memberships: {
+          select: {
+            id: true, tenantId: true, role: true, status: true,
+            tenant: { select: { id: true, name: true, slug: true, status: true } },
+            permissions: {
+              where: { action: 'switch', resource: 'tenant' },
+              select: { granted: true },
+            },
+          },
+        },
+      },
+    });
+    if (!user || !allowedStatuses.includes(user.status as string)) {
+      throw new ForbiddenException('Company access denied');
+    }
+    const current = user.memberships.find(
+      (m) => m.tenantId === actor.tenantId && m.status === 'ACTIVE' && m.tenant.status === 'ACTIVE',
+    );
+    if (!current || current.role !== actor.role) {
+      throw new ForbiddenException('Company access denied');
+    }
+    return { user, current };
+  }
+
+  async availableCompanies(actor: JwtPayload) {
+    const { user, current } = await this.companyAccessContext(actor);
+    const canSwitch = this.companySwitchAllowed(current);
+    const candidates = canSwitch
+      ? user.memberships.filter(
+          (m) => m.status === 'ACTIVE' && m.tenant.status === 'ACTIVE' &&
+            this.companySwitchAllowed(m),
+        )
+      : [current];
+    // Every name in this response is authorized; never return all tenants.
+    const companies = candidates.map((m) => ({
+      id: m.tenant.id, name: m.tenant.name, slug: m.tenant.slug, role: m.role,
+    }));
+    return { currentTenantId: current.tenantId, canSwitch: canSwitch && companies.length > 1, companies };
+  }
+
+  async switchCompany(actor: JwtPayload, targetTenantId: string) {
+    if (!targetTenantId || targetTenantId === actor.tenantId) {
+      throw new BadRequestException('Choose a different authorized company');
+    }
+    const { user, current } = await this.companyAccessContext(actor);
+    const target = user.memberships.find(
+      (m) => m.tenantId === targetTenantId && m.status === 'ACTIVE' &&
+        m.tenant.status === 'ACTIVE',
+    );
+    if (!this.companySwitchAllowed(current) || !target || !this.companySwitchAllowed(target)) {
+      throw new ForbiddenException('Company access denied');
+    }
+    // Atomic rotation: old JWT's session becomes revoked and cannot access its
+    // previous tenant; the new JWT is bound to the target ACTIVE membership.
+    const tokens = await this.createSession(
+      user.id, user.email, target.tenantId, target.tenant.slug, target.role, actor.sessionId,
+    );
+    await this.auditService.createAuditEvent({
+      tenantId: actor.tenantId,
+      actorId: user.id,
+      actorRole: current.role,
+      sessionId: actor.sessionId,
+      resourceType: 'Tenant',
+      resourceId: target.tenantId,
+      action: 'tenant.switch',
+      permissionResult: AuditPermissionResult.ALLOWED,
+      outcome: AuditOutcome.SUCCESS,
+      payload: { fromTenantId: actor.tenantId, toTenantId: target.tenantId },
+    }).catch((err: unknown) => this.logger.error('Could not record company switch audit event', err));
+    return {
+      tokens,
+      user: { id: user.id, email: user.email, displayName: user.displayName, role: target.role },
+      tenant: { id: target.tenant.id, name: target.tenant.name, slug: target.tenant.slug },
+    };
+  }
+
+  private async requireCurrentOwner(actor: JwtPayload) {
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: actor.tenantId, userId: actor.sub } },
+      select: { id: true, role: true, status: true },
+    });
+    if (!membership || membership.role !== 'OWNER' || membership.status !== 'ACTIVE') {
+      throw new ForbiddenException('Only the company owner can manage company-switch permissions');
+    }
+  }
+
+  async companyMembers(actor: JwtPayload) {
+    await this.requireCurrentOwner(actor);
+    const members = await this.prisma.tenantMembership.findMany({
+      where: { tenantId: actor.tenantId },
+      select: {
+        userId: true, role: true, status: true,
+        user: { select: { email: true, displayName: true } },
+        permissions: {
+          where: { action: 'switch', resource: 'tenant' },
+          select: { granted: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return members.map((m) => ({
+      userId: m.userId, role: m.role, status: m.status,
+      displayName: m.user.displayName, email: m.user.email,
+      canSwitch: this.companySwitchAllowed(m),
+      explicitGrant: m.permissions[0]?.granted ?? null,
+    }));
+  }
+
+  async setCompanySwitchPermission(actor: JwtPayload, targetUserId: string, enabled: boolean) {
+    await this.requireCurrentOwner(actor);
+    const target = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: actor.tenantId, userId: targetUserId } },
+      select: { id: true, role: true, status: true },
+    });
+    if (!target || target.status !== 'ACTIVE' || target.role === 'OWNER') {
+      throw new ForbiddenException('Cannot change company-switch permission for this member');
+    }
+    await this.prisma.membershipPermission.upsert({
+      where: {
+        membershipId_action_resource: {
+          membershipId: target.id, action: 'switch', resource: 'tenant',
+        },
+      },
+      create: {
+        membershipId: target.id, action: 'switch', resource: 'tenant', granted: enabled,
+      },
+      update: { granted: enabled },
+    });
+    await this.auditService.createAuditEvent({
+      tenantId: actor.tenantId,
+      actorId: actor.sub, actorRole: 'OWNER',
+      sessionId: actor.sessionId,
+      resourceType: 'TenantMembership', resourceId: target.id,
+      action: 'tenant.switch_permission_updated',
+      permissionResult: AuditPermissionResult.ALLOWED,
+      outcome: AuditOutcome.SUCCESS,
+      payload: { enabled },
+    }).catch((err: unknown) => this.logger.error('Could not record switch permission audit event', err));
+    return { userId: targetUserId, enabled };
+  }
+
   // ── Logout ─────────────────────────────────────────────────────────────────
 
   async logout(sessionId: string): Promise<void> {
@@ -473,14 +649,16 @@ export class AuthService {
 
   // ── Session validation (used by JWT strategy) ──────────────────────────────
 
-  async validateSession(sessionId: string): Promise<boolean> {
+  async validateSession(sessionId: string, expected?: Pick<JwtPayload, 'sub' | 'tenantId'>): Promise<string | false> {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
       select: {
         status: true,
         expiresAt: true,
         tenantId: true,
-        user: { select: { status: true, memberships: { select: { tenantId: true, status: true } } } },
+        userId: true,
+        tenant: { select: { status: true } },
+        user: { select: { status: true, memberships: { select: { tenantId: true, status: true, role: true } } } },
       },
     });
     if (!session || session.status !== 'ACTIVE' || session.expiresAt < new Date()) {
@@ -489,18 +667,21 @@ export class AuthService {
     // A session is only as valid as the user and the membership behind it:
     // a suspended, disabled or archived user, or a membership that is no
     // longer ACTIVE in the session's tenant, loses access on the next request.
-    if (!allowedStatuses.includes(session.user.status as string)) {
+    if (!allowedStatuses.includes(session.user.status as string) || session.tenant.status !== 'ACTIVE') {
       return false;
     }
     const membership = session.user.memberships.find((m) => m.tenantId === session.tenantId);
-    if (!membership || membership.status !== 'ACTIVE') {
+    if (!membership || membership.status !== 'ACTIVE' ||
+      (expected && (expected.sub !== session.userId || expected.tenantId !== session.tenantId))) {
       return false;
     }
     void this.prisma.session.update({
       where: { id: sessionId },
       data: { lastSeenAt: new Date() },
     });
-    return true;
+    // JWT role may be stale after an OWNER-approved role change. Always return
+    // the live DB role; revocation/suspension still fails closed above.
+    return membership.role;
   }
 
   // ── Set password (invite flow) ─────────────────────────────────────────────
@@ -521,14 +702,27 @@ export class AuthService {
     tenantId: string,
     tenantSlug: string,
     role: string,
+    replaceSessionId?: string,
   ): Promise<AuthTokens> {
     const refreshToken = crypto.randomBytes(48).toString('hex');
     const tokenHash = this.hashToken(refreshToken);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const session = await this.prisma.session.create({
-      data: { userId, tenantId, tokenHash, expiresAt, status: 'ACTIVE' },
-    });
+    const session = replaceSessionId
+      ? await this.prisma.$transaction(async (tx) => {
+          const created = await tx.session.create({
+            data: { userId, tenantId, tokenHash, expiresAt, status: 'ACTIVE' },
+          });
+          const previous = await tx.session.updateMany({
+            where: { id: replaceSessionId, userId, status: 'ACTIVE' },
+            data: { status: 'REVOKED', revokedAt: new Date() },
+          });
+          if (previous.count !== 1) throw new UnauthorizedException('Session expired');
+          return created;
+        })
+      : await this.prisma.session.create({
+          data: { userId, tenantId, tokenHash, expiresAt, status: 'ACTIVE' },
+        });
 
     const payload: JwtPayload = {
       sub: userId,

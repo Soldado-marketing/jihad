@@ -8,6 +8,7 @@ import { NotificationBell } from '@/components/notifications/notification-bell';
 import { CommandPalette } from './command-palette';
 import { TopbarActions } from './topbar-actions';
 import { UserMenu } from './user-menu';
+import { CompanySwitcher } from './company-switcher';
 
 type TopbarProps = {
   locale: SupportedLocale;
@@ -25,10 +26,7 @@ export function Topbar({ locale, role }: TopbarProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: reduced ? 0 : 0.25, ease: [0.0, 0.0, 0.2, 1] }}
     >
-      <div className="min-w-0">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Workspace</p>
-        <h1 className="truncate text-xl font-semibold tracking-tight text-ink">Soldado Marketing Platform</h1>
-      </div>
+      <CompanySwitcher />
       <div className="flex flex-wrap items-center gap-3">
         <TopbarActions apiHealth={apiHealth} locale={locale} />
         <CommandPalette role={role} />

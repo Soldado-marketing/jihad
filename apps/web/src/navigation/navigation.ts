@@ -40,6 +40,14 @@ export const workspaceNavigation: NavigationItem[] = [
   },
   // ── Admin (Owner only) ───────────────────────────────────────────────────
   {
+    id: 'company-access',
+    label: 'Company Access',
+    href: '/dashboard/admin/company-access',
+    allowedRoles: ['OWNER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
     id: 'admin-users',
     label: 'User Requests',
     href: '/dashboard/admin/users/requests',

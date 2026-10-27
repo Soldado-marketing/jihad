@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/app-shell';
-import { getStoredUser, isAuthenticated } from '@/lib/auth';
+import { getStoredUser, isAuthenticated, watchTenantSessionChanges } from '@/lib/auth';
 import type { WorkspaceRole } from '@/navigation/roles';
 
 const VALID_ROLES: WorkspaceRole[] = ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR', 'CLIENT'];
@@ -28,6 +28,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       setRole(user.role);
     }
     setChecked(true);
+    return watchTenantSessionChanges();
   }, [router]);
 
   // Render nothing until the auth check completes (avoids flash of unauthenticated content).
