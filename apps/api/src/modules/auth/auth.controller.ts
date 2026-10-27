@@ -1,5 +1,6 @@
 import {
   Body,
+  ForbiddenException,
   Controller,
   Get,
   HttpCode,
@@ -11,7 +12,6 @@ import {
 import { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
 import { BootstrapOwnerDto } from './dto/bootstrap-owner.dto';
 import { AuthService, JwtPayload } from './auth.service';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
@@ -21,12 +21,15 @@ import { CurrentUser } from '../../common/auth/current-user.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // S-03: stricter limit on registration (abuse / enumeration protection).
+  // Owner policy (2026-10-27): MAOS is INVITE ONLY until SaaS onboarding
+  // is designed separately. Reject ALL public registration requests before
+  // body parsing or database access, even with a known tenant slug.
+  // The existing /auth/invites/accept path remains available for valid tokens.
   @Post('register')
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(HttpStatus.FORBIDDEN)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  register() {
+    throw new ForbiddenException('Registration is invitation-only. Contact your workspace owner.');
   }
 
   // S-03: bootstrap is one-time setup — keep it tightly limited.

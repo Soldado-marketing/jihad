@@ -82,8 +82,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
   });
 
-  // ── register() ────────────────────────────────────────────────────────────
-
+  // ── register() (invite-only policy) ──────────────────────────────────────
   describe('register()', () => {
     const dto: RegisterDto = {
       fullName: 'Jane Smith',
@@ -93,45 +92,17 @@ describe('AuthService', () => {
       tenantSlug: 'acme',
     };
 
-    it('creates user with PENDING_APPROVAL and returns neutral success message', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: 't1', status: 'ACTIVE' });
-      mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue({ id: 'u1', email: 'jane@acme.com' });
-      mockPrisma.registrationRequest.create.mockResolvedValue({ id: 'rr1' });
-
-      const result = await service.register(dto);
-
-      expect(result.message).toBe(
-        'Your account request was received and is waiting for approval.',
-      );
-      expect(mockPrisma.user.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'PENDING_APPROVAL' }),
-        }),
-      );
-      expect(mockAudit.createAuditEvent).toHaveBeenCalledTimes(1);
+    it('always refuses public self-registration, without touching any database table', async () => {
+      await expect(service.register(dto)).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.registrationRequest.create).not.toHaveBeenCalled();
     });
 
-    it('returns neutral error when tenant slug is invalid (does not reveal non-existence)', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue(null);
-      await expect(service.register(dto)).rejects.toThrow(BadRequestException);
-    });
-
-    it('returns neutral error when email is already registered (does not confirm email)', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: 't1', status: 'ACTIVE' });
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'existing' });
-      await expect(service.register(dto)).rejects.toThrow(BadRequestException);
-    });
-
-    it('does NOT create TenantMembership during registration', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: 't1', status: 'ACTIVE' });
-      mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue({ id: 'u1', email: 'jane@acme.com' });
-      mockPrisma.registrationRequest.create.mockResolvedValue({ id: 'rr1' });
-
-      await service.register(dto);
-
-      expect(mockPrisma.tenantMembership.create).not.toHaveBeenCalled();
+    it('does not send account-approval or owner-notification mail', async () => {
+      await expect(service.register(dto)).rejects.toThrow(ForbiddenException);
+      expect(mockMail.notifyOwnerNewRequest).not.toHaveBeenCalled();
     });
   });
 

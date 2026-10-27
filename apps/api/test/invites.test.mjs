@@ -114,6 +114,22 @@ after(async () => {
 });
 
 describe('invite flow (MAOS F-2)', { skip }, () => {
+  it('refuses self-registration for a real tenant and does not create a user or request', async () => {
+    for (const supplied of [
+      { fullName: 'Uninvited Person', email: freshEmail(), password: PASSWORD,
+        tenantSlug: `tenant-${RUN}`, requestedAccountType: 'team_member' },
+      {}, // malformed bodies must not bypass invite-only policy
+    ]) {
+      const res = await request(server).post('/api/auth/register').send(supplied);
+      assert.equal(res.status, 403, JSON.stringify(res.body));
+      assert.match(JSON.stringify(res.body), /invitation-only/i);
+      if (supplied.email) {
+        assert.equal(await prisma.user.count({ where: { email: supplied.email } }), 0);
+        assert.equal(await prisma.registrationRequest.count({ where: { user: { email: supplied.email } } }), 0);
+      }
+    }
+  });
+
   it('only the OWNER of the tenant creates and lists invites', async () => {
     const anon = await request(server).post('/api/admin/invites').send({ email: freshEmail(), role: 'EMPLOYEE' });
     assert.equal(anon.status, 401);

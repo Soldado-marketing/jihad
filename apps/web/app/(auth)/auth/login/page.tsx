@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { setAuthSession } from '@/lib/auth';
 import { apiBase } from '@/lib/api';
@@ -240,13 +239,7 @@ export default function LoginPage() {
           className="mt-6 text-center text-sm text-muted"
           {...fieldAnim(5)}
         >
-          Don&apos;t have an account?{' '}
-          <Link
-            href="/auth/register"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            Request access
-          </Link>
+          New to MAOS? Contact your company owner for an invitation.
         </motion.p>
       </motion.div>
     </main>

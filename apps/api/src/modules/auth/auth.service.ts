@@ -39,9 +39,6 @@ export interface AuthTokens {
   expiresIn: number;
 }
 
-// Generic neutral error so registration doesn't leak tenant existence
-const REGISTRATION_NEUTRAL_ERROR = 'Registration could not be completed. Please check your details and try again.';
-
 /**
  * User statuses that may hold a session. Checked at login, on every request
  * (validateSession) and on refresh, so a user who stops being in one of these
@@ -62,98 +59,12 @@ export class AuthService {
     private readonly loginHistory: LoginHistoryService,
   ) {}
 
-  // ── Public Registration ────────────────────────────────────────────────────
-
-  async register(dto: RegisterDto): Promise<{ message: string }> {
-    // Lookup tenant by slug — neutral error on miss to avoid tenant enumeration
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: dto.tenantSlug },
-      select: { id: true, status: true },
-    });
-
-    if (!tenant || tenant.status !== 'ACTIVE') {
-      throw new BadRequestException(
-        'Organization not found. Please check the organization slug.',
-      );
-    }
-
-    // Check email uniqueness
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
-      select: { id: true },
-    });
-    if (existing) {
-      // Neutral — do not confirm whether this email is registered
-      throw new BadRequestException(REGISTRATION_NEUTRAL_ERROR);
-    }
-
-    const passwordHash = await bcrypt.hash(dto.password, 12);
-
-    // Create user with PENDING_APPROVAL — no TenantMembership at this stage
-    // Use (as any) because passwordHash is not in the stale Prisma-generated type
-    const user = await (this.prisma as any).user.create({
-      data: {
-        email: dto.email.toLowerCase(),
-        displayName: dto.fullName,
-        passwordHash,
-        status: 'PENDING_APPROVAL' as any,
-      },
-    }) as { id: string; email: string };
-
-    // Create registration request record
-    const regRequest = await (this.prisma as any).registrationRequest.create({
-      data: {
-        userId: user.id,
-        tenantId: tenant.id,
-        fullName: dto.fullName,
-        phone: dto.phone ?? null,
-        companyName: dto.companyName ?? null,
-        requestedRole: dto.requestedAccountType,
-        status: 'PENDING',
-      },
-    });
-
-    // Persist audit event
-    await this.auditService.createAuditEvent({
-      tenantId: tenant.id,
-      resourceType: 'RegistrationRequest',
-      resourceId: regRequest.id,
-      action: RegistrationAction.SUBMITTED,
-      permissionResult: AuditPermissionResult.NOT_EVALUATED,
-      outcome: AuditOutcome.SUCCESS,
-      payload: {
-        email: dto.email.toLowerCase(),
-        requestedRole: dto.requestedAccountType,
-      },
-    });
-
-    // Notify tenant OWNER — best-effort, non-blocking
-    // Look up OWNER membership; skip silently if none found
-    try {
-      const ownerMembership = await (this.prisma as any).tenantMembership.findFirst({
-        where: { tenantId: tenant.id, role: 'OWNER', status: 'ACTIVE' },
-        include: { user: { select: { email: true } } },
-      }) as { user: { email: string } } | null;
-
-      if (ownerMembership?.user?.email) {
-        this.mailService.notifyOwnerNewRequest({
-          ownerEmail: ownerMembership.user.email,
-          requesterName: dto.fullName,
-          requesterEmail: dto.email.toLowerCase(),
-          requestedRole: dto.requestedAccountType,
-          tenantSlug: dto.tenantSlug,
-        });
-      }
-    } catch (err: unknown) {
-      // Owner lookup failed — log and continue; registration already succeeded
-      this.logger.warn(
-        `Could not look up tenant owner for email notification: ${String(err)}`,
-      );
-    }
-
-    return {
-      message: 'Your account request was received and is waiting for approval.',
-    };
+  // ── Self-registration disabled (Owner: Invite Only, 2026-10-27) ────────
+  // Keep this method as a fail-closed compatibility surface for callers
+  // that still invoke AuthService.register directly. No DB or mail side effects.
+  // SaaS public onboarding must be designed as a separate, reviewed task.
+  async register(_dto: RegisterDto): Promise<{ message: string }> {
+    throw new ForbiddenException('Registration is invitation-only. Contact your workspace owner.');
   }
 
   // ── Login (with status gate) ───────────────────────────────────────────────
