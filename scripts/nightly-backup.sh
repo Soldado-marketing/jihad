@@ -123,6 +123,17 @@ TUNNEL_OWNED=""    # listener pids on TUNNEL_PORT that this run started
 # no extra tool; the connection is closed again at once.)
 tunnel_listening() { (exec 3<>"/dev/tcp/127.0.0.1/$TUNNEL_PORT") 2>/dev/null; }
 
+# Is any process of this run's tunnel still running? With its own process
+# group, the whole group counts: `railway connect` may exit while the SSH child
+# it started is still coming up (seen on Linux CI), and that is not a failure.
+tunnel_running() {
+  if [ -n "$TUNNEL_GROUP" ]; then
+    kill -0 -- "-$TUNNEL_GROUP" 2>/dev/null
+  else
+    kill -0 "$TUNNEL_PID" 2>/dev/null
+  fi
+}
+
 tunnel_listener_pids() {
   "$LSOF_BIN" -nP -iTCP:"$TUNNEL_PORT" -sTCP:LISTEN -t 2>/dev/null | sort -u
 }
@@ -379,7 +390,7 @@ if [ "$CONNECTION" = private ]; then
 
   WAITED=0
   until tunnel_listening; do
-    if ! kill -0 "$TUNNEL_PID" 2>/dev/null && ! tunnel_listening; then
+    if ! tunnel_running && ! tunnel_listening; then
       finish "FAIL: private tunnel exited before it was ready (Railway login expired or SSH key missing?)" 5
     fi
     if [ "$WAITED" -ge "$TUNNEL_READY_SECONDS" ]; then

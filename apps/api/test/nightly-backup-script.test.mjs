@@ -348,6 +348,7 @@ describe('nightly-backup.sh - duration guard', () => {
  * `railway connect Postgres --ssh --tunnel-only -P <port>`; $STUB_DIR/tunnel.mode:
  *   stay    starts a real TCP listener child on the port (the "SSH child") and waits
  *   orphan  starts the listener child and exits at once (child outlives the parent)
+ *   delayed exits at once; its child starts listening only 1.5 s later (slow SSH start)
  *   fail    exits 1 without listening
  *   hang    waits without ever listening
  * The listener is a real node process, so readiness, ownership and cleanup are
@@ -377,6 +378,8 @@ listen() {
 case "$mode" in
   stay)   listen; sleep 60 & wait $! ;;
   orphan) listen; exit 0 ;;
+  delayed) ( sleep 1.5; exec "${NODE}" -e "require('net').createServer(s=>s.end()).listen(Number(process.argv[1]),'127.0.0.1')" "$port" ) &
+          echo "$!" > "$STUB_DIR/listener.pid"; exit 0 ;;
   fail)   exit 1 ;;
   hang)   sleep 60 & wait $! ;;
 esac`,
@@ -501,6 +504,16 @@ describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
     const r = runNightly(c, privateEnv(c));
     assert.equal(r.status, 0, logOf(c));
     assert.ok(pidFrom(c, 'listener.pid') > 0);
+    assertTunnelClosed(c);
+  });
+
+  it('waits for an SSH child that starts listening after `railway connect` has exited', () => {
+    const c = privateCase({ tunnel: 'delayed' });
+    const r = runNightly(c, privateEnv(c));
+    assert.equal(r.status, 0, logOf(c));
+    assert.doesNotMatch(logOf(c), /exited before it was ready/);
+    assert.match(logOf(c), /private tunnel ready after [1-9]\d*s/);
+    assert.match(logOf(c), /SUCCESS: exit 0/);
     assertTunnelClosed(c);
   });
 
