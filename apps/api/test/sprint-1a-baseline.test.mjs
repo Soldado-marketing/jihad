@@ -41,11 +41,13 @@ describe('Sprint 1A identity foundation baseline', () => {
     }
   });
 
-  it('exposes a public registration endpoint (added Sprint 13)', () => {
-    // Sprint 13 intentionally added POST /auth/register for public registration with owner approval.
-    // This test was updated from "does not expose" to "exposes" to reflect that change.
+  it('keeps the former public registration endpoint disabled (invite-only policy)', () => {
     const authController = read('src/modules/auth/auth.controller.ts');
     assert.match(authController, /@Post\(['"`]register['"`]\)/);
+    assert.match(authController, /Registration is invitation-only/);
+    assert.doesNotMatch(authController, /this\.authService\.register\(/);
+    const authService = read('src/modules/auth/auth.service.ts');
+    assert.match(authService, /Keep this method as a fail-closed compatibility surface/);
   });
 
   it('creates the approved Sprint 1A module directories', () => {
