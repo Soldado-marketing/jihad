@@ -16,21 +16,21 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W5: T75 customer profitability in PR |
-| ACTIVE_TASK | MAOS-T75 customer profitability |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (no migration; merging deploys the API) |
-| CURRENT_BRANCH | feat/customer-profitability |
-| HEAD | feat/customer-profitability (T75 on top of main `e930273`) |
-| MAIN_HEAD_LAST_VERIFIED | `e930273` (#107 ledger; code = 68a8b7e, Railway SUCCESS, health 200/200) |
-| PR_URL | T75 PR (feat/customer-profitability) |
-| PR_STATUS | open, awaiting CI and owner merge |
-| CI_STATUS | local: gate 361/361, integration 35 + 363, full API 471/0 fail; PR CI pending |
-| COMPLETED_ATOMIC_STEP | T75 implemented and tested (4 HTTP + 1 unit test, 6/6 mutations) |
-| EXACT_NEXT_ACTION | Owner merges the T75 PR after green CI (deploys API) -> verify CI, Railway, health, logs. Then: W5 has no further ungated task (T77-T85 need the T77 migration gate; T86 needs T120); F-6 dedupe is ready (proposed session); T69 needs a product decision. Next gated candidate: T77 MemberProfile + ContractorTerms schema (prepare the gate report only). |
-| TESTS_PENDING | T75 PR CI |
-| BLOCKERS | none for T74; T69 needs a product decision |
-| OWNER_GATE_PENDING | (1) merge the T75 PR; (2) T69 navigation regrouping (product behavior); (3) pmset wake password; (4) D2 off-site setup (open risk); (5) T45 webhook secret; (6) T46 real-data gate |
-| LAST_UPDATED | 2026-10-15 |
+| CURRENT_PHASE_OR_WAVE | W5 paused: Railway security incident response (builds paused by Railway since 2026-10-21) |
+| ACTIVE_TASK | none (T75 merged, not deployed); UI/UX audit delivered for owner review |
+| TASK_STATUS | T75 MERGED `ccfb32c`, NOT DEPLOYED (Railway paused all builds); F-6 #109 open, CI green, paused |
+| CURRENT_BRANCH | docs/ui-ux-audit (audit report + this capsule) |
+| HEAD | docs/ui-ux-audit on main `ccfb32c` |
+| MAIN_HEAD_LAST_VERIFIED | `ccfb32c` (#108 T75; main CI green). Production API `jihad` still runs `995c53d` (T74), health/ready 200; `maos-web` runs `68a8b7e` |
+| PR_URL | #109 F-6 (paused); this docs PR |
+| PR_STATUS | #109 open, CI green, mergeable; do not merge until T75 is deployed and verified |
+| CI_STATUS | main green on `ccfb32c`; #109 green |
+| COMPLETED_ATOMIC_STEP | Secret audit (0 real secrets; F-05 production check PASS, 0 demo accounts); Railway diagnosis; UI/UX audit `docs/ux/MAOS_UI_UX_AUDIT_2026-10-23.md` |
+| EXACT_NEXT_ACTION | Owner security response to the Railway disclosure (2026-10-21: env variables may be exposed; bucket keys and Railway GitHub tokens reset): disable Postgres public access, rotate Resend key now; when Hobby builds resume: reconnect GitHub, regenerate Postgres password, new JWT secrets, deploy `ccfb32c` once, update the backup Keychain item -> then verify T75, merge #109, verify, ledger PR. T77 gate report after that. UI/UX audit awaits owner decisions D-UX-1..7 (T69 not started) |
+| TESTS_PENDING | none |
+| BLOCKERS | Railway builds paused (upstream incident); credential rotation is owner-only |
+| OWNER_GATE_PENDING | (1) Railway incident response + T75 deploy; (2) #109 merge after T75 verified; (3) UI/UX decisions D-UX-1..7 incl. T69; (4) D2 off-site backup (open risk); (5) pmset wake; (6) T45 webhook secret; (7) T46 real-data gate |
+| LAST_UPDATED | 2026-10-23 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
 
