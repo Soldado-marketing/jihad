@@ -41,6 +41,15 @@ export class InvitesPublicController {
     return this.invites.preview(token);
   }
 
+  /** Existing accounts must authenticate with their original credentials first. */
+  @Post('accept-existing')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  acceptExisting(@CurrentUser() user: JwtPayload, @Body() dto: { token?: string }) {
+    return this.invites.acceptExisting(user.sub, dto?.token);
+  }
+
   @Post('accept')
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60000 } })

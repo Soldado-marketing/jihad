@@ -150,6 +150,129 @@ describe('invite flow (MAOS F-2)', { skip }, () => {
     assert.equal(await prisma.invite.count({ where: { tenantId, email: people.manager.email } }), 0);
   });
 
+  it('an existing user from another tenant can be invited, but must authenticate to accept', async () => {
+    const inviteRes = await create('owner', { email: people.foreign.email, role: 'EMPLOYEE' });
+    assert.equal(inviteRes.status, 201, JSON.stringify(inviteRes.body));
+    const token = tokenOf(inviteRes);
+    const shown = await preview(token);
+    assert.equal(shown.status, 200);
+    assert.equal(shown.body.accountExists, true);
+
+    const withoutJwt = await request(server).post('/api/auth/invites/accept-existing')
+      .send({ token });
+    assert.equal(withoutJwt.status, 401);
+
+    const wrongAccount = await request(server).post('/api/auth/invites/accept-existing')
+      .set('Authorization', `Bearer ${people.manager.token}`).send({ token });
+    assert.equal(wrongAccount.status, 403);
+    assert.equal(await prisma.tenantMembership.count({ where: { tenantId, userId: people.foreign.id } }), 0);
+    assert.equal((await prisma.invite.findUnique({ where: { id: inviteRes.body.invite.id } })).status, 'SENT');
+
+    // The public new-user endpoint must never change an existing password.
+    assert.equal((await accept(token)).status, 400);
+    const before = await prisma.user.findUnique({ where: { id: people.foreign.id } });
+    const ok = await request(server).post('/api/auth/invites/accept-existing')
+      .set('X-Forwarded-For', client())
+      .set('Authorization', `Bearer ${people.foreign.token}`).send({ token });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.equal(ok.body.tenantSlug, `tenant-${RUN}`);
+    const after = await prisma.user.findUnique({ where: { id: people.foreign.id } });
+    assert.equal(await prisma.user.count({ where: { email: people.foreign.email } }), 1);
+    assert.equal(before.passwordHash, after.passwordHash);
+    assert.equal(before.displayName, after.displayName);
+
+    const memberships = await prisma.tenantMembership.findMany({
+      where: { userId: people.foreign.id }, orderBy: { createdAt: 'asc' },
+    });
+    assert.deepEqual(new Set(memberships.map((m) => [m.tenantId,m.role].join(':'))),
+      new Set([`${otherTenantId}:OWNER`, `${tenantId}:EMPLOYEE`]));
+    assert.equal((await prisma.invite.findUnique({ where: { id: inviteRes.body.invite.id } })).acceptedByUserId,
+      people.foreign.id);
+    const reuse = await request(server).post('/api/auth/invites/accept-existing')
+      .set('Authorization', `Bearer ${people.foreign.token}`).send({ token });
+    assert.equal(reuse.status, 400);
+    assert.equal(await prisma.auditEvent.count({
+      where: { tenantId, resourceId: inviteRes.body.invite.id, action: 'invite.accepted_existing' },
+    }), 1);
+
+    // Explicit company login works without a switch grant, but the target
+    // membership still receives only its invited role.
+    const targetLogin = await request(server).post('/api/auth/login').set('X-Forwarded-For', client())
+      .send({ email: people.foreign.email, passwordOrMagicCode: PASSWORD, tenantSlug: `tenant-${RUN}` });
+    assert.equal(targetLogin.status, 200, JSON.stringify(targetLogin.body));
+    assert.equal(targetLogin.body.user.role, 'EMPLOYEE');
+  });
+
+  it('concurrent existing-account acceptance is single-use and never duplicates memberships', async () => {
+    const bcrypt = require('bcrypt');
+    const email = freshEmail();
+    const actor = await prisma.user.create({
+      data: { email, status: 'APPROVED', passwordHash: await bcrypt.hash(PASSWORD, 10) },
+    });
+    await prisma.tenantMembership.create({
+      data: { tenantId: otherTenantId, userId: actor.id, role: 'EMPLOYEE', status: 'ACTIVE' },
+    });
+    const login = await request(server).post('/api/auth/login')
+      .set('X-Forwarded-For', client())
+      .send({ email, passwordOrMagicCode: PASSWORD, tenantSlug: `other-${RUN}` });
+    assert.equal(login.status, 200);
+    const invited = await create('owner', { email, role: 'CONTRACTOR' });
+    assert.equal(invited.status, 201);
+    const token = tokenOf(invited);
+    const results = await Promise.all(Array.from({ length: 4 }, () =>
+      request(server).post('/api/auth/invites/accept-existing')
+        .set('X-Forwarded-For', client())
+        .set('Authorization', `Bearer ${login.body.tokens.accessToken}`).send({ token }),
+    ));
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 400, 400, 400]);
+    assert.equal(await prisma.tenantMembership.count({ where: { tenantId, userId: actor.id } }), 1);
+    assert.equal(await prisma.user.count({ where: { email } }), 1);
+    const membership = await prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId, userId: actor.id } },
+    });
+    assert.equal(membership.role, 'CONTRACTOR');
+  });
+
+  it('existing account receives a CLIENT membership only with the owner-selected customer scope', async () => {
+    const c = await prisma.customer.create({
+      data: { tenantId: otherTenantId, name: 'External Client Scope',
+        clientScopeKey: `external-${RUN}`, status: 'ACTIVE' },
+    });
+    const res = await create('foreign', {
+      email: people.manager.email, role: 'CLIENT', customerId: c.id,
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const ok = await request(server).post('/api/auth/invites/accept-existing')
+      .set('Authorization', `Bearer ${people.manager.token}`).send({ token: tokenOf(res) });
+    assert.equal(ok.status, 200);
+    const m = await prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: otherTenantId, userId: people.manager.id } },
+    });
+    assert.deepEqual([m.role, m.status, m.clientScopeKey], ['CLIENT','ACTIVE',`external-${RUN}`]);
+    assert.equal(await prisma.tenantMembership.count({ where: { tenantId, userId: people.manager.id } }), 1);
+  });
+
+  it('cannot accept an existing-user invite for a suspended account or a revoked token', async () => {
+    const byOwner = await create('owner', { email: people.foreign.email, role: 'MANAGER' });
+    assert.equal(byOwner.status, 409, 'a current member cannot be re-invited to alter role');
+    const pending = await prisma.user.create({
+      data: { email: freshEmail(), passwordHash: 'x', status: 'PENDING_APPROVAL' },
+    });
+    const deniedCreate = await create('owner', { email: pending.email, role: 'EMPLOYEE' });
+    assert.equal(deniedCreate.status, 409, 'pending accounts are not eligible');
+    const existing = await create('foreign', { email: people.owner.email, role: 'EMPLOYEE' });
+    assert.equal(existing.status, 201);
+    await prisma.invite.update({
+      where: { id: existing.body.invite.id }, data: { status: 'REVOKED', revokedAt: new Date() },
+    });
+    const deniedAccept = await request(server).post('/api/auth/invites/accept-existing')
+      .set('Authorization', `Bearer ${people.owner.token}`).send({ token: tokenOf(existing) });
+    assert.equal(deniedAccept.status, 400);
+    assert.equal(await prisma.tenantMembership.count({
+      where: { tenantId: otherTenantId, userId: people.owner.id },
+    }), 0);
+  });
+
   it('without email the OWNER gets the link; only the sha256 is stored', async () => {
     const email = freshEmail();
     const res = await create('owner', { email: email.toUpperCase(), role: 'CONTRACTOR' });

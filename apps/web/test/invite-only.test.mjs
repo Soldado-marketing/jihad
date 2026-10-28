@@ -19,6 +19,18 @@ describe('Invite Only registration UI', () => {
     assert.doesNotMatch(source, /fetch\(|\/auth\/register.*POST/);
     assert.match(source, /href="\/auth\/login"/);
   });
+  it('existing accounts sign in separately and accept using their JWT, without a new password', () => {
+    const source = read('app/(auth)/auth/invite/page.tsx');
+    assert.match(source, /auth\/invites\/accept-existing/);
+    assert.match(source, /Authorization:/);
+    assert.match(source, /preview\.accountExists/);
+    assert.match(source, /target="_blank"/);
+    assert.match(source, /Sign in to your existing account/);
+    const login = read('app/(auth)/auth/login/page.tsx');
+    assert.match(login, /tenantSlug/);
+    assert.match(login, /new URLSearchParams/);
+  });
+
   it('tokenized invitation acceptance stays available', () => {
     const source = read('app/(auth)/auth/invite/page.tsx');
     assert.match(source, /auth\/invites\/accept/);

@@ -46,6 +46,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // A tenant slug is only a LOGIN preference. The server independently
+      // verifies ACTIVE membership; never use it to authorize by itself.
+      const requestedTenant = new URLSearchParams(window.location.search).get('tenant');
+      const tenantSlug = requestedTenant && /^[a-z0-9-]{1,100}$/.test(requestedTenant)
+        ? requestedTenant : undefined;
       const res = await fetch(`${apiBase()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,6 +58,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           passwordOrMagicCode,
+          ...(tenantSlug ? { tenantSlug } : {}),
         }),
       });
 
