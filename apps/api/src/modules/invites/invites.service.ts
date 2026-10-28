@@ -24,8 +24,8 @@ const INVALID = { code: 'INVITE_INVALID', message: 'This invitation is invalid o
  *  - unknown, malformed, used, revoked and expired tokens all get the same
  *    400 INVITE_INVALID;
  *  - the tenant must still be ACTIVE when the invite is accepted;
- *  - an email that already has an account is refused - an invite never sets
- *    the password of an existing user (that would be an account takeover);
+ *  - existing accounts require a separate authenticated acceptance endpoint;
+ *    an invitation token alone never resets their password or grants access;
  *  - tokens are stored only as sha256; the plain token exists in the email
  *    (or, when email is not configured, in the OWNER's create response).
  */
@@ -51,12 +51,20 @@ export class InvitesService {
     await this.requireOwner(actorId, tenantId);
     const email = dto.email.trim().toLowerCase();
 
-    const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true, status: true } });
     if (existing) {
-      throw new ConflictException({
-        code: 'INVITE_EMAIL_IN_USE',
-        message: 'This email already has an account. Manage it through user requests instead.',
+      // Existing accounts may be invited into ANOTHER company, not re-granted
+      // a different role within the same company via invite.
+      const alreadyMember = await this.prisma.tenantMembership.findUnique({
+        where: { tenantId_userId: { tenantId, userId: existing.id } },
+        select: { id: true },
       });
+      if (alreadyMember || !['APPROVED', 'ACTIVE'].includes(existing.status)) {
+        throw new ConflictException({
+          code: 'INVITE_EMAIL_IN_USE',
+          message: 'This account cannot be invited to this workspace.',
+        });
+      }
     }
 
     const customerId = await this.customerForRole(tenantId, dto.role, dto.customerId);
@@ -126,6 +134,86 @@ export class InvitesService {
       tenantName: invite.tenant.name,
       expiresAt: invite.expiresAt,
       ...(invite.customer ? { customerName: invite.customer.name } : {}),
+      // Scoped to a 256-bit secret token, not an unrestricted account lookup.
+      accountExists: Boolean(await this.prisma.user.findUnique({ where: { email: invite.email }, select: { id: true } })),
+    };
+  }
+
+  /**
+   * Add an already-authenticated user to the inviting tenant, without creating
+   * another User or changing their password. The single-use email invite and
+   * the independently authenticated JWT must BOTH identify the same account.
+   * A JWT from the user's existing company is intentionally valid here.
+   */
+  async acceptExisting(actorId: string, token: unknown) {
+    const invite = await this.findUsable(token);
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId }, select: { id: true, email: true, status: true },
+    });
+    if (!actor || !['APPROVED', 'ACTIVE'].includes(actor.status) ||
+        actor.email.toLowerCase() !== invite.email.toLowerCase()) {
+      throw new ForbiddenException('This invitation is not for your signed-in account.');
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Ensure the tenant is still active and the account is still approved
+        // when the membership is actually created, not just at preview time.
+        const [freshTenant, freshActor] = await Promise.all([
+          tx.tenant.findUnique({ where: { id: invite.tenantId }, select: { status: true } }),
+          tx.user.findUnique({ where: { id: actorId }, select: { email: true, status: true } }),
+        ]);
+        if (freshTenant?.status !== 'ACTIVE' || !freshActor ||
+            !['APPROVED', 'ACTIVE'].includes(freshActor.status) ||
+            freshActor.email.toLowerCase() !== invite.email.toLowerCase()) {
+          throw new BadRequestException(INVALID);
+        }
+
+        const claimed = await tx.invite.updateMany({
+          where: { id: invite.id, status: 'SENT', expiresAt: { gt: new Date() } },
+          data: { status: 'ACCEPTED', acceptedAt: new Date() },
+        });
+        if (claimed.count !== 1) throw new BadRequestException(INVALID);
+
+        const existingMembership = await tx.tenantMembership.findUnique({
+          where: { tenantId_userId: { tenantId: invite.tenantId, userId: actorId } },
+          select: { id: true },
+        });
+        if (existingMembership) throw new BadRequestException(INVALID);
+
+        // CLIENT scope is owner-selected, tenant-bound, and revalidated at
+        // acceptance. No permission is copied from the original company.
+        let clientScopeKey: string | null = null;
+        if (invite.role === 'CLIENT') {
+          const customer = invite.customerId
+            ? await tx.customer.findFirst({
+                where: { id: invite.customerId, tenantId: invite.tenantId, status: 'ACTIVE' },
+                select: { clientScopeKey: true },
+              })
+            : null;
+          if (!customer) throw new BadRequestException(INVALID);
+          clientScopeKey = customer.clientScopeKey;
+        }
+        await tx.tenantMembership.create({
+          data: {
+            tenantId: invite.tenantId, userId: actorId, role: invite.role,
+            status: 'ACTIVE', visibilityScope: effectiveVisibilityScope(invite.role),
+            clientScopeKey,
+          },
+        });
+        await tx.invite.update({ where: { id: invite.id }, data: { acceptedByUserId: actorId } });
+      });
+    } catch (err: unknown) {
+      if ((err as { code?: unknown } | null)?.code === 'P2002') {
+        throw new BadRequestException(INVALID);
+      }
+      throw err;
+    }
+
+    await this.recordAudit(invite.tenantId, actorId, 'invite.accepted_existing', invite.id, { role: invite.role });
+    return {
+      message: 'Invitation accepted. Your existing account now belongs to this workspace.',
+      tenantSlug: invite.tenant.slug,
     };
   }
 

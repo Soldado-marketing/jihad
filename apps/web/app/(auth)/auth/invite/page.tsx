@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { UnauthorizedState } from '@/components/states/unauthorized-state';
 import { apiBase } from '@/lib/api';
+import { getAccessToken, getStoredUser } from '@/lib/auth';
 import { acceptFormError, INVALID_INVITE_MESSAGE, INVITE_ROLES, isInviteToken } from '@/lib/invites';
 
 /**
@@ -27,6 +28,7 @@ interface Preview {
   tenantName: string;
   expiresAt: string;
   customerName?: string;
+  accountExists: boolean;
 }
 
 type Phase = 'checking' | 'invalid' | 'ready' | 'done';
@@ -57,6 +59,7 @@ function AcceptInvite() {
   const [form, setForm] = useState({ fullName: '', password: '', confirm: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [newTenantSlug, setNewTenantSlug] = useState<string | null>(null);
 
   useEffect(() => {
     // The token is the credential: keep it out of the address bar and history.
@@ -116,6 +119,49 @@ function AcceptInvite() {
         setError(await errorMessage(res, 'The invitation could not be accepted. Please try again.'));
         return;
       }
+      const result = (await res.json()) as { tenantSlug: string };
+      setNewTenantSlug(result.tenantSlug);
+      setPhase('done');
+    } catch {
+      setError('The server could not be reached. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // A pre-existing account must authenticate on its ORIGINAL tenant before
+  // accepting. The invite token stays only in this tab's in-memory state.
+  // Opening login in another tab avoids putting the invite secret in a URL.
+  const handleExistingAccept = async () => {
+    const access = getAccessToken();
+    const actor = getStoredUser();
+    if (!access || actor?.email?.toLowerCase() !== preview?.email.toLowerCase()) {
+      setError('Sign in to the invited email in another tab, then return here.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`${apiBase()}/auth/invites/accept-existing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access}` },
+        body: JSON.stringify({ token }),
+      });
+      if (!res.ok) {
+        if (res.status === 400) {
+          const message = await res.text();
+          if (message.includes('INVITE_INVALID')) {
+            setPhase('invalid');
+            return;
+          }
+        }
+        setError(res.status === 401 || res.status === 403
+          ? 'Sign in with the invited email, then try again.'
+          : await errorMessage(res, 'Could not accept invitation. Please try again.'));
+        return;
+      }
+      const result = (await res.json()) as { tenantSlug: string };
+      setNewTenantSlug(result.tenantSlug);
       setPhase('done');
     } catch {
       setError('The server could not be reached. Please try again.');
@@ -148,10 +194,12 @@ function AcceptInvite() {
       <Shell>
         <h1 className="mb-2 text-xl font-semibold text-ink">You are in</h1>
         <p className="text-sm text-muted">
-          Your account for {preview.tenantName} is ready. Sign in with {preview.email} and the password you just set.
+          {preview.accountExists
+            ? `Your existing account has been added to ${preview.tenantName}. Sign in with the same password and select this company.`
+            : `Your account for ${preview.tenantName} is ready. Sign in with ${preview.email} and the password you just set.`}
         </p>
         <Link
-          href="/auth/login"
+          href={newTenantSlug ? `/auth/login?tenant=${encodeURIComponent(newTenantSlug)}` : '/auth/login'}
           className="mt-6 inline-block text-sm text-accent underline-offset-4 hover:underline"
         >
           Sign in
@@ -176,6 +224,25 @@ function AcceptInvite() {
         </div>
       )}
 
+      {preview.accountExists ? (
+        <section className="space-y-4">
+          <p className="text-sm text-muted">
+            You already have a MAOS account. Keep your existing password.
+            First sign in with {preview.email} in a separate tab, then return here
+            to accept this invitation.
+          </p>
+          <Link
+            href="/auth/login" target="_blank" rel="noopener noreferrer"
+            className="block rounded-lg border border-line px-4 py-2 text-center text-sm font-medium"
+          >
+            Sign in to your existing account
+          </Link>
+          <button type="button" onClick={() => void handleExistingAccept()} disabled={busy}
+            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {busy ? 'Joining workspace…' : 'Accept with my signed-in account'}
+          </button>
+        </section>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="fullName" className="mb-1 block text-sm font-medium text-ink">
@@ -215,6 +282,7 @@ function AcceptInvite() {
           {busy ? 'Creating your account…' : 'Accept invitation'}
         </button>
       </form>
+      )}
     </Shell>
   );
 }
