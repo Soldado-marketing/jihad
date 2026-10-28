@@ -16,21 +16,21 @@ Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD a
 
 | Field | Value |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | W5: T75 customer profitability in PR |
-| ACTIVE_TASK | MAOS-T75 customer profitability |
-| TASK_STATUS | COMPLETE_AWAITING_MERGE (no migration; merging deploys the API) |
-| CURRENT_BRANCH | feat/customer-profitability |
-| HEAD | feat/customer-profitability (T75 on top of main `e930273`) |
-| MAIN_HEAD_LAST_VERIFIED | `e930273` (#107 ledger; code = 68a8b7e, Railway SUCCESS, health 200/200) |
-| PR_URL | T75 PR (feat/customer-profitability) |
-| PR_STATUS | open, awaiting CI and owner merge |
-| CI_STATUS | local: gate 361/361, integration 35 + 363, full API 471/0 fail; PR CI pending |
-| COMPLETED_ATOMIC_STEP | T75 implemented and tested (4 HTTP + 1 unit test, 6/6 mutations) |
-| EXACT_NEXT_ACTION | Owner merges the T75 PR after green CI (deploys API) -> verify CI, Railway, health, logs. Then: W5 has no further ungated task (T77-T85 need the T77 migration gate; T86 needs T120); F-6 dedupe is ready (proposed session); T69 needs a product decision. Next gated candidate: T77 MemberProfile + ContractorTerms schema (prepare the gate report only). |
-| TESTS_PENDING | T75 PR CI |
-| BLOCKERS | none for T74; T69 needs a product decision |
-| OWNER_GATE_PENDING | (1) merge the T75 PR; (2) T69 navigation regrouping (product behavior); (3) pmset wake password; (4) D2 off-site setup (open risk); (5) T45 webhook secret; (6) T46 real-data gate |
-| LAST_UPDATED | 2026-10-15 |
+| CURRENT_PHASE_OR_WAVE | Post-release: R01, multi-company, invite-only and existing-user invites live |
+| ACTIVE_TASK | none |
+| TASK_STATUS | #114 merged and deployed; no task in progress |
+| CURRENT_BRANCH | main |
+| HEAD | main `7c8a2a9` (#114) |
+| MAIN_HEAD_LAST_VERIFIED | `7c8a2a9` 2026-10-28: main CI success; Railway `jihad` + `maos-web` SUCCESS on 7c8a2a9; /api/health + /ready 200; POST /api/auth/invites/accept-existing 401 unauthenticated; logs 0 errors |
+| PR_URL | open: #109 (F-6, paused), #110 (UI/UX audit docs) |
+| PR_STATUS | #109 and #110 open, not merged |
+| CI_STATUS | main green on 7c8a2a9 |
+| COMPLETED_ATOMIC_STEP | #114 released and verified in production |
+| EXACT_NEXT_ACTION | Await owner direction for the next task. Do not start new work without approval |
+| TESTS_PENDING | none |
+| BLOCKERS | none |
+| OWNER_GATE_PENDING | (1) credential rotation after the 2026-10-21 Railway disclosure (unverified); (2) D2 off-site backup copy (not configured); (3) #109 and #110 merge decisions; (4) D5 repo visibility / main branch protection; (5) open UI issue: existing-user invite sign-in tab (see log); (6) T45 webhook secret; (7) T46 real-data gate |
+| LAST_UPDATED | 2026-10-28 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
 
@@ -628,3 +628,10 @@ One line per completed task: `MAOS-Txx | title | branch | PR | tests | NEW_REGRE
 - CI-3 root cause (2026-10-16) | customers.test ran the customer fill-in over every tenant while other suites seeded client keys in parallel, so a suite's own customer create could clash with a Customer the fill-in had just made (seen in customer-overview, data-transfer). Fix in the T118 PR: backfillCustomers takes an optional tenantIds (command line unchanged: still every tenant), and customers.test passes its own two tenants; a test proves the default stays global | integration tests | FIXED (#96 merged 8e75395)
 - CI-4 (2026-10-16, local only) | 1 of 5 local CI-equivalent runs failed payment-idempotency "refuses a malformed key ... without a key unchanged"; not reproduced in 4 further runs, error not captured; the test is scoped to its own invoice and T118 does not touch payments | integration tests | OPEN (monitor)
 - Housekeeping 2026-10-16 | ~/Developer/MAOS/windows/T56 worktree removed after checking: clean, no untracked files, HEAD cf2d9a3 contained in main, no stash | — | DONE
+- MAOS-T75 | Customer profitability | feat/customer-profitability | #108 MERGED (`ccfb32c`, 2026-10-21) | CI green | 0 | COMPLETE_MERGED; deployed 2026-10-28 (Railway builds were paused by Railway's 2026-10-21 security incident; first deploy after resume on f54d073; route 401 unauthenticated)
+- Railway incident 2026-10-21 | Railway disclosed possible exposure of service environment variables, paused builds, reset bucket and GitHub tokens. Postgres public TCP proxy removed. Credential rotation by the owner: UNVERIFIED | — | — | — | OPEN (owner)
+- MAOS-R01 | Nightly backup through Railway's private SSH tunnel (MAOS_BACKUP_CONNECTION=private; Keychain-only credential; tunnel ownership by descendant tree + identity; fail closed) | fix/r01-private-railway-backup | #111 MERGED (`5361f4b`, 2026-10-27) | nightly-backup-script 45/45, Linux CI green | 0 | COMPLETE_MERGED; LaunchAgent on private mode (runtime 5361f4b); nightly 2026-10-28 02:30 SUCCESS; rehearsal OK 48 tables / 15 migrations. Off-site copy (D2) still not configured
+- Multi-company | Company switcher and owner-controlled switching rights (docs/MAOS_COMPANY_SWITCH_ACCESS.md) | feat/company-switch-permissions | #112 MERGED (`4693250`, 2026-10-27) | company-access-isolation in CI | 0 | COMPLETE_MERGED, deployed
+- Invite-only | Public registration disabled; OWNER invites only (docs/MAOS_INVITE_ONLY_ACCESS.md) | fix/invite-only-registration | #113 MERGED (`f54d073`, 2026-10-28) | invites + invite-only tests in CI | 0 | COMPLETE_MERGED, deployed
+- Existing-user invitation | An existing account joins another company with its JWT + the one-time invite (docs/MAOS_EXISTING_ACCOUNT_INVITES.md) | feat/invite-existing-user | #114 MERGED (`7c8a2a9`, 2026-10-28) | isolated PG: gate 385, integration 35 + 377, invites 20/20, full API 485/0 fail; web 204/204; edge cases (suspended, expired, archived customer, no permission copy, #112 regression) PASS; real-browser flow PASS | 0 | COMPLETE_MERGED, deployed: main CI success, Railway API + web SUCCESS on 7c8a2a9, health/ready 200, accept-existing 401 unauthenticated, logs 0 errors
+- UI issue (open, #114) | "Sign in to your existing account" relies on target=_blank; if a browser opens it in the same tab, the in-memory invite token is lost and the user must reopen the emailed link. UX only, no security impact | web /auth/invite | OPEN
