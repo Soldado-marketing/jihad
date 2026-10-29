@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
+import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { ReorderTasksDto } from './dto/reorder-tasks.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -10,11 +12,14 @@ import { ListTaskFilters, TasksRepository } from './tasks.repository';
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     private readonly tasksRepository: TasksRepository,
     private readonly prisma: PrismaService,
     private readonly resourceScope: ResourceScopeService,
     private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
   ) {}
 
   /** A CONTRACTOR sees only tasks assigned to them or in their member projects. */
@@ -28,6 +33,7 @@ export class TasksService {
     const scope = await this.resourceScope.resolveWorkScope(tenantId, actorId);
     this.resourceScope.assertMayUseProject(scope, dto.projectId);
     const task = await this.tasksRepository.create(tenantId, actorId, dto);
+    await this.recordAudit(tenantId, actorId, 'task.created', task.id);
     await this.notifyAssignee(tenantId, actorId, task.id, task.title, dto.assignedToUserId);
     return task;
   }
@@ -44,6 +50,7 @@ export class TasksService {
     await this.assertReferences(tenantId, dto);
     this.resourceScope.assertMayUseProject(await this.resourceScope.resolveWorkScope(tenantId, actorId), dto.projectId);
     const task = await this.tasksRepository.update(tenantId, id, dto);
+    await this.recordUpdate(tenantId, actorId, before, dto);
 
     // Only a CHANGE of assignee is an assignment. Re-saving a task with the
     // same assignee must not notify them again.
@@ -93,7 +100,49 @@ export class TasksService {
 
   async deleteTask(tenantId: string, id: string, actorId: string) {
     await this.getTask(tenantId, id, actorId);
-    return this.tasksRepository.delete(tenantId, id);
+    const deleted = await this.tasksRepository.delete(tenantId, id);
+    await this.recordAudit(tenantId, actorId, 'task.deleted', id);
+    return deleted;
+  }
+
+  /**
+   * Card history (activity timeline). A status move is its own event; other
+   * edits record which fields changed, never their values (titles and
+   * descriptions can be confidential).
+   */
+  private async recordUpdate(
+    tenantId: string,
+    actorId: string,
+    before: { id: string; status: string; assignedToUserId: string | null },
+    dto: UpdateTaskDto,
+  ) {
+    if (dto.status !== undefined && dto.status !== before.status) {
+      await this.recordAudit(tenantId, actorId, 'task.status.changed', before.id, { from: before.status, to: dto.status });
+    }
+    if (dto.assignedToUserId !== undefined && dto.assignedToUserId !== before.assignedToUserId) {
+      await this.recordAudit(tenantId, actorId, 'task.assigned', before.id);
+    }
+    const fields = Object.entries(dto)
+      .filter(([k, v]) => v !== undefined && k !== 'status' && k !== 'assignedToUserId')
+      .map(([k]) => k);
+    if (fields.length > 0) await this.recordAudit(tenantId, actorId, 'task.updated', before.id, { fields });
+  }
+
+  private async recordAudit(tenantId: string, actorId: string, action: string, resourceId: string, payload?: Record<string, unknown>) {
+    try {
+      await this.audit.createAuditEvent({
+        tenantId,
+        actorId,
+        resourceType: 'task',
+        resourceId,
+        action,
+        permissionResult: AuditPermissionResult.ALLOWED,
+        outcome: AuditOutcome.SUCCESS,
+        payload,
+      });
+    } catch {
+      this.logger.warn(`audit_write_failed action=${action}`);
+    }
   }
 
   async reorderTasks(tenantId: string, actorId: string, dto: ReorderTasksDto) {

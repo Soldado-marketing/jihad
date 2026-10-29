@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
+import { reorderItems, sortByOrder } from '@/components/tasks/board-order';
 import { ListView } from '@/components/tasks/list-view';
 import { CalendarView } from '@/components/tasks/calendar-view';
 import { TaskModal } from '@/components/tasks/task-modal';
@@ -312,6 +313,9 @@ function TasksBoard() {
   // Filtered tasks
   const active = useMemo(() => ({ ...filters, search }), [filters, search]);
   const filteredTasks = useMemo(() => filterTasks(tasks, active), [tasks, active]);
+  // A project filter turns the page into that project's own board.
+  const boardProject = projects.find((p) => p.id === filters.project) ?? null;
+  const projectTaskCount = boardProject ? tasks.filter((t) => t.projectId === boardProject.id).length : 0;
   const hasFilters = hasTaskFilters(active);
 
   // Kanban DnD status change
@@ -328,11 +332,24 @@ function TasksBoard() {
     }
   }
 
-  // Quick create from kanban column — create then reload to get relations
+  // Kanban DnD position within a list, saved in sortOrder
+  async function handleReorder(status: TaskStatus, orderedIds: string[]) {
+    const items = reorderItems(orderedIds);
+    const orderOf = new Map(items.map((i) => [i.id, i.sortOrder]));
+    setTasks((prev) => sortByOrder(prev.map((t) => orderOf.has(t.id) ? { ...t, status, sortOrder: orderOf.get(t.id) } : t)));
+    try {
+      await apiFetch('/tasks/reorder', { method: 'PATCH', body: JSON.stringify({ items }) });
+    } catch {
+      loadTasks();
+    }
+  }
+
+  // Quick create from kanban column — create then reload to get relations.
+  // On a project's board the card belongs to that project, or it would vanish.
   async function handleQuickCreate(status: TaskStatus, title: string) {
     await apiFetch('/tasks', {
       method: 'POST',
-      body: JSON.stringify({ title, status }),
+      body: JSON.stringify({ title, status, ...(filters.project ? { projectId: filters.project } : {}) }),
     });
     await loadTasks();
   }
@@ -374,9 +391,11 @@ function TasksBoard() {
     <div className="flex flex-col min-h-0 gap-5">
       {/* Page header */}
       <PageHeader
-        eyebrow="Tasks"
-        title="Task Board"
-        description={`${tasks.length} task${tasks.length !== 1 ? 's' : ''} across all projects`}
+        eyebrow={boardProject ? 'Project board' : 'Tasks'}
+        title={boardProject ? boardProject.name : 'Task Board'}
+        description={boardProject
+          ? `${projectTaskCount} task${projectTaskCount !== 1 ? 's' : ''} in this project`
+          : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} across all projects`}
         actions={
           <button
             onClick={() => setShowNewTask(true)}
@@ -548,6 +567,7 @@ function TasksBoard() {
             onTaskOpen={setSelectedTask}
             onStatusChange={handleStatusChange}
             onQuickCreate={handleQuickCreate}
+            onReorder={handleReorder}
           />
         )}
         {view === 'list' && (
