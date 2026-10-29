@@ -97,17 +97,29 @@ export function avatarColor(id: string): string {
   return palette[h % palette.length];
 }
 
-export function formatDueDate(dueAt: string | null): { label: string; overdue: boolean } | null {
+/** Finished work: a past due date is history, not a warning. */
+export function isClosedStatus(status: TaskStatus | null | undefined): boolean {
+  return status === 'DONE' || status === 'ARCHIVED';
+}
+
+/**
+ * Due-date label and overdue flag. A DONE or ARCHIVED task is never overdue;
+ * every other status (or no status) is overdue once the due time has passed.
+ */
+export function formatDueDate(
+  dueAt: string | null,
+  status?: TaskStatus | null,
+  now: Date = new Date(),
+): { label: string; overdue: boolean } | null {
   if (!dueAt) return null;
   const due = new Date(dueAt);
-  const now = new Date();
   const diffMs = due.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  const overdue = diffMs < 0;
+  const overdue = diffMs < 0 && !isClosedStatus(status);
   const month = due.toLocaleString('default', { month: 'short' });
   const day = due.getDate();
   if (diffDays === 0) return { label: 'Today', overdue };
   if (diffDays === 1) return { label: 'Tomorrow', overdue };
-  if (diffDays === -1) return { label: 'Yesterday', overdue: true };
+  if (diffDays === -1) return { label: 'Yesterday', overdue };
   return { label: `${month} ${day}`, overdue };
 }
