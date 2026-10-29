@@ -52,6 +52,7 @@ function taskListSelect() {
     status: true,
     priority: true,
     sortOrder: true,
+    listId: true,
     dueAt: true,
     projectId: true,
     assignedToUserId: true,
@@ -117,7 +118,7 @@ export class TasksRepository {
    * Update a task and return the full task with all relations.
    * The caller no longer needs to reload the full task list after a single save.
    */
-  update(tenantId: string, id: string, dto: UpdateTaskDto) {
+  update(tenantId: string, id: string, dto: UpdateTaskDto, clearList = false) {
     return this.prisma.task.update({
       where: { id, tenantId },
       data: {
@@ -128,6 +129,8 @@ export class TasksRepository {
         ...(dto.assignedToUserId !== undefined && { assignedToUserId: dto.assignedToUserId }),
         ...(dto.dueAt !== undefined && { dueAt: dto.dueAt ? new Date(dto.dueAt) : null }),
         ...(dto.projectId !== undefined && { projectId: dto.projectId }),
+        // A list belongs to one project: a card moved to another project leaves it.
+        ...(clearList && { listId: null }),
         ...(dto.clientVisible !== undefined && { clientVisible: dto.clientVisible }),
       },
       include: taskFullInclude(),
@@ -172,8 +175,9 @@ export class TasksRepository {
           data: {
             sortOrder: item.sortOrder,
             ...(item.status !== undefined && { status: item.status }),
+            ...(item.listId !== undefined && { listId: item.listId }),
           },
-          select: { id: true, status: true, sortOrder: true, updatedAt: true },
+          select: { id: true, status: true, sortOrder: true, listId: true, updatedAt: true },
         }),
       ),
     );

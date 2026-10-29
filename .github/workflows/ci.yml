@@ -138,6 +138,7 @@ jobs:
       # crm-update-validation proves CRM updates and reports validate their bodies.
       # notification-writers proves events reach only their audience (T47).
       # activity-timeline proves the audit timeline is permission- and scope-filtered (T65).
+      # task-lists proves custom board lists: per-project isolation, explicit idempotent setup, scoped card moves.
       # my-work proves the My Work view holds only the caller's permitted items (T67).
       # audit-log proves the audit log is OWNER-only and pages correctly (T132).
       # calendar proves the calendar shows each type only to permitted roles (T103).
@@ -195,6 +196,7 @@ jobs:
             test/audit-log.test.mjs \
             test/my-work.test.mjs \
             test/activity-timeline.test.mjs \
+            test/task-lists.test.mjs \
             test/login-history.test.mjs \
             test/security-gate-session-revocation.test.mjs \
             test/throttle-per-client.test.mjs \
