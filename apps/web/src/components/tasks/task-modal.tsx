@@ -485,7 +485,7 @@ export function TaskModal({
   // ── Derived values ──
   const doneCount  = subtasks.filter((s) => s.status === 'DONE').length;
   const progress   = subtasks.length > 0 ? Math.round((doneCount / subtasks.length) * 100) : 0;
-  const dueMeta    = formatDueDate(dueAt ? new Date(`${dueAt}T12:00:00`).toISOString() : null);
+  const dueMeta    = formatDueDate(dueAt ? new Date(`${dueAt}T12:00:00`).toISOString() : null, status);
   const taskLabelIds = new Set(taskLabels.map((l) => l.id));
   const filteredAllLabels = allLabels.filter(
     (l) => l.name.toLowerCase().includes(labelSearch.toLowerCase()),

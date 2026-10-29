@@ -18,7 +18,7 @@ type TaskCardProps = {
 };
 
 export function TaskCard({ task, attachmentCount, onOpen, onDragStart }: TaskCardProps) {
-  const due = formatDueDate(task.dueAt);
+  const due = formatDueDate(task.dueAt, task.status);
   const priority = task.priority ? PRIORITY_META[task.priority] : null;
   const subtaskTotal = task._count.subtasks;
 

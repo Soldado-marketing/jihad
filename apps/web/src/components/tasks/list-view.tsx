@@ -41,7 +41,7 @@ export function ListView({ tasks, onTaskOpen }: ListViewProps) {
         {tasks.map((task) => {
           const priority = task.priority ? PRIORITY_META[task.priority] : null;
           const status = STATUS_META[task.status];
-          const due = formatDueDate(task.dueAt);
+          const due = formatDueDate(task.dueAt, task.status);
 
           return (
             <button
