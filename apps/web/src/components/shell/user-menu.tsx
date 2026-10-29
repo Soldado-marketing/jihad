@@ -48,22 +48,23 @@ export function UserMenu({ role }: UserMenuProps) {
   return (
     <div className="relative">
       <button
-        className="flex items-center gap-3 rounded-xl border border-line bg-white px-3 py-2 text-start shadow-[0_12px_30px_-26px_rgba(15,23,42,0.7)] hover:bg-slate-50 focus-visible:bg-slate-50"
+        className="flex items-center gap-3 rounded-xl border border-line bg-white p-1 text-start sm:px-3 sm:py-2 shadow-[0_12px_30px_-26px_rgba(15,23,42,0.7)] hover:bg-slate-50 focus-visible:bg-slate-50"
         onClick={() => setOpen((value) => !value)}
         type="button"
         aria-expanded={open}
         aria-haspopup="true"
+        aria-label={`Account: ${displayName}`}
       >
         <div aria-hidden="true" className="h-8 w-8 rounded-full bg-accent text-center text-sm font-bold leading-8 text-white shadow-sm">
           {avatarChar}
         </div>
-        <div className="min-w-0">
+        <div className="hidden min-w-0 sm:block">
           <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
           <p className="text-xs text-slate-500">{roleLabels[role] ?? role}</p>
         </div>
       </button>
       {open ? (
-        <div className="absolute end-0 z-20 mt-2 w-72 rounded-xl border border-line bg-white p-4 text-sm shadow-card">
+        <div className="absolute end-0 z-20 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-line bg-white p-4 text-sm shadow-card">
           <p className="font-semibold text-ink">{displayName}</p>
           {email && <p className="mt-0.5 truncate text-xs text-slate-500">{email}</p>}
           <p className="mt-1 text-slate-600">Role: {roleLabels[role] ?? role}</p>
@@ -71,7 +72,7 @@ export function UserMenu({ role }: UserMenuProps) {
           <button
             onClick={() => void handleLogout()}
             disabled={isLoggingOut}
-            className="w-full rounded-lg bg-destructive/10 px-3 py-2 text-left text-sm font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
+            className="w-full rounded-lg bg-destructive/10 px-3 py-2 text-start text-sm font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
             type="button"
           >
             {isLoggingOut ? 'Signing out…' : 'Sign out'}
