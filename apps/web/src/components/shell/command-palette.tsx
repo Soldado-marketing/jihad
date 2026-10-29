@@ -107,11 +107,15 @@ export function CommandPalette({ role }: { role: WorkspaceRole }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-muted transition hover:border-accent/40 hover:text-ink"
+        className="flex min-h-10 items-center gap-2 rounded-lg border border-line bg-white px-2.5 text-sm text-muted transition hover:border-accent/40 hover:text-ink sm:min-h-0 sm:px-3 sm:py-1.5"
         aria-label="Search (Command K)"
       >
-        <span>Search</span>
-        <kbd className="rounded border border-line bg-soft px-1.5 text-xs">⌘K</kbd>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 sm:hidden" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="6" />
+          <path d="M20 20l-4.5-4.5" />
+        </svg>
+        <span className="hidden sm:inline">Search</span>
+        <kbd className="hidden rounded border border-line bg-soft px-1.5 text-xs sm:inline">⌘K</kbd>
       </button>
 
       {/* Portal: the top bar's backdrop-filter would otherwise make it the containing

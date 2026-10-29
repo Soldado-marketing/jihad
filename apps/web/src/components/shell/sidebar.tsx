@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { filterNavigationItems } from '@/security/ui-permissions';
-import { workspaceNavigation } from '@/navigation/navigation';
+import { workspaceNavigation, type NavigationItem } from '@/navigation/navigation';
 import type { WorkspaceRole } from '@/navigation/roles';
 import { cn } from '@/lib/class-names';
 import { RolePreviewBadge } from './role-preview-badge';
@@ -13,7 +13,7 @@ type SidebarProps = {
   role: WorkspaceRole;
 };
 
-const navGlyphs: Record<string, string> = {
+export const navGlyphs: Record<string, string> = {
   'admin-invites': 'IN',
   'admin-users': 'AU',
   'company-access': 'CP',
@@ -36,7 +36,7 @@ const navGlyphs: Record<string, string> = {
   voice: 'VO',
 };
 
-const navGroups = [
+export const navGroups = [
   {
     ids: ['dashboard', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
     label: 'Workspace',
@@ -55,21 +55,36 @@ const navGroups = [
   },
 ];
 
-export function Sidebar({ role }: SidebarProps) {
-  const pathname = usePathname();
-  const reduced = useReducedMotion();
+/** The role's permitted navigation items, in the sidebar's groups. Shared with the compact menu. */
+export function visibleNavGroups(role: WorkspaceRole) {
   const items = filterNavigationItems(role, workspaceNavigation);
-  const visibleGroups = navGroups
+  return navGroups
     .map((group) => ({
       ...group,
       items: items.filter((item) => group.ids.includes(item.id)),
     }))
     .filter((group) => group.items.length > 0);
+}
+
+export function isNavItemActive(item: NavigationItem, pathname: string | null): boolean {
+  return (
+    pathname === item.href ||
+    (item.href !== '/dashboard' &&
+      item.id !== 'admin-users' &&
+      Boolean(pathname?.startsWith(`${item.href}/`))) ||
+    (item.id === 'admin-users' && Boolean(pathname?.startsWith('/dashboard/admin/users/')))
+  );
+}
+
+export function Sidebar({ role }: SidebarProps) {
+  const pathname = usePathname();
+  const reduced = useReducedMotion();
+  const visibleGroups = visibleNavGroups(role);
 
   return (
     <motion.aside
       aria-label="Primary workspace navigation"
-      className="w-full max-w-full overflow-hidden border-b border-slate-800 bg-navy text-white shadow-shell md:sticky md:top-0 md:min-h-screen md:w-72 md:border-b-0 md:border-e md:border-slate-800"
+      className="hidden overflow-hidden bg-navy text-white shadow-shell lg:sticky lg:top-0 lg:block lg:min-h-screen lg:w-72 lg:border-e lg:border-slate-800"
       initial={reduced ? false : { opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, ease: [0.0, 0.0, 0.2, 1] }}
@@ -94,11 +109,11 @@ export function Sidebar({ role }: SidebarProps) {
       </motion.div>
 
       {/* Nav */}
-      <nav className="flex max-w-full gap-2 overflow-x-auto p-3 md:block md:space-y-5 md:p-4" aria-label="Workspace">
+      <nav className="space-y-5 p-4" aria-label="Workspace">
         {visibleGroups.map((group, groupIndex) => (
           <motion.div
             key={group.label}
-            className="flex shrink-0 gap-2 md:block md:space-y-1"
+            className="space-y-1"
             initial={reduced ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
@@ -107,16 +122,11 @@ export function Sidebar({ role }: SidebarProps) {
               delay: reduced ? 0 : 0.12 + groupIndex * 0.06,
             }}
           >
-            <p className="hidden px-3 pb-2 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500 md:block">
+            <p className="px-3 pb-2 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500">
               {group.label}
             </p>
             {group.items.map((item, itemIndex) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' &&
-                  item.id !== 'admin-users' &&
-                  pathname?.startsWith(`${item.href}/`)) ||
-                (item.id === 'admin-users' && pathname?.startsWith('/dashboard/admin/users/'));
+              const isActive = isNavItemActive(item, pathname);
 
               return (
                 <motion.div

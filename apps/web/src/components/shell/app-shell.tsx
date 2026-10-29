@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { getDirection, getDirectionalClass, type SupportedLocale } from '@/i18n/direction';
 import type { WorkspaceRole } from '@/navigation/roles';
 import { cn } from '@/lib/class-names';
+import { CompactNav } from './compact-nav';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { WorkspaceContent } from './workspace-content';
@@ -15,7 +16,7 @@ type AppShellProps = {
 export function AppShell({ children, locale = 'en', role = 'OWNER' }: AppShellProps) {
   return (
     <div
-      className={cn('min-h-screen bg-canvas text-ink md:flex', getDirectionalClass(locale))}
+      className={cn('min-h-screen bg-canvas text-ink lg:flex', getDirectionalClass(locale))}
       data-app-shell
       dir={getDirection(locale)}
       lang={locale}
@@ -25,6 +26,7 @@ export function AppShell({ children, locale = 'en', role = 'OWNER' }: AppShellPr
         <Topbar locale={locale} role={role} />
         <WorkspaceContent>{children}</WorkspaceContent>
       </div>
+      <CompactNav role={role} />
     </div>
   );
 }

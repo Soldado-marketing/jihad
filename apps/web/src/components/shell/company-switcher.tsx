@@ -69,13 +69,13 @@ export function CompanySwitcher() {
   const options = available?.canSwitch ? available.companies : [];
   return (
     <div className="min-w-0" aria-label="Company workspace">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Company</p>
+      <p className="hidden text-xs font-bold uppercase tracking-[0.2em] text-accent sm:block">Company</p>
       {options.length > 1 ? (
         <>
           <label htmlFor="maos-company-picker" className="sr-only">Switch company</label>
           <select
             id="maos-company-picker"
-            className="max-w-[18rem] rounded-lg border border-line bg-white px-2 py-1.5 text-sm font-semibold text-ink"
+            className="max-w-full rounded-lg border border-line bg-white px-2 py-1.5 text-sm font-semibold text-ink sm:max-w-[18rem]"
             value={available?.currentTenantId ?? ''}
             disabled={switching}
             onChange={(event) => void switchTo(event.target.value)}
@@ -87,7 +87,7 @@ export function CompanySwitcher() {
           {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
         </>
       ) : (
-        <h1 className="truncate text-xl font-semibold tracking-tight text-ink">{currentName}</h1>
+        <h1 className="truncate text-base font-semibold sm:text-xl tracking-tight text-ink">{currentName}</h1>
       )}
     </div>
   );
