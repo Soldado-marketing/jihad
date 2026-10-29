@@ -25,6 +25,18 @@ export function KanbanBoard({
   const [quickTitle, setQuickTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const dragTaskId = useRef<string | null>(null);
+  const columnRefs = useRef<Partial<Record<TaskStatus, HTMLDivElement | null>>>({});
+  const boardRef = useRef<HTMLDivElement | null>(null);
+
+  // Jump to a column: on narrow screens the board scrolls sideways, so every
+  // column (Blocked included) must be reachable without hunting for it. The
+  // board itself is scrolled, instantly: smooth scrollIntoView did not move a
+  // snapping scroll container in testing.
+  function showColumn(status: TaskStatus) {
+    const board = boardRef.current;
+    const column = columnRefs.current[status];
+    if (board && column) board.scrollTo({ left: column.offsetLeft });
+  }
 
   function handleDragStart(e: React.DragEvent, taskId: string) {
     dragTaskId.current = taskId;
@@ -78,7 +90,32 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-6 pr-2 min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <nav aria-label="Board columns" className="mb-3 flex flex-wrap gap-2">
+        {COLUMNS.map((col) => (
+          <button
+            key={col.status}
+            type="button"
+            onClick={() => showColumn(col.status)}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-medium text-ink hover:border-accent/40"
+          >
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} aria-hidden="true" />
+            {col.label}
+            <span className="text-muted">{tasks.filter((t) => t.status === col.status).length}</span>
+          </button>
+        ))}
+      </nav>
+      {/* One grid track per column: columns share the width when it fits
+          (min 15rem, 12.5rem on wide screens so all five fit at 1440px),
+          otherwise the board scrolls sideways and snaps to columns; on phones
+          one column is 85% of the screen. */}
+      <div
+        ref={boardRef}
+        role="region"
+        aria-label="Task board"
+        tabIndex={0}
+        className="relative grid min-h-0 flex-1 grid-flow-col auto-cols-[85vw] gap-4 overflow-x-auto snap-x snap-mandatory pb-6 sm:auto-cols-[minmax(15rem,1fr)] xl:auto-cols-[minmax(12.5rem,1fr)] sm:snap-proximity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-2xl"
+      >
       {COLUMNS.map((col) => {
         const colTasks = tasks.filter((t) => t.status === col.status);
         const isDragOver = dragOverCol === col.status;
@@ -86,7 +123,9 @@ export function KanbanBoard({
         return (
           <div
             key={col.status}
-            className="flex flex-col shrink-0 w-72"
+            ref={(el) => { columnRefs.current[col.status] = el; }}
+            data-column={col.status}
+            className="flex min-w-0 snap-start flex-col"
             onDragOver={(e) => handleDragOver(e, col.status)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, col.status)}
@@ -211,6 +250,7 @@ export function KanbanBoard({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

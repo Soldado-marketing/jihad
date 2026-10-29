@@ -58,10 +58,15 @@ export type Task = {
   labels?: TaskLabelEntry[];
 };
 
+/**
+ * Kanban columns: every status except ARCHIVED (archived work stays off the
+ * board). BLOCKED must be a column, or blocked tasks are invisible on the board.
+ */
 export const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
   { status: 'TODO',        label: 'To Do',       color: '#94a3b8' },
   { status: 'IN_PROGRESS', label: 'In Progress',  color: '#0f766e' },
   { status: 'IN_REVIEW',   label: 'In Review',    color: '#b45309' },
+  { status: 'BLOCKED',     label: 'Blocked',      color: '#b42318' },
   { status: 'DONE',        label: 'Done',         color: '#16a34a' },
 ];
 
