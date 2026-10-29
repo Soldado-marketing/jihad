@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Suspense, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
@@ -12,8 +13,10 @@ import {
   Task, TaskStatus, TaskPriority, Member, Project, FileAttachment, Label,
   PRIORITY_META, STATUS_META,
 } from '@/components/tasks/task-types';
-
-type View = 'kanban' | 'list' | 'calendar';
+import {
+  VIEWS, type TaskFilters, clearTaskFilters, filterTasks, hasTaskFilters,
+  readTaskFilters, taskFilterDefinitions, writeTaskFilters,
+} from '@/components/tasks/task-filters';
 
 // ─── New Task Modal ──────────────────────────────────────────────────────────
 
@@ -192,6 +195,15 @@ function NewTaskForm({ projects, members, onCreated, onClose }: NewTaskFormProps
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function TasksPage() {
+  // useSearchParams (the URL-held filters and view) needs a Suspense boundary.
+  return (
+    <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
+      <TasksBoard />
+    </Suspense>
+  );
+}
+
+function TasksBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -200,16 +212,58 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [view, setView] = useState<View>('kanban');
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // Filters
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | ''>('');
-  const [filterPriority, setFilterPriority] = useState<TaskPriority | ''>('');
-  const [filterAssignee, setFilterAssignee] = useState('');
-  const [filterProject, setFilterProject] = useState('');
+  // Filters and view live in the URL, so reloads and shared links keep them.
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const definitions = useMemo(() => taskFilterDefinitions(members, projects), [members, projects]);
+  const filters = useMemo(
+    () => readTaskFilters(new URLSearchParams(params.toString()), definitions),
+    [params, definitions],
+  );
+  const view = filters.view;
+  // The search box filters as you type; the URL follows after a short pause
+  // and is replaced (not pushed) so Back leaves the board.
+  const [search, setSearch] = useState(filters.search);
+  // The last state asked for: router.replace is asynchronous, so changes made
+  // before the URL catches up build on this instead of the older URL state.
+  const latest = useRef(filters);
+  const pending = useRef<string[]>([]);
+  const keyOf = (f: TaskFilters) => writeTaskFilters(new URLSearchParams(), f, definitions);
+
+  function commit(next: TaskFilters) {
+    const key = keyOf(next);
+    if (key === keyOf(latest.current)) return;
+    latest.current = next;
+    pending.current.push(key);
+    const qs = writeTaskFilters(new URLSearchParams(params.toString()), next, definitions);
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+  const setFilter = (patch: Partial<TaskFilters>) => commit({ ...latest.current, search, ...patch });
+
+  // Our own commits arriving leave the box alone; any other URL change
+  // (Back/Forward, a pasted link) wins.
+  useEffect(() => {
+    const at = pending.current.indexOf(keyOf(filters));
+    if (at >= 0) {
+      pending.current.splice(0, at + 1);
+      return;
+    }
+    pending.current = [];
+    latest.current = filters;
+    setSearch(filters.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  useEffect(() => {
+    if (search.trim() === latest.current.search.trim()) return;
+    const timer = setTimeout(() => commit({ ...latest.current, search }), 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const loadAll = useCallback(async () => {
     try {
@@ -256,18 +310,9 @@ export default function TasksPage() {
   }, []);
 
   // Filtered tasks
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((t) => {
-      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (filterStatus && t.status !== filterStatus) return false;
-      if (filterPriority && t.priority !== filterPriority) return false;
-      if (filterAssignee && t.assignedToUserId !== filterAssignee) return false;
-      if (filterProject && t.projectId !== filterProject) return false;
-      return true;
-    });
-  }, [tasks, search, filterStatus, filterPriority, filterAssignee, filterProject]);
-
-  const hasFilters = !!(search || filterStatus || filterPriority || filterAssignee || filterProject);
+  const active = useMemo(() => ({ ...filters, search }), [filters, search]);
+  const filteredTasks = useMemo(() => filterTasks(tasks, active), [tasks, active]);
+  const hasFilters = hasTaskFilters(active);
 
   // Kanban DnD status change
   async function handleStatusChange(taskId: string, status: TaskStatus) {
@@ -362,14 +407,17 @@ export default function TasksPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tasks…"
+            aria-label="Search tasks"
+            maxLength={100}
             className="w-full pl-8 pr-3 py-2 text-sm border border-line rounded-xl bg-soft text-ink placeholder:text-muted/60 outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>
 
         {/* Status filter */}
         <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as TaskStatus | '')}
+          value={filters.status}
+          onChange={(e) => setFilter({ status: e.target.value as TaskStatus | '' })}
+          aria-label="Status"
           className="text-sm border border-line rounded-xl bg-soft px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
         >
           <option value="">All statuses</option>
@@ -380,8 +428,9 @@ export default function TasksPage() {
 
         {/* Priority filter */}
         <select
-          value={filterPriority}
-          onChange={(e) => setFilterPriority(e.target.value as TaskPriority | '')}
+          value={filters.priority}
+          onChange={(e) => setFilter({ priority: e.target.value as TaskPriority | '' })}
+          aria-label="Priority"
           className="text-sm border border-line rounded-xl bg-soft px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
         >
           <option value="">All priorities</option>
@@ -393,8 +442,9 @@ export default function TasksPage() {
         {/* Assignee filter */}
         {members.length > 0 && (
           <select
-            value={filterAssignee}
-            onChange={(e) => setFilterAssignee(e.target.value)}
+            value={filters.assignee}
+            onChange={(e) => setFilter({ assignee: e.target.value })}
+            aria-label="Assignee"
             className="text-sm border border-line rounded-xl bg-soft px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
           >
             <option value="">All assignees</option>
@@ -407,8 +457,9 @@ export default function TasksPage() {
         {/* Project filter */}
         {projects.length > 0 && (
           <select
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
+            value={filters.project}
+            onChange={(e) => setFilter({ project: e.target.value })}
+            aria-label="Project"
             className="text-sm border border-line rounded-xl bg-soft px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
           >
             <option value="">All projects</option>
@@ -420,7 +471,7 @@ export default function TasksPage() {
 
         {hasFilters && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus(''); setFilterPriority(''); setFilterAssignee(''); setFilterProject(''); }}
+            onClick={() => { setSearch(''); commit(clearTaskFilters(latest.current)); }}
             className="text-xs text-muted hover:text-danger transition-colors"
           >
             Clear filters
@@ -432,10 +483,11 @@ export default function TasksPage() {
 
         {/* View switcher */}
         <div className="flex items-center rounded-xl border border-line bg-soft p-0.5 gap-0.5">
-          {(['kanban', 'list', 'calendar'] as View[]).map((v) => (
+          {VIEWS.map((v) => (
             <button
               key={v}
-              onClick={() => setView(v)}
+              onClick={() => setFilter({ view: v })}
+              aria-pressed={view === v}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
                 view === v
                   ? 'bg-panel text-ink shadow-sm'
