@@ -32,6 +32,7 @@ import { SubtasksModule } from './modules/subtasks/subtasks.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { TenantContextModule } from './modules/tenant-context/tenant-context.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { TaskListsModule } from './modules/task-lists/task-lists.module';
 import { UsersModule } from './modules/users/users.module';
 import { VoiceNotesModule } from './modules/voice-notes/voice-notes.module';
 import { VoiceToTaskModule } from './modules/voice-to-task/voice-to-task.module';
@@ -66,6 +67,7 @@ import { MailModule } from './modules/mail/mail.module';
     LoginHistoryModule,
     ProjectsModule,
     TasksModule,
+    TaskListsModule,
     SubtasksModule,
     ClientPortalModule,
     CrmModule,

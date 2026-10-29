@@ -1,146 +1,108 @@
-# Migration gate: project board lists (Trello-style), PROPOSAL
+# Migration gate: custom project board lists (migration A)
 
-Status: **awaiting owner approval**. Nothing here is in `prisma/schema.prisma` or `prisma/migrations/`; no database was changed outside disposable test containers.
+Status:
+- **Approved for isolated development** (owner, 2026-10-29).
+- **Production migration NOT approved.** It needs a separate owner go after review.
+- Optional migration B (several assignees per card, `TaskAssignee`) is **deferred**.
+
+Migration: `apps/api/prisma/migrations/20261029202156_task_lists/migration.sql`.
 
 ## Why a migration
 
-The owner wants each project to have its own board with lists that can be created, renamed, reordered and archived. Today a board column *is* a `TaskStatus` enum value (TODO, IN_PROGRESS, IN_REVIEW, BLOCKED, DONE), so lists are fixed for every project. A user-defined list needs its own row. Optionally, a card can have several people (Trello "members"); today a task has one `assignedToUserId`.
+The owner wants each project to have its own Trello-style board:
+- any number of lists with custom names (for example To Edit, Editing, Review, Revisions, Approved, Published);
+- lists can be renamed, reordered, archived and restored;
+- cards move freely between lists and keep their position.
 
-Covered without a migration (branch `feat/project-boards`):
+Before this change, a board column *was* a `TaskStatus` value, so every project had the same five columns. A user-defined list needs its own row.
 
-- Card order within a list, using the existing `Task.sortOrder` and `PATCH /tasks/reorder`.
-- A board per project, using `/tasks?project=<id>`.
-- Card history: task changes are now written to the audit log and shown on the card.
-- Labels, due dates, checklists (subtasks), attachments (files with `taskId`) and comments (`InternalNote` with `resourceType=task`). These already existed.
+## The migration (additive only)
 
-## The migration
+| Change | Purpose |
+|---|---|
+| `Task.listId TEXT NULL` | The card's list. Null means the card shows in the list mapped to its status. |
+| `TaskList` table: `id`, `tenantId`, `projectId`, `name`, `sortOrder`, `status` (nullable), `archivedAt`, timestamps | The lists. |
+| `Task_listId_fkey`: `listId` → `TaskList.id`, ON DELETE SET NULL | A deleted list (only through project or tenant cascade) clears its cards' `listId`. |
+| `Task_listId_tenantId_projectId_fkey`: (`listId`, `tenantId`, `projectId`) → `TaskList` (`id`, `tenantId`, `projectId`) | **Database guarantee** that a card's list is in the card's own tenant and project. MATCH SIMPLE: checked while the card has a project. |
+| Unique (`id`, `tenantId`, `projectId`) on `TaskList` | Target of the composite foreign key. |
+| `TaskList_name_check`: trimmed name 1–60 characters | Backstop for the API's validation. |
+| `TaskList` → `Tenant` and → `Project`, ON DELETE CASCADE | Lists go with their project or tenant. |
+| Indexes: `TaskList(tenantId, projectId, archivedAt, sortOrder)` and `Task(tenantId, listId, sortOrder)` | The board's queries. |
 
-### A. Board lists (required for custom lists)
+The migration rewrites no existing row. `prisma migrate diff` from the migrated database to `schema.prisma` reports no drift; both foreign keys are modelled in Prisma.
 
-```sql
--- AlterTable
-ALTER TABLE "Task" ADD COLUMN     "listId" TEXT;
+## Behaviour
 
--- CreateTable
-CREATE TABLE "TaskList" (
-    "id" TEXT NOT NULL,
-    "tenantId" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "sortOrder" DOUBLE PRECISION NOT NULL,
-    "status" "TaskStatus",
-    "archivedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+- **Status stays separate from lists.** Reports, My Work, overdue logic, the dashboard, the status board and the client portal read `Task.status` only.
+  - A list may map to a status: moving a card into "Published" (mapped to DONE) sets DONE.
+  - An unmapped list, for example "Editing", keeps the card's status.
+- **Setup is explicit and idempotent.**
+  - Opening a board writes nothing.
+  - `POST /projects/:id/lists/initialize` creates the five former columns only when the project has no lists, archived ones included.
+  - A transaction advisory lock makes concurrent calls create them once.
+  - No task is moved during setup.
+- **Compatibility with existing tasks.**
+  - A card without a list shows in the first active list mapped to its status, otherwise under "Not in a list".
+  - A card moved to another project leaves its list.
+- **Archive, never delete.** An archived list hides with its cards. Restoring a list puts it at the end.
+- **Permissions** reuse the existing model; no new permission was added.
 
-    CONSTRAINT "TaskList_pkey" PRIMARY KEY ("id")
-);
+  | Action | Permission | Roles |
+  |---|---|---|
+  | Read lists | project READ | Internal roles, within work scope |
+  | Change the list structure | project UPDATE | OWNER, MANAGER |
+  | Move cards (`PATCH /tasks/reorder` with `listId`) | task UPDATE, within scope | As before |
 
--- CreateIndex
-CREATE INDEX "TaskList_tenantId_projectId_archivedAt_sortOrder_idx" ON "TaskList"("tenantId", "projectId", "archivedAt", "sortOrder");
+  - CLIENT users get 403.
+  - Another tenant's project or list answers 404 and reveals nothing.
+- **History.**
+  - Card moves are recorded as `task.list.changed` (and `task.status.changed` when a mapped list changes the status).
+  - List changes are recorded on the project as `board.*`.
 
--- CreateIndex
-CREATE INDEX "Task_tenantId_listId_sortOrder_idx" ON "Task"("tenantId", "listId", "sortOrder");
+## Evidence (disposable PG16 containers only)
 
--- AddForeignKey
-ALTER TABLE "Task" ADD CONSTRAINT "Task_listId_fkey" FOREIGN KEY ("listId") REFERENCES "TaskList"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+- **Database guarantees,** tested with direct SQL that bypasses the API:
+  - a card cannot point to a list of another project or of another tenant;
+  - a card cannot move to another project while keeping its list;
+  - a blank list name is refused;
+  - deleting a project clears its cards' `listId` without error.
+- **API:** `test/task-lists.test.mjs`, 17 tests, covering:
+  - setup that writes nothing on read and is idempotent under concurrent calls;
+  - six custom lists that are renamed, reordered and persisted;
+  - different workflows per project;
+  - archive and restore;
+  - card moves with position, mapped and unmapped status;
+  - history;
+  - foreign, archived and other-project lists, and cards without a project;
+  - project change;
+  - EMPLOYEE and CONTRACTOR blocked from changing structure, contractor scope, CLIENT, foreign tenant, and no session.
+- **Full suites in CI order:** `integration-api` 35/35, then 61 suites 780/780, then unit 485 pass (10 todo).
+- **Rollback,** on a database holding 144 tasks, 26 lists and 6 cards in lists:
+  - the task checksum (`id`, `status`, `projectId`, `sortOrder`, `title`) was identical before, after rollback and after re-apply;
+  - `task-lists` passed again after re-apply.
 
--- AddForeignKey
-ALTER TABLE "TaskList" ADD CONSTRAINT "TaskList_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+## Risks
 
--- AddForeignKey
-ALTER TABLE "TaskList" ADD CONSTRAINT "TaskList_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-```
-
-Prisma model (generated with `prisma migrate diff` from the current schema, so the SQL above is exactly what `migrate dev` would emit):
-
-```prisma
-model TaskList {
-  id         String      @id @default(cuid())
-  tenantId   String
-  projectId  String
-  name       String
-  sortOrder  Float
-  /// Status a card takes when moved into this list; null keeps its status.
-  status     TaskStatus?
-  archivedAt DateTime?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks      Task[]
-
-  @@index([tenantId, projectId, archivedAt, sortOrder])
-}
-// Task: listId String?, list TaskList? @relation(onDelete: SetNull), @@index([tenantId, listId, sortOrder])
-```
-
-### B. Several people per card (optional, decide separately)
-
-```sql
--- CreateTable
-CREATE TABLE "TaskAssignee" (
-    "tenantId" TEXT NOT NULL,
-    "taskId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "TaskAssignee_pkey" PRIMARY KEY ("taskId","userId")
-);
-
--- CreateIndex
-CREATE INDEX "TaskAssignee_tenantId_userId_idx" ON "TaskAssignee"("tenantId", "userId");
-
--- AddForeignKey
-ALTER TABLE "TaskAssignee" ADD CONSTRAINT "TaskAssignee_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TaskAssignee" ADD CONSTRAINT "TaskAssignee_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TaskAssignee" ADD CONSTRAINT "TaskAssignee_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-```
-
-`Task.assignedToUserId` stays the primary assignee, so My Work, notifications, the contractor scope and reports keep working unchanged. `TaskAssignee` only adds further members.
-
-## Design choices
-
-- **Status stays.** Reports, My Work, overdue logic, the dashboard and the client portal all read `Task.status`, so lists do not replace it. A list may map to a status (`TaskList.status`); moving a card into, for example, "Done" sets DONE. A list without a mapping leaves the status alone.
-- **No data rewrite.** The migration only adds a nullable column and new tables. Existing tasks keep `listId = NULL`.
-  - The first time a project's board opens, the API creates that project's five default lists from the status columns: To Do, In Progress, In Review, Blocked, Done.
-  - A card with no list appears in the list mapped to its status.
-  - No backfill runs at deploy time.
-- **Archive, never delete.** `archivedAt` hides a list and its cards stay. Deleting a project cascades to its lists, and that sets the cards' `listId` back to NULL.
-- **Tenant and scope.**
-  - Every list query filters by `tenantId` and the caller's project scope (`resourceScope.projectWhere`).
-  - Before a `listId` is set on a card, the API checks that the list belongs to the same tenant and to the card's project, and returns 404 otherwise.
-  - CLIENT users never receive lists.
-  - The tenant FK stays as on every other tenant-owned table.
-- **Compatibility.** Old code runs against the new schema, because the column is nullable and the tables are unknown to it. New code reads lists only after the migration. Deploying API and migration together, as the existing `migrate deploy` step does, is safe in either order.
-
-## Evidence (disposable database only)
-
-- `prisma validate` passes for both proposed schemas.
-- A and B applied in one transaction to a disposable PG16 database that held 74 tasks from the integration suites. Afterwards: 74 tasks, 0 with a `listId`, and both tables present.
-- The rollback below ran on the same database afterwards and left 74 tasks.
+- **Application rollback with lists in use.** The previous API does not know about lists. While the column exists, moving a card that sits in a list to another project would fail on the composite key (500). Roll back the database with the SQL below, or clear `listId` first (`UPDATE "Task" SET "listId" = NULL`).
+- **Rolling back the migration loses list data.** It removes list names, order and card placement. No task, status, order or assignment is lost.
+- **Lock and table size.** `ALTER TABLE "Task" ADD COLUMN` (nullable, no default) takes a brief lock without rewriting the table. The new index on `Task` builds without `CONCURRENTLY`, which is fine at the current table size.
 
 ## Rollback
 
 ```sql
 BEGIN;
-DROP TABLE "TaskAssignee";
+ALTER TABLE "Task" DROP CONSTRAINT "Task_listId_tenantId_projectId_fkey";
 ALTER TABLE "Task" DROP CONSTRAINT "Task_listId_fkey";
 DROP INDEX "Task_tenantId_listId_sortOrder_idx";
 ALTER TABLE "Task" DROP COLUMN "listId";
 DROP TABLE "TaskList";
+DELETE FROM "_prisma_migrations" WHERE migration_name = '20261029202156_task_lists';
 COMMIT;
 ```
 
-Rolling back loses only list names, order and membership created after the deploy. No task, status or assignment is lost.
+## Procedure (owner window, after explicit approval)
 
-## After approval (separate task)
-
-1. Add the models and a new forward migration, generated on a disposable database.
-2. Build the `task-lists` API (list, create, rename, reorder, archive and restore, all scoped). Add `listId` to the task update and reorder endpoints, with negative tests for a foreign tenant, a foreign project and contractor scope.
-3. Build the board UI from `src/components/tasks/board-prototype.tsx`, using the real endpoints.
-4. Owner window: verify a backup, run `migrate deploy`, then check health and logs.
+1. Merge the PR once the owner approves; CI must be green.
+2. Verify a fresh backup.
+3. Run `migrate deploy`, as part of the API release.
+4. Check `/api/health/ready`, the logs, and one board in each role.

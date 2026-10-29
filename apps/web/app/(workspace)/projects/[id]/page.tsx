@@ -230,7 +230,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <div className="px-5 py-3 border-b border-line bg-slate-50">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-muted uppercase tracking-wide">Tasks ({project.tasks?.length ?? 0})</h2>
-            <Link href={`/tasks?project=${encodeURIComponent(project.id)}`} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent">
+            <Link href={`/projects/${encodeURIComponent(project.id)}/board`} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent">
               Open board
             </Link>
           </div>

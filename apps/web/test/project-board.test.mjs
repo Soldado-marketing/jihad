@@ -60,11 +60,12 @@ describe('the board persists drops through the existing reorder endpoint', () =>
 });
 
 describe('every project has its own board', () => {
-  it('the project page opens the board filtered to that project', () => {
-    assert.match(read('app/(workspace)/projects/[id]/page.tsx'), /href=\{`\/tasks\?project=\$\{encodeURIComponent\(project\.id\)\}`\}[\s\S]*Open board/);
+  it('the project page opens the project\'s own list board', () => {
+    assert.match(read('app/(workspace)/projects/[id]/page.tsx'), /href=\{`\/projects\/\$\{encodeURIComponent\(project\.id\)\}\/board`\}[\s\S]*Open board/);
+    assert.match(read('app/(workspace)/projects/[id]/board/page.tsx'), /<ProjectBoard projectId=\{id\} \/>/);
   });
 
-  it('a card added on a project board belongs to that project', () => {
+  it('a card added on the status board filtered to a project belongs to that project', () => {
     assert.match(page, /JSON\.stringify\(\{ title, status, \.\.\.\(filters\.project \? \{ projectId: filters\.project \} : \{\}\) \}\)/);
   });
 

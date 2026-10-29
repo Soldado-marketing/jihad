@@ -48,6 +48,8 @@ export type Task = {
   priority: TaskPriority | null;
   dueAt: string | null;
   sortOrder?: number | null;
+  /** Custom board list of the task's project; null shows it in the list mapped to its status. */
+  listId?: string | null;
   projectId: string | null;
   assignedToUserId: string | null;
   createdAt: string;
