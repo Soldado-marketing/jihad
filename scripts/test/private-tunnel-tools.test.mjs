@@ -1,6 +1,10 @@
 /**
  * Private Railway tunnel for the migration tools (MAOS-R01 follow-up).
- * Run: node --test test/private-tunnel-tools.test.mjs
+ * Run (from the repository root): node --test scripts/test/*.test.mjs
+ *
+ * It lives outside apps/ on purpose: a change under apps/api redeploys the
+ * production API (Railway watch path /apps/api/**), and these tests cover
+ * operator scripts only. CI runs it in its own step.
  *
  * Since the production database lost its public TCP proxy, the read-only
  * check and the one-migration runner must reach it through Railway's private
@@ -30,8 +34,7 @@ import { dirname, join } from 'node:path';
 import { after, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const repoRoot = dirname(dirname(apiRoot));
+const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const READONLY = join(repoRoot, 'scripts/db-readonly-check.sh');
 const MIGRATE = join(repoRoot, 'scripts/migrate-deploy-one.sh');
 const LIB = join(repoRoot, 'scripts/lib/private-tunnel.sh');
