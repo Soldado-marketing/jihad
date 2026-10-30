@@ -211,6 +211,12 @@ jobs:
         working-directory: apps/api
         run: npm test
 
+      # Operator scripts outside apps/ (a change there redeploys nothing):
+      # private Railway tunnel for the read-only check and the migration
+      # runner. Blocking, like the backup and runner suites in npm test.
+      - name: Operator script tests
+        run: node --test scripts/test/*.test.mjs
+
   web:
     name: Web - typecheck and build
     runs-on: ubuntu-latest
