@@ -25,6 +25,15 @@ export const workspaceNavigation: NavigationItem[] = [
     clientSafe: false,
   },
   {
+    // Owner Control Center: every company the user owns, read-only overview.
+    id: 'control-center',
+    label: 'All my companies',
+    href: '/control-center',
+    allowedRoles: ['OWNER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
     id: 'my-work',
     label: 'My Work',
     href: '/my-work',
