@@ -27,9 +27,22 @@ Chat: OWNER or MANAGER adds a contractor to a channel from the channel header (M
 
 ## 3. Before deploy (owner)
 
-- [ ] Run the read-only impact report against production **only with separate approval**:
-      `scripts/db-readonly-check.sh docs/rollout/access-grants-impact.sql`
-      (read-only session; prints member names and e-mails, no amounts). It lists, per company:
+- [ ] Run the read-only impact report against production **only with separate approval**.
+      Prerequisite: the production database has no public TCP proxy (2026-10-21), so the run
+      needs the private-tunnel mode of `scripts/db-readonly-check.sh` from #121 (merged first, or
+      run from the #121 branch with the owner's approval). Exact command, with a 5-minute limit:
+
+      ```bash
+      ( MAOS_DB_CONNECTION=private scripts/db-readonly-check.sh docs/rollout/access-grants-impact.sql & p=$!; ( sleep 300; kill -TERM $p 2>/dev/null ) & w=$!; wait $p; rc=$?; kill $w 2>/dev/null; exit $rc )
+      ```
+
+      Safety (verified on the isolated database, `apps/api/test/access-impact-report.test.mjs`):
+      session `default_transaction_read_only=on` + `BEGIN … READ ONLY` + preflight abort unless
+      read-only + `ROLLBACK`; `statement_timeout` 30s, `lock_timeout` 2s; only SELECT/SET; names
+      never selected, e-mails masked in the database (`a***@s***`), users as an 8-character hash;
+      the URL travels by variable name and is redacted from output. The tunnel closes on exit or
+      TERM. After a stop, the psql container can keep reading until its statement limit (≤ 30s),
+      then removes itself. The report lists, per company:
       managers (and their past approval decisions), employees (tasks visible today vs after),
       contractors (channels today vs after), waiting approvals, and any grants already present.
 - [ ] From that list decide, per company: which managers keep invoices (which of the three
