@@ -166,6 +166,7 @@ jobs:
           node --test \
             test/security-gate-authz.test.mjs \
             test/company-access-isolation.test.mjs \
+            test/control-center.test.mjs \
             test/security-gate-client-isolation.test.mjs \
             test/invoice-default-recipients.test.mjs \
             test/visibility-scope.test.mjs \

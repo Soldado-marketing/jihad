@@ -39,6 +39,23 @@ export default function ApprovalsPage() {
     void load();
   }, [load]);
 
+  // A link such as /approvals?open=<id> (Control Center) opens the decision
+  // for that request once, if it is waiting in this company's list. A request
+  // that is already decided shows under Decided; an unknown id changes nothing.
+  const [openId, setOpenId] = useState(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('open'));
+  useEffect(() => {
+    if (!items || !openId) return;
+    const match = items.find((a) => a.id === openId);
+    if (match && splitQueue([match]).waiting.length) {
+      setTab('waiting');
+      setSelected(match);
+    } else if (match) {
+      setTab('decided');
+    }
+    setOpenId(null);
+  }, [items, openId]);
+
   async function decide(decision: Decision) {
     if (!selected) return;
     setBusy(true);

@@ -1,19 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
-import { getStoredTenant, setAuthSession } from '@/lib/auth';
+import { getStoredTenant } from '@/lib/auth';
+import { switchCompanySession } from '@/lib/company-switch';
 
 type Company = { id: string; name: string; slug: string; role: string };
 type CompanyList = {
   currentTenantId: string;
   canSwitch: boolean;
   companies: Company[];
-};
-type SwitchResponse = {
-  tokens: { accessToken: string; refreshToken: string; expiresIn: number };
-  user: { id: string; email: string; displayName: string | null; role: string };
-  tenant: { id: string; name: string; slug: string };
 };
 
 /**
@@ -48,18 +45,9 @@ export function CompanySwitcher() {
     setError('');
     setSwitching(true);
     try {
-      const data = await apiFetch<SwitchResponse>('/auth/companies/switch', {
-        method: 'POST',
-        body: JSON.stringify({ tenantId: targetId }),
-      });
-      setAuthSession({
-        accessToken: data.tokens.accessToken,
-        refreshToken: data.tokens.refreshToken,
-        user: { ...data.user, displayName: data.user.displayName ?? '' },
-        tenant: data.tenant,
-      });
+      const role = await switchCompanySession(targetId);
       // Clear entire React state and cached tenant data before rendering the target.
-      window.location.replace(data.user.role === 'CLIENT' ? '/client' : '/dashboard');
+      window.location.replace(role === 'CLIENT' ? '/client' : '/dashboard');
     } catch {
       setError('Unable to switch company. Check your access permissions.');
       setSwitching(false);
@@ -85,6 +73,13 @@ export function CompanySwitcher() {
             ))}
           </select>
           {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
+          {/* Owners get back to the overview of all their companies from any company,
+              including one where they work as manager (the Control Center checks ownership). */}
+          {options.some((c) => c.role === 'OWNER') && (
+            <Link href="/control-center" className="ms-2 hidden text-xs font-semibold text-accent hover:underline sm:inline">
+              All my companies
+            </Link>
+          )}
         </>
       ) : (
         // Not a heading: each page owns its single <h1> (UX-0 R1).
