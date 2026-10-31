@@ -2,6 +2,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { ChannelMembers } from '@/components/chat/channel-members';
+import { getStoredUser } from '@/lib/auth';
 
 type Channel = { id: string; name: string; type?: string };
 type Message = { id: string; body: string; createdAt: string; sender?: { displayName: string } };
@@ -14,6 +16,9 @@ export default function ChatPage() {
   const [newChannelName, setNewChannelName] = useState('');
   const [showChannelForm, setShowChannelForm] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // OWNER and MANAGER manage channel members (the API checks CHAT_CHANNEL update).
+  const [canManage, setCanManage] = useState(false);
+  useEffect(() => { const r = getStoredUser()?.role; setCanManage(r === 'OWNER' || r === 'MANAGER'); }, []);
 
   useEffect(() => { loadChannels(); }, []);
   useEffect(() => { if (activeChannel) loadMessages(activeChannel.id); }, [activeChannel]);
@@ -75,6 +80,7 @@ export default function ChatPage() {
             <>
               <div className="px-4 py-3 border-b border-line">
                 <p className="font-semibold text-ink"># {activeChannel.name}</p>
+                {canManage && <ChannelMembers key={activeChannel.id} channelId={activeChannel.id} />}
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.map(m => (

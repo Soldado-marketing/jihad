@@ -15,10 +15,12 @@ type Member = {
   /** Explicit grants that apply to this member's role, and whether each is on. */
   grants: Partial<Record<Grant, boolean>>;
 };
-type Grant = 'decide-approvals' | 'invoices' | 'all-tasks';
+type Grant = 'decide-approvals' | 'invoices-read' | 'invoices-edit' | 'payments-record' | 'all-tasks';
 const GRANTS: { key: Grant; label: string }[] = [
   { key: 'decide-approvals', label: 'Decides approvals' },
-  { key: 'invoices', label: 'Invoices and payments' },
+  { key: 'invoices-read', label: 'Views invoices' },
+  { key: 'invoices-edit', label: 'Creates and sends invoices' },
+  { key: 'payments-record', label: 'Records payments' },
   { key: 'all-tasks', label: 'Sees all tasks' },
 ];
 
@@ -85,8 +87,9 @@ export default function CompanyAccessPage() {
         companies where they already hold active membership.
       </p>
       <p className="text-sm text-slate-600">
-        Only you decide approvals unless you make a member an approver. Managers see
-        invoices only when you allow it. Employees see the tasks assigned to them and
+        Only you decide approvals unless you make a member an approver. Managers see,
+        edit or record payments on invoices only as far as you allow it; the payment
+        ledger and finance totals stay yours. Employees see the tasks assigned to them and
         the tasks of projects they are a member of, unless you let them see all tasks.
         Every change applies to this company only.
       </p>

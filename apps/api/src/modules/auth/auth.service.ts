@@ -23,7 +23,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { BootstrapOwnerDto } from './dto/bootstrap-owner.dto';
-import { EXPLICIT_GRANTS, EXPLICIT_GRANT_KEYS, type ExplicitGrant, hasGrant } from '../permissions/explicit-grants';
+import { EXPLICIT_GRANTS, EXPLICIT_GRANT_KEYS, type ExplicitGrant, hasGrant, rowsAfterChange } from '../permissions/explicit-grants';
 
 export interface JwtPayload {
   sub: string;
@@ -547,21 +547,35 @@ export class AuthService {
     return { userId: targetUserId, enabled };
   }
 
+  /**
+   * The caller's explicit grants in the active company, for showing the right
+   * navigation and actions. The API still checks every request on its own.
+   */
+  async myGrants(actor: JwtPayload) {
+    const m = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: actor.tenantId, userId: actor.sub } },
+      select: { role: true, status: true, permissions: { select: { action: true, resource: true, granted: true } } },
+    });
+    if (!m || m.status !== 'ACTIVE') throw new ForbiddenException('Company access denied');
+    const applicable = EXPLICIT_GRANT_KEYS.filter((g) => (EXPLICIT_GRANTS[g].roles as readonly string[]).includes(m.role));
+    return { role: m.role, grants: Object.fromEntries(applicable.map((g) => [g, hasGrant(m.permissions, g)])) };
+  }
+
   /** OWNER grants or removes an explicit grant (explicit-grants.ts) for a member of the active company. */
   async setMemberGrant(actor: JwtPayload, targetUserId: string, grant: ExplicitGrant, enabled: boolean) {
     await this.requireCurrentOwner(actor);
     const target = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId: actor.tenantId, userId: targetUserId } },
-      select: { id: true, role: true, status: true },
+      select: { id: true, role: true, status: true, permissions: { select: { action: true, resource: true, granted: true } } },
     });
     if (!target || target.status !== 'ACTIVE' || !(EXPLICIT_GRANTS[grant].roles as readonly string[]).includes(target.role)) {
       throw new ForbiddenException('This permission cannot be changed for this member');
     }
-    await this.prisma.$transaction(EXPLICIT_GRANTS[grant].rows.map((row) =>
+    await this.prisma.$transaction(rowsAfterChange(target.permissions, target.role, grant, enabled).map((row) =>
       this.prisma.membershipPermission.upsert({
         where: { membershipId_action_resource: { membershipId: target.id, action: row.action, resource: row.resource } },
-        create: { membershipId: target.id, action: row.action, resource: row.resource, granted: enabled },
-        update: { granted: enabled },
+        create: { membershipId: target.id, action: row.action, resource: row.resource, granted: row.granted },
+        update: { granted: row.granted },
       })));
     await this.auditService.createAuditEvent({
       tenantId: actor.tenantId,

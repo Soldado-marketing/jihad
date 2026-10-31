@@ -169,8 +169,8 @@ describe('notification writers', { skip }, () => {
       data: { tenantId, invoiceNumber: `N-${RUN}`, currency: 'EUR', status: 'SENT', totalCents: 12345 },
       select: { id: true },
     });
-    // Managers record payments only with the OWNER's explicit invoices grant (2026-10-31).
-    const grant = await as('owner', request(server).patch(`/api/auth/company-members/${people.manager.id}/grants/invoices`)).send({ enabled: true });
+    // Managers record payments only with the OWNER's explicit payments-record grant (2026-10-31).
+    const grant = await as('owner', request(server).patch(`/api/auth/company-members/${people.manager.id}/grants/payments-record`)).send({ enabled: true });
     assert.equal(grant.status, 200, JSON.stringify(grant.body));
     const res = await as('manager', request(server).post('/api/payments')).send({ invoiceId: inv.id, amountCents: 2345, currency: 'EUR' });
     assert.equal(res.status, 201, JSON.stringify(res.body));

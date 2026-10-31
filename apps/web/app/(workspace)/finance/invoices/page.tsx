@@ -1,4 +1,6 @@
 'use client';
+import { getStoredUser } from '@/lib/auth';
+import { useMyGrants } from '@/lib/my-grants';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/fetch';
@@ -25,6 +27,11 @@ export default function InvoicesPage() {
   const [form, setForm] = useState({ invoiceNumber: '', currency: 'EUR', projectId: '', dueAt: '' });
   const [lines, setLines] = useState<InvoiceLineDraft[]>([{ ...EMPTY_LINE }]);
   const [projects, setProjects] = useState<{ id: string; name?: string }[]>([]);
+  // OWNER, or a manager with the invoices-edit grant; the API refuses everyone else.
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => setRole(getStoredUser()?.role ?? null), []);
+  const grants = useMyGrants(role !== null && role !== 'OWNER');
+  const canEdit = role === 'OWNER' || grants['invoices-edit'] === true;
 
   useEffect(() => {
     load();
@@ -83,10 +90,10 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Finance" title="Invoices" description="Create and track client invoices."
-        actions={<button onClick={() => setShowForm(v => !v)}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white">+ New Invoice</button>}
+        actions={canEdit ? <button onClick={() => setShowForm(v => !v)}
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white">+ New Invoice</button> : undefined}
       />
-      {showForm && (
+      {showForm && canEdit && (
         <form onSubmit={handleCreate} className="space-y-4 rounded-xl border border-line bg-white p-4">
           <div className="grid gap-3 sm:grid-cols-4">
             <input value={form.invoiceNumber} onChange={e => setForm(p => ({...p, invoiceNumber: e.target.value}))}

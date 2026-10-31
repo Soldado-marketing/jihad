@@ -7,6 +7,7 @@ import { filterNavigationItems } from '@/security/ui-permissions';
 import { workspaceNavigation, type NavigationItem } from '@/navigation/navigation';
 import type { WorkspaceRole } from '@/navigation/roles';
 import { cn } from '@/lib/class-names';
+import { useMyGrants, type MyGrants } from '@/lib/my-grants';
 import { RolePreviewBadge } from './role-preview-badge';
 
 type SidebarProps = {
@@ -18,6 +19,7 @@ export const navGlyphs: Record<string, string> = {
   'admin-users': 'AU',
   'company-access': 'CP',
   approvals: 'AP',
+  invoices: 'IV',
   audit: 'AL',
   calendar: 'CA',
   chat: 'CH',
@@ -50,14 +52,14 @@ export const navGroups = [
     label: 'Team',
   },
   {
-    ids: ['files', 'approvals', 'voice', 'finance', 'reports', 'audit', 'data', 'settings'],
+    ids: ['files', 'approvals', 'voice', 'finance', 'invoices', 'reports', 'audit', 'data', 'settings'],
     label: 'Operations',
   },
 ];
 
 /** The role's permitted navigation items, in the sidebar's groups. Shared with the compact menu. */
-export function visibleNavGroups(role: WorkspaceRole) {
-  const items = filterNavigationItems(role, workspaceNavigation);
+export function visibleNavGroups(role: WorkspaceRole, grants: MyGrants = {}) {
+  const items = filterNavigationItems(role, workspaceNavigation, grants);
   return navGroups
     .map((group) => ({
       ...group,
@@ -79,7 +81,7 @@ export function isNavItemActive(item: NavigationItem, pathname: string | null): 
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
   const reduced = useReducedMotion();
-  const visibleGroups = visibleNavGroups(role);
+  const visibleGroups = visibleNavGroups(role, useMyGrants(role !== 'OWNER' && role !== 'CLIENT'));
 
   return (
     <motion.aside

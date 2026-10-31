@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ChatChannelType, Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuditOutcome, AuditPermissionResult, ChatChannelType, Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { ResourceScopeService } from '../permissions/resource-scope.service';
 import { ChatRepository } from './chat.repository';
 
@@ -8,7 +9,43 @@ export class ChatService {
   constructor(
     private readonly repo: ChatRepository,
     private readonly resourceScope: ResourceScopeService,
+    private readonly audit: AuditService,
   ) {}
+
+  // ── Channel members (OWNER and MANAGER: CHAT_CHANNEL update) ─────────────
+  // A contractor sees a channel only as a member (or through a visible
+  // project), so this is how a contractor is given exactly their channels.
+
+  async listMembers(tenantId: string, actorId: string, channelId: string) {
+    await this.requireChannel(tenantId, actorId, channelId);
+    return this.repo.listMembers(tenantId, channelId);
+  }
+
+  async addMember(tenantId: string, actorId: string, sessionId: string, channelId: string, userId: string) {
+    await this.requireChannel(tenantId, actorId, channelId);
+    const member = await this.repo.internalMember(tenantId, userId);
+    if (!member) throw new BadRequestException({ code: 'INVALID_REFERENCE', field: 'userId' });
+    const added = await this.repo.addMember(tenantId, channelId, userId, member.role);
+    if (added) await this.record(tenantId, actorId, sessionId, channelId, 'chat.member_added', userId);
+    return { channelId, userId, member: true };
+  }
+
+  async removeMember(tenantId: string, actorId: string, sessionId: string, channelId: string, userId: string) {
+    await this.requireChannel(tenantId, actorId, channelId);
+    if (await this.repo.removeMember(tenantId, channelId, userId)) {
+      await this.record(tenantId, actorId, sessionId, channelId, 'chat.member_removed', userId);
+    }
+    return { channelId, userId, member: false };
+  }
+
+  private record(tenantId: string, actorId: string, sessionId: string, channelId: string, action: string, userId: string) {
+    return this.audit.createAuditEvent({
+      tenantId, actorId, sessionId,
+      resourceType: 'ChatChannel', resourceId: channelId, action,
+      permissionResult: AuditPermissionResult.ALLOWED, outcome: AuditOutcome.SUCCESS,
+      payload: { userId },
+    }).catch(() => undefined);
+  }
 
   async listChannels(tenantId: string, actorId: string) {
     return this.repo.listChannels(tenantId, await this.visibleChannels(tenantId, actorId));

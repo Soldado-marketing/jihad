@@ -49,4 +49,32 @@ export class ChatRepository {
       include: { createdBy: { select: { id: true, displayName: true } } },
     });
   }
+
+  listMembers(tenantId: string, channelId: string) {
+    return this.prisma.chatMembership.findMany({
+      where: { tenantId, channelId, userId: { not: null } },
+      orderBy: { createdAt: 'asc' },
+      select: { userId: true, role: true, createdAt: true, user: { select: { displayName: true, email: true } } },
+    });
+  }
+
+  /** The member's ACTIVE internal membership (CLIENT is not a chat member here). */
+  internalMember(tenantId: string, userId: string) {
+    return this.prisma.tenantMembership.findFirst({
+      where: { tenantId, userId, status: 'ACTIVE', role: { not: 'CLIENT' } },
+      select: { role: true },
+    });
+  }
+
+  async addMember(tenantId: string, channelId: string, userId: string, role: string) {
+    const existing = await this.prisma.chatMembership.findFirst({ where: { tenantId, channelId, userId }, select: { id: true } });
+    if (existing) return false;
+    await this.prisma.chatMembership.create({ data: { tenantId, channelId, userId, role: role as never } });
+    return true;
+  }
+
+  async removeMember(tenantId: string, channelId: string, userId: string) {
+    const { count } = await this.prisma.chatMembership.deleteMany({ where: { tenantId, channelId, userId } });
+    return count > 0;
+  }
 }

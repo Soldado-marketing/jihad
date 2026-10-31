@@ -102,9 +102,9 @@ describe('Explicit grants: who may change them', { skip }, () => {
   it('only the OWNER of the company, only for eligible roles', async () => {
     assert.equal((await grant(p.managerToken, p.employee.id, 'decide-approvals', true)).status, 403, 'manager cannot grant');
     assert.equal((await grant(p.ownerBToken, p.employee.id, 'decide-approvals', true)).status, 403, 'other company owner cannot grant');
-    assert.equal((await grant(p.ownerToken, p.employee.id, 'invoices', true)).status, 403, 'invoices is for managers');
+    assert.equal((await grant(p.ownerToken, p.employee.id, 'invoices-read', true)).status, 403, 'invoice grants are for managers');
     assert.equal((await grant(p.ownerToken, p.contractor.id, 'decide-approvals', true)).status, 403, 'contractors are not approvers');
-    assert.equal((await grant(p.ownerToken, p.owner.id, 'invoices', true)).status, 403, 'owners need no grant');
+    assert.equal((await grant(p.ownerToken, p.owner.id, 'invoices-read', true)).status, 403, 'owners need no grant');
     assert.equal((await grant(p.ownerToken, p.manager.id, 'everything', true)).status, 400);
   });
 
@@ -146,23 +146,57 @@ describe('Approvals: explicit approvers only', { skip }, () => {
   });
 });
 
-describe('Invoices: managers need the explicit grant, per company', { skip }, () => {
-  it('is refused by default, allowed with the grant, refused again when revoked', async () => {
+describe('Invoices: read, edit and record payments are separate grants, per company', { skip }, () => {
+  const inv = (token) => call(token, 'get', `/api/invoices/${rec.invoiceA.id}`);
+  const create = (token) => call(token, 'post', '/api/invoices', { invoiceNumber: `EG-N-${Date.now()}`, currency: 'EUR', lines: [] });
+  const pay = (token) => call(token, 'post', '/api/payments', { invoiceId: rec.invoiceA.id, amountCents: 100, currency: 'EUR' });
+
+  it('nothing by default', async () => {
     assert.equal((await call(p.managerToken, 'get', '/api/invoices')).status, 403);
-    assert.equal((await call(p.managerToken, 'get', `/api/invoices/${rec.invoiceA.id}`)).status, 403);
-    await grant(p.ownerToken, p.manager.id, 'invoices', true);
+    assert.equal((await inv(p.managerToken)).status, 403);
+    assert.equal((await pay(p.managerToken)).status, 403);
+  });
+
+  it('invoices-read opens list and detail only', async () => {
+    await grant(p.ownerToken, p.manager.id, 'invoices-read', true);
     assert.equal((await call(p.managerToken, 'get', '/api/invoices')).status, 200);
-    assert.equal((await call(p.managerToken, 'get', `/api/invoices/${rec.invoiceA.id}`)).status, 200);
+    assert.equal((await inv(p.managerToken)).status, 200);
+    assert.equal((await create(p.managerToken)).status, 403, 'read is not edit');
+    assert.equal((await call(p.managerToken, 'patch', `/api/invoices/${rec.invoiceA.id}/status`, { status: 'VOID' })).status, 403);
+    assert.equal((await pay(p.managerToken)).status, 403, 'read is not payment');
     assert.equal((await call(p.managerToken, 'get', '/api/finance/summary')).status, 403, 'finance summary stays OWNER-only');
-    await grant(p.ownerToken, p.manager.id, 'invoices', false);
-    assert.equal((await call(p.managerToken, 'get', '/api/invoices')).status, 403);
+  });
+
+  it('payments-record adds recording payments, not editing', async () => {
+    await grant(p.ownerToken, p.manager.id, 'payments-record', true);
+    assert.equal((await pay(p.managerToken)).status, 201);
+    assert.equal((await create(p.managerToken)).status, 403);
+    assert.equal((await call(p.managerToken, 'get', '/api/payments')).status, 403, 'the payment ledger stays OWNER-only');
+  });
+
+  it('removing one grant keeps the rows another grant still needs', async () => {
+    await grant(p.ownerToken, p.manager.id, 'payments-record', false);
+    assert.equal((await inv(p.managerToken)).status, 200, 'invoices-read still holds');
+    assert.equal((await pay(p.managerToken)).status, 403);
+    const mine = await call(p.managerToken, 'get', '/api/auth/my-grants');
+    assert.deepEqual(mine.body.grants, { 'decide-approvals': false, 'invoices-read': true, 'invoices-edit': false, 'payments-record': false });
+    await grant(p.ownerToken, p.manager.id, 'invoices-read', false);
+    assert.equal((await inv(p.managerToken)).status, 403);
+  });
+
+  it('invoices-edit includes reading and changing invoices', async () => {
+    await grant(p.ownerToken, p.manager.id, 'invoices-edit', true);
+    assert.equal((await inv(p.managerToken)).status, 200);
+    assert.ok([200, 201].includes((await create(p.managerToken)).status));
+    await grant(p.ownerToken, p.manager.id, 'invoices-edit', false);
+    assert.equal((await inv(p.managerToken)).status, 403);
   });
 
   it('a grant in one company does not open another company', async () => {
-    await grant(p.ownerToken, p.manager.id, 'invoices', true);
+    await grant(p.ownerToken, p.manager.id, 'invoices-edit', true);
     assert.equal((await call(p.managerBToken, 'get', '/api/invoices')).status, 403);
     assert.equal((await call(p.managerBToken, 'get', `/api/invoices/${rec.invoiceB.id}`)).status, 403);
-    await grant(p.ownerToken, p.manager.id, 'invoices', false);
+    await grant(p.ownerToken, p.manager.id, 'invoices-edit', false);
   });
 });
 
@@ -194,3 +228,35 @@ describe('Contractor: chat and notifications are scoped', { skip }, () => {
     assert.ok(!text.includes(`for employee ${RUN}`));
   });
 });
+
+describe('Chat channel members: OWNER and MANAGER give contractors their channels', { skip }, () => {
+  const members = (token, id) => call(token, 'get', `/api/chat/channels/${id}/members`);
+  const add = (token, id, userId) => call(token, 'post', `/api/chat/channels/${id}/members`, { userId });
+  const remove = (token, id, userId) => call(token, 'delete', `/api/chat/channels/${id}/members/${userId}`);
+
+  it('employees and contractors cannot manage members', async () => {
+    assert.equal((await add(p.employeeToken, rec.general.id, p.contractor.id)).status, 403);
+    assert.equal((await add(p.contractorToken, rec.memberChannel.id, p.contractor.id)).status, 403);
+  });
+
+  it('a manager adds a contractor, who then sees exactly that channel, and removes them again', async () => {
+    assert.equal((await add(p.managerToken, rec.general.id, p.contractor.id)).status, 201);
+    assert.equal((await add(p.managerToken, rec.general.id, p.contractor.id)).status, 201, 'adding twice is harmless');
+    assert.equal((await members(p.managerToken, rec.general.id)).body.filter((m) => m.userId === p.contractor.id).length, 1);
+    assert.equal((await call(p.contractorToken, 'get', `/api/chat/channels/${rec.general.id}/messages`)).status, 200);
+    const audit = await prisma.auditEvent.findFirst({ where: { tenantId: co.a.id, action: 'chat.member_added', resourceId: rec.general.id } });
+    assert.ok(audit, 'audit event missing');
+    assert.equal((await remove(p.managerToken, rec.general.id, p.contractor.id)).status, 200);
+    assert.equal((await call(p.contractorToken, 'get', `/api/chat/channels/${rec.general.id}/messages`)).status, 404);
+  });
+
+  it('refuses clients, people of other companies and channels of other companies', async () => {
+    const client = await member(co.a, 'CLIENT', 'chatclient');
+    assert.equal((await add(p.ownerToken, rec.general.id, client.id)).status, 400, 'no clients in internal channels');
+    assert.equal((await add(p.ownerToken, rec.general.id, p.ownerB.id)).status, 400, 'not a member of this company');
+    const foreign = await prisma.chatChannel.create({ data: { tenantId: co.b.id, name: `foreign ${RUN}` } });
+    assert.equal((await add(p.ownerToken, foreign.id, p.contractor.id)).status, 404);
+    assert.equal((await members(p.ownerToken, foreign.id)).status, 404);
+  });
+});
+

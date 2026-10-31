@@ -229,9 +229,11 @@ describe('Contractor scope - tasks', { skip }, () => {
 
   it('employee with the explicit all-tasks grant sees every task', async () => {
     const m = await prisma.tenantMembership.findFirst({ where: { userId: users.employee.id }, select: { id: true } });
+    // The OWNER's grant: its row plus the marker that records it (explicit-grants.ts).
+    await prisma.membershipPermission.create({ data: { membershipId: m.id, action: 'grant', resource: 'all-tasks' } });
     const grant = await prisma.membershipPermission.create({ data: { membershipId: m.id, action: 'read-all', resource: 'task' } });
     assertSet(await listIds('employee', '/api/tasks'), ['T1a', 'T2a', 'T2b', 'T3', 'T0', 'T0b'], [], 'employee tasks with grant');
-    await prisma.membershipPermission.delete({ where: { id: grant.id } });
+    await prisma.membershipPermission.deleteMany({ where: { membershipId: m.id, OR: [{ id: grant.id }, { action: 'grant' }] } });
     assertSet(await listIds('employee', '/api/tasks'), ['T2b'], ['T1a'], 'grant removed');
   });
 });

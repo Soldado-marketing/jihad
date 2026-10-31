@@ -98,6 +98,12 @@ export class AuthController {
     return this.authService.companyMembers(user);
   }
 
+  @Get('my-grants')
+  @UseGuards(JwtAuthGuard)
+  myGrants(@CurrentUser() user: JwtPayload) {
+    return this.authService.myGrants(user);
+  }
+
   @Patch('company-members/:userId/grants/:grant')
   @UseGuards(JwtAuthGuard)
   setMemberGrant(
