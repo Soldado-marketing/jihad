@@ -24,6 +24,11 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       return;
     }
     const user = getStoredUser();
+    // A CLIENT works in the client portal; the internal workspace is never theirs (UX-0 R2).
+    if (user?.role === 'CLIENT') {
+      router.replace('/client');
+      return;
+    }
     if (user?.role && isValidRole(user.role)) {
       setRole(user.role);
     }
