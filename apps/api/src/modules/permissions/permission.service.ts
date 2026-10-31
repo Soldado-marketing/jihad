@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MembershipRole } from '../../common/identity/membership-role';
+import { EXPLICIT_GRANTS, type ExplicitGrant, hasGrant } from './explicit-grants';
 import {
   PermissionAction,
   PermissionDecision,
@@ -27,8 +28,8 @@ const MANAGER_WRITE_RESOURCES = new Set<PermissionResource>([
   PermissionResource.NOTIFICATION,
   PermissionResource.VOICE_NOTE,
   PermissionResource.VOICE_TO_TASK_DRAFT,
-  PermissionResource.INVOICE,
-  PermissionResource.PAYMENT,
+  // INVOICE and PAYMENT are not defaults: an OWNER grants them per company
+  // (explicit-grants.ts, "invoices").
   PermissionResource.DASHBOARD,
   PermissionResource.DASHBOARD_WIDGET,
   PermissionResource.REPORT,
@@ -161,6 +162,30 @@ export class PermissionService {
 
     // No custom grant — apply role-based defaults
     return this.roleDefaultDecision(membership.role, requirement, scope);
+  }
+
+  /**
+   * Whether the user holds an explicit grant (explicit-grants.ts) in this
+   * company. Live DB lookup; an inactive membership holds nothing.
+   */
+  async hasExplicitGrant(tenantId: string, userId: string, grant: ExplicitGrant): Promise<boolean> {
+    const membership = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+      select: { status: true, role: true, permissions: { select: { action: true, resource: true, granted: true } } },
+    });
+    if (!membership || membership.status !== 'ACTIVE') return false;
+    if (!(EXPLICIT_GRANTS[grant].roles as readonly string[]).includes(membership.role)) return false;
+    return hasGrant(membership.permissions, grant);
+  }
+
+  /** Approval decisions: the OWNER, or a member the OWNER made an approver. */
+  async mayDecideApprovals(tenantId: string, userId: string): Promise<boolean> {
+    const owner = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+      select: { role: true, status: true },
+    });
+    if (owner?.status === 'ACTIVE' && owner.role === MembershipRole.OWNER) return true;
+    return this.hasExplicitGrant(tenantId, userId, 'decide-approvals');
   }
 
   getBaselineRoles(): MembershipRole[] {

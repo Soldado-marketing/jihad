@@ -4,6 +4,7 @@ import { ActorContext } from '../../common/auth/actor-context';
 import { MembershipRole } from '../../common/identity/membership-role';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { PrismaService } from '../prisma/prisma.service';
+import { hasGrant } from './explicit-grants';
 
 export interface ResourceScopeInput {
   resourceTenantId: string;
@@ -23,12 +24,21 @@ export interface ResourceScopeInput {
  *   - Tasks: assigned to the contractor, or in a member project.
  *   - Files: in a member project, or attached to a visible task.
  *
- * `null` means the caller is not scoped (every other internal role).
+ * An EMPLOYEE gets the same task rule with `tasksOnly` set (see below).
+ *
+ * `null` means the caller is not scoped (OWNER, MANAGER, and an EMPLOYEE with
+ * the explicit "all-tasks" grant).
  */
 export interface AssignedWorkScope {
   userId: string;
   memberProjectIds: string[];
   visibleProjectIds: string[];
+  /**
+   * EMPLOYEE (owner decision 2026-10-31): only tasks are limited (assigned, or
+   * in a member project); projects, files and the rest stay as before. An
+   * explicit "all-tasks" grant lifts the limit. CONTRACTOR scope is unchanged.
+   */
+  tasksOnly?: boolean;
 }
 
 export type WorkScope = AssignedWorkScope | null;
@@ -45,12 +55,14 @@ export class ResourceScopeService {
   async resolveWorkScope(tenantId: string, userId: string): Promise<WorkScope> {
     const membership = await this.prisma.tenantMembership.findFirst({
       where: { tenantId, userId, status: 'ACTIVE' },
-      select: { role: true },
+      select: { role: true, permissions: { select: { action: true, resource: true, granted: true } } },
     });
     if (!membership) {
       throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'no_active_membership' });
     }
-    if (membership.role !== MembershipRole.CONTRACTOR) return null;
+    const employee = membership.role === MembershipRole.EMPLOYEE;
+    if (employee && hasGrant(membership.permissions, 'all-tasks')) return null;
+    if (membership.role !== MembershipRole.CONTRACTOR && !employee) return null;
 
     const [members, assigned] = await Promise.all([
       this.prisma.projectMember.findMany({ where: { tenantId, userId }, select: { projectId: true } }),
@@ -64,11 +76,13 @@ export class ResourceScopeService {
     const visibleProjectIds = [
       ...new Set([...memberProjectIds, ...assigned.map((t) => t.projectId as string)]),
     ];
-    return { userId, memberProjectIds, visibleProjectIds };
+    return employee
+      ? { userId, memberProjectIds, visibleProjectIds, tasksOnly: true }
+      : { userId, memberProjectIds, visibleProjectIds };
   }
 
   projectWhere(scope: WorkScope): Prisma.ProjectWhereInput {
-    return scope ? { id: { in: scope.visibleProjectIds } } : {};
+    return scope && !scope.tasksOnly ? { id: { in: scope.visibleProjectIds } } : {};
   }
 
   taskWhere(scope: WorkScope): Prisma.TaskWhereInput {
@@ -78,7 +92,7 @@ export class ResourceScopeService {
   }
 
   fileWhere(scope: WorkScope): Prisma.FileAssetWhereInput {
-    return scope
+    return scope && !scope.tasksOnly
       ? { OR: [{ projectId: { in: scope.memberProjectIds } }, { task: this.taskWhere(scope) }] }
       : {};
   }
@@ -89,7 +103,7 @@ export class ResourceScopeService {
    * record: the project is in the caller's tenant, they just may not use it.
    */
   assertMayUseProject(scope: WorkScope, projectId: string | null | undefined): void {
-    if (!scope || projectId === undefined || projectId === null) return;
+    if (!scope || scope.tasksOnly || projectId === undefined || projectId === null) return;
     if (!scope.memberProjectIds.includes(projectId)) {
       throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'project_not_assigned' });
     }

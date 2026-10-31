@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ChatChannelType } from '@prisma/client';
+import { ChatChannelType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ChatRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  listChannels(tenantId: string) {
+  listChannels(tenantId: string, visible: Prisma.ChatChannelWhereInput = {}) {
     return this.prisma.chatChannel.findMany({
-      where: { tenantId },
+      where: { tenantId, AND: [visible] },
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true, name: true, type: true, createdAt: true, updatedAt: true,
@@ -35,8 +35,11 @@ export class ChatRepository {
     });
   }
 
-  async channelExists(tenantId: string, channelId: string): Promise<boolean> {
-    const channel = await this.prisma.chatChannel.findFirst({ where: { id: channelId, tenantId }, select: { id: true } });
+  async channelExists(tenantId: string, channelId: string, visible: Prisma.ChatChannelWhereInput = {}): Promise<boolean> {
+    const channel = await this.prisma.chatChannel.findFirst({
+      where: { id: channelId, tenantId, AND: [visible] },
+      select: { id: true },
+    });
     return channel !== null;
   }
 
@@ -45,5 +48,33 @@ export class ChatRepository {
       data: { tenantId, channelId, body, createdByUserId: actorId },
       include: { createdBy: { select: { id: true, displayName: true } } },
     });
+  }
+
+  listMembers(tenantId: string, channelId: string) {
+    return this.prisma.chatMembership.findMany({
+      where: { tenantId, channelId, userId: { not: null } },
+      orderBy: { createdAt: 'asc' },
+      select: { userId: true, role: true, createdAt: true, user: { select: { displayName: true, email: true } } },
+    });
+  }
+
+  /** The member's ACTIVE internal membership (CLIENT is not a chat member here). */
+  internalMember(tenantId: string, userId: string) {
+    return this.prisma.tenantMembership.findFirst({
+      where: { tenantId, userId, status: 'ACTIVE', role: { not: 'CLIENT' } },
+      select: { role: true },
+    });
+  }
+
+  async addMember(tenantId: string, channelId: string, userId: string, role: string) {
+    const existing = await this.prisma.chatMembership.findFirst({ where: { tenantId, channelId, userId }, select: { id: true } });
+    if (existing) return false;
+    await this.prisma.chatMembership.create({ data: { tenantId, channelId, userId, role: role as never } });
+    return true;
+  }
+
+  async removeMember(tenantId: string, channelId: string, userId: string) {
+    const { count } = await this.prisma.chatMembership.deleteMany({ where: { tenantId, channelId, userId } });
+    return count > 0;
   }
 }

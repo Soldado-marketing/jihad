@@ -175,6 +175,7 @@ jobs:
             test/security-gate-foreign-ids-content.test.mjs \
             test/security-gate-foreign-ids-crm-finance.test.mjs \
             test/security-gate-contractor-scope.test.mjs \
+            test/security-gate-explicit-grants.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
@@ -211,6 +212,12 @@ jobs:
       - name: Full suite
         working-directory: apps/api
         run: npm test
+
+      # Operator scripts outside apps/ (a change there redeploys nothing):
+      # private Railway tunnel for the read-only check and the migration
+      # runner. Blocking, like the backup and runner suites in npm test.
+      - name: Operator script tests
+        run: node --test scripts/test/*.test.mjs
 
   web:
     name: Web - typecheck and build

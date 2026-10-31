@@ -7,6 +7,8 @@ export type NavigationItem = {
   allowedRoles: WorkspaceRole[];
   sprint2Status: 'active' | 'placeholder' | 'deferred';
   clientSafe: boolean;
+  /** Also shown to a role outside allowedRoles that holds one of these explicit grants. */
+  grants?: string[];
 };
 
 /**
@@ -179,6 +181,16 @@ export const workspaceNavigation: NavigationItem[] = [
     label: 'Finance',
     href: '/finance',
     allowedRoles: ['OWNER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
+    // Managers with an invoice grant from the OWNER (the OWNER uses Finance).
+    id: 'invoices',
+    label: 'Invoices',
+    href: '/finance/invoices',
+    allowedRoles: [],
+    grants: ['invoices-read', 'invoices-edit', 'payments-record'],
     sprint2Status: 'active',
     clientSafe: false,
   },
