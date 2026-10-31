@@ -27,6 +27,11 @@ type Company = { id: string; name: string; slug: string };
  * separately, and every query is scoped to that company's tenantId. Viewing
  * never changes the caller's active company; opening a record in another
  * company goes through the existing /auth/companies/switch.
+ *
+ * The active company does not have to be one the caller owns: an owner who
+ * is working in a company where they are MANAGER still sees the companies
+ * they own, and nothing of the company they only manage. Ownership is read
+ * live from the memberships, so a revoked OWNER membership drops out at once.
  */
 @Injectable()
 export class ControlCenterService {
@@ -36,12 +41,10 @@ export class ControlCenterService {
   ) {}
 
   async getOverview(actor: JwtPayload) {
-    // The guard already verified OWNER in the active company; a custom grant on
-    // a non-owner membership must not open a cross-company view either.
-    if (actor.role !== MembershipRole.OWNER) throw new ForbiddenException('Only company owners can open the Control Center');
-
+    // A CLIENT never gets here (guard). Anyone else needs at least one ACTIVE
+    // OWNER membership; roles, custom grants and the active company do not count.
     const memberships = await this.repo.ownerMemberships(actor.sub);
-    if (!memberships.some((m) => m.tenant.id === actor.tenantId)) {
+    if (!memberships.length) {
       throw new ForbiddenException('Only company owners can open the Control Center');
     }
     const now = new Date();
@@ -93,20 +96,21 @@ export class ControlCenterService {
     const attention = [
       ...approvals.map((a) => ({
         ...company, kind: 'approval' as const, id: a.id, title: a.title, project: null,
-        responsible: personName(a.requestedByUserId),
-        reason: a.dueAt && a.dueAt < now ? 'Approval past its due date' : 'Waiting for an internal decision',
+        // Requester, not approver: as OWNER the caller is always an approver here.
+        responsible: null, requestedBy: personName(a.requestedByUserId),
+        reason: a.dueAt && a.dueAt < now ? 'Your decision is past its due date' : 'Waiting for your decision',
         dueAt: iso(a.dueAt), since: a.createdAt.toISOString(), href: `/approvals?open=${a.id}`,
         rank: a.dueAt && a.dueAt < now ? 0 : 3, sortAt: (a.dueAt ?? a.createdAt).toISOString(),
       })),
       ...blocked.map((t) => ({
         ...company, kind: 'blocked' as const, id: t.id, title: t.title, project: t.project,
-        responsible: nameOf(t.assignedTo), reason: 'Task is blocked',
+        responsible: nameOf(t.assignedTo), requestedBy: null, reason: 'Task is blocked',
         dueAt: iso(t.dueAt), since: t.updatedAt.toISOString(), href: `/tasks/${t.id}`,
         rank: 1, sortAt: t.updatedAt.toISOString(),
       })),
       ...overdue.map((t) => ({
         ...company, kind: 'overdue' as const, id: t.id, title: t.title, project: t.project,
-        responsible: nameOf(t.assignedTo),
+        responsible: nameOf(t.assignedTo), requestedBy: null,
         reason: t.assignedTo ? 'Task is overdue' : 'Task is overdue and has no assignee',
         dueAt: iso(t.dueAt), since: null, href: `/tasks/${t.id}`,
         rank: 2, sortAt: (t.dueAt as Date).toISOString(),

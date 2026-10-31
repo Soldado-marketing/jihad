@@ -28,9 +28,13 @@ export class DashboardsController {
     return this.dashboardsService.getClientSummary(user.tenantId, user.sub, user.role);
   }
 
-  /** Owner Control Center: every company where the caller is OWNER (sensitive = OWNER-only). */
+  /**
+   * Owner Control Center: every company where the caller is an ACTIVE OWNER,
+   * whatever their role in the active company (the service refuses callers
+   * who own none). CLIENT is refused by the guard.
+   */
   @Get('control-center')
-  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD, sensitive: true })
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD })
   getControlCenter(@CurrentUser() user: JwtPayload) {
     return this.controlCenter.getOverview(user);
   }

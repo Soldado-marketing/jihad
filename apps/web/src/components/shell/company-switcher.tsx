@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { getStoredTenant } from '@/lib/auth';
@@ -72,6 +73,13 @@ export function CompanySwitcher() {
             ))}
           </select>
           {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
+          {/* Owners get back to the overview of all their companies from any company,
+              including one where they work as manager (the Control Center checks ownership). */}
+          {options.some((c) => c.role === 'OWNER') && (
+            <Link href="/control-center" className="ms-2 hidden text-xs font-semibold text-accent hover:underline sm:inline">
+              All my companies
+            </Link>
+          )}
         </>
       ) : (
         // Not a heading: each page owns its single <h1> (UX-0 R1).

@@ -132,9 +132,18 @@ describe('Control Center: who may open it', { skip }, () => {
     await prisma.membershipPermission.deleteMany({ where: { membershipId: people.manager.membershipId } });
   });
 
-  it('refuses an owner whose active session is in a company where they are only MANAGER', async () => {
+  it('serves an owner working in a company where they are only MANAGER: owned companies only', async () => {
     const inC = await login(people.owner, co.c.slug);
-    assert.equal((await overview(inC)).status, 403);
+    const res = await overview(inC);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(new Set(res.body.companies.map((c) => c.id)), new Set([co.a.id, co.b.id]));
+    assert.ok(res.body.companies.every((c) => !c.isCurrent), 'the managed company is not an owned one');
+    assert.equal(res.body.currentTenantId, co.c.id);
+    const body = JSON.stringify(res.body);
+    assert.ok(!body.includes('C-ONLY'), 'nothing of the managed company');
+    // Opening an owned company from there uses the existing switch.
+    const sw = await request(server).post('/api/auth/companies/switch').set('Authorization', 'Bearer ' + inC).send({ tenantId: co.a.id });
+    assert.equal(sw.status, 200, JSON.stringify(sw.body));
   });
 });
 
@@ -158,6 +167,10 @@ describe('Control Center: what an owner sees', { skip }, () => {
     assert.equal(a.counts.approvalsInternal, 1);
     const approvalB = res.body.attention.find((x) => x.id === rec.approvalB.id);
     assert.equal(approvalB.tenantId, co.b.id);
+    assert.equal(approvalB.reason, 'Waiting for your decision');
+    assert.equal(approvalB.responsible, null, 'an approval has a requester, not an assignee');
+    const approvalA = res.body.attention.find((x) => x.id === rec.approvalA.id);
+    assert.equal(approvalA.requestedBy, 'MANAGER ' + RUN);
     assert.equal(approvalB.href, `/approvals?open=${rec.approvalB.id}`);
     const overdue = res.body.attention.find((x) => x.id === rec.overdueA.id);
     assert.equal(overdue.tenantId, co.a.id);

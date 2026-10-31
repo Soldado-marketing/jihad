@@ -27,9 +27,19 @@ describe('who sees the Control Center', () => {
     assert.match(read('src/components/shell/sidebar.tsx'), /ids: \['dashboard', 'control-center',/);
   });
 
-  it('shows a denied state to other roles and does not call the API for them', () => {
-    assert.match(page, /if \(u\?\.role === 'OWNER'\) void load\(\);/);
+  it('lets the server decide ownership for internal roles; CLIENT never loads it', () => {
+    assert.match(page, /if \(u && u\.role !== 'CLIENT'\) void load\(\);/);
+    assert.match(page, /if \(e instanceof Error && e\.message === FORBIDDEN_MESSAGE\) setDenied\(true\);/);
     assert.match(page, /<DeniedState title="All my companies"/);
+  });
+
+  it('offers the way back from any company where the user owns something', () => {
+    assert.match(read('src/components/shell/company-switcher.tsx'), /options\.some\(\(c\) => c\.role === 'OWNER'\) && \(\s*<Link href="\/control-center"/);
+  });
+
+  it('labels the requester of an approval and the assignee of a task', () => {
+    assert.match(page, /` · Requested by \$\{a\.requestedBy \?\? 'unknown'\}`/);
+    assert.match(page, /`Assignee: \$\{a\.responsible\}`/);
   });
 });
 

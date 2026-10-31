@@ -7,7 +7,7 @@ import { DeniedState } from '@/components/states/denied-state';
 import { ErrorState } from '@/components/states/error-state';
 import { getStoredTenant, getStoredUser } from '@/lib/auth';
 import { openInCompany } from '@/lib/company-switch';
-import { apiFetch } from '@/lib/fetch';
+import { apiFetch, FORBIDDEN_MESSAGE } from '@/lib/fetch';
 import { formatCents } from '@/lib/money';
 
 /**
@@ -43,7 +43,10 @@ type AttentionItem = InCompany & {
   id: string;
   title: string;
   project: { id: string; name: string } | null;
+  /** Tasks: the assignee. Approvals: null (see requestedBy). */
   responsible: string | null;
+  /** Approvals: who asked. The decision is yours as owner. */
+  requestedBy: string | null;
   reason: string;
   dueAt: string | null;
   since: string | null;
@@ -113,6 +116,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 export default function ControlCenterPage() {
   const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
+  const [denied, setDenied] = useState(false);
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -136,7 +140,9 @@ export default function ControlCenterPage() {
     } catch (e) {
       if (id !== request.current) return;
       setData(null);
-      setError(e instanceof Error ? e.message : 'Could not load the Control Center.');
+      // 403: the user owns no company. The server decides, not the active role.
+      if (e instanceof Error && e.message === FORBIDDEN_MESSAGE) setDenied(true);
+      else setError(e instanceof Error ? e.message : 'Could not load the Control Center.');
     } finally {
       if (id === request.current) setLoading(false);
     }
@@ -145,7 +151,8 @@ export default function ControlCenterPage() {
   useEffect(() => {
     const u = getStoredUser();
     setRole(u?.role ?? null);
-    if (u?.role === 'OWNER') void load();
+    // Any internal role may own other companies; a CLIENT never sees this page.
+    if (u && u.role !== 'CLIENT') void load();
     else setLoading(false);
   }, [load]);
 
@@ -181,7 +188,7 @@ export default function ControlCenterPage() {
     );
   }
 
-  if (role !== null && role !== 'OWNER') {
+  if (denied || role === 'CLIENT') {
     return <DeniedState title="All my companies" description="The Control Center is available to company owners only." />;
   }
 
@@ -210,6 +217,11 @@ export default function ControlCenterPage() {
         </button>
       </header>
 
+      {data && !current && (
+        <p className="rounded-xl border border-sky bg-sky-soft/50 px-4 py-2 text-sm text-navy">
+          You are working in {getStoredTenant()?.name ?? 'a company'}, which you do not own, so it is not shown here. Open one of your companies to work in it.
+        </p>
+      )}
       {openError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger/5 px-4 py-2 text-sm text-danger">{openError}</p>}
       {error && <ErrorState title="Could not load the Control Center" message={error} onRetry={() => void load()} />}
       {!data && loading && <div className="h-40 animate-pulse rounded-2xl bg-slate-100" aria-busy="true" aria-label="Loading" />}
@@ -236,7 +248,9 @@ export default function ControlCenterPage() {
                       <p className="text-xs text-slate-600">
                         {a.reason}
                         {a.project ? ` · ${a.project.name}` : ''}
-                        {` · ${a.responsible ?? (a.kind === 'approval' ? 'Requester unknown' : 'No assignee')}`}
+                        {a.kind === 'approval'
+                          ? ` · Requested by ${a.requestedBy ?? 'unknown'}`
+                          : ` · ${a.responsible ? `Assignee: ${a.responsible}` : 'No assignee'}`}
                       </p>
                     </div>
                     <p className="shrink-0 text-xs tabular-nums text-slate-600">
