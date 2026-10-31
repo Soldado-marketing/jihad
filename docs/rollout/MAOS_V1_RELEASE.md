@@ -30,13 +30,15 @@ lands in the portal). Production is not verified until step 8.
 
 ## 2. Owner decisions before the release
 
-1. **Secrets after the 2026-10-21 Railway disclosure.** Rotation is unverified. The Keychain database
-   credential was last changed on 2026-10-11 and still authenticated on 2026-10-30, so the database
-   password has most likely not been rotated. Rotate `JWT_SECRET`, `JWT_REFRESH_SECRET` (everyone
-   signs in again) and the PostgreSQL password, then update the Keychain item
-   `maos-backup-database-url` — or record that the risk is accepted.
-2. **Impact report run** (read-only, step 3) and the grant decisions it informs.
-3. **Go for each merge** (steps 2, 4, 6, 7).
+1. **Secrets after the 2026-10-21 Railway disclosure.** Done 2026-10-31: `JWT_SECRET` rotated
+   (old access tokens refused, sessions kept; there is no `JWT_REFRESH_SECRET` in the code) and the
+   PostgreSQL password rotated (Railway variables and the backup Keychain item updated; backup and
+   restore verified). `RESEND_API_KEY` remains unverified (backlog).
+2. **Impact report** (read-only, step 3). Run 2026-10-31: one company (Soldado Services GmbH), one
+   employee (`3481ab4e`) would go from 5 visible tasks to 0; no managers, contractors, waiting
+   approvals or grant rows. **Decision:** that employee temporarily keeps today's view with
+   "Sees all tasks", nothing else (temporary exception, see backlog).
+3. **Go for each merge** (steps 4, 6, 7).
 
 ## 3. Release steps
 
@@ -52,18 +54,19 @@ lands in the portal). Production is not verified until step 8.
    `operator/run-access-impact-report.sh` in the operator worktree (exact files pinned by
    `operator/MANIFEST.sha256`; 5-minute limit; prints an audit summary without credentials or
    personal data). Decide the grants per company from it.
-4. **(owner) Merge #124** → `jihad` and `maos-web` redeploy. Verify (step 8). Right after:
-   set the decided grants (Company access) and add contractors to their chat channels.
-   Until then managers have no invoices or approval decisions, employees see only their tasks,
-   contractors see no channels.
-5. Re-run the impact report (optional, approved) to confirm the grants.
-6. **(owner) Merge #122** → `maos-web` redeploys. Verify.
+   Steps 1–3 done 2026-10-31 (backup `maos-20261031T223616Z.dump`, #121 merged as `ca2c90e`).
+4. **(owner) Merge #124** (`gh pr ready 124`, then merge) → `jihad` and `maos-web` redeploy.
+   Verify (step 8). Right after: Company access → Soldado Services GmbH → employee `3481ab4e` →
+   "Sees all tasks" on, nothing else. Until then that employee sees no tasks.
+5. Re-run the impact report (approved) to confirm: section 5 shows only that employee's
+   `all-tasks` grant rows.
+6. **(owner) Merge #122** (`gh pr ready 122`, then merge) → `maos-web` redeploys. Verify.
 7. **(owner)** Retarget #123 to `main` (`gh pr edit 123 --base main`), confirm CI green,
-   **merge** → `jihad` and `maos-web` redeploy. Verify.
+   `gh pr ready 123`, **merge** → `jihad` and `maos-web` redeploy. Verify.
 8. **Production verification after each deploy:** Railway deployment SUCCESS on the merge commit,
-   no restart loop; `/api/health` and `/api/health/ready` 200; logs without errors; owner signs
-   in, opens Dashboard and (after #123) Control Center; a manager without grants gets no
-   Invoices entry and 403 on `/api/invoices`; with "Views invoices" the entry appears.
+   no restart loop; `/api/health` and `/api/health/ready` 200; logs without errors; owner opens
+   Dashboard and (after #123) Control Center; the audit log shows exactly one
+   `membership.grant_updated` (all-tasks) for the employee.
 9. **Close-out:** update the ledger capsule (V1 released, main SHA, verification), close the
    finished PRs by merge, stop the local development servers and remove the scratch worktrees
    used for this release.
@@ -90,5 +93,6 @@ lands in the portal). Production is not verified until step 8.
 | Nightly backup reliability | Failures on 2026-10-29 (tunnel did not start) and 2026-10-31 (Mac slept); the installer template still lacks `MAOS_BACKUP_CONNECTION=private` |
 | D2 off-site backup copy | Not configured; backups exist only on this Mac |
 | API `npm run typecheck` | 149 legacy Jest spec errors (same on `main`; CI uses `tsconfig.build.json`, clean) |
+| **Temporary exception:** employee `3481ab4e` (Soldado Services GmbH) has "Sees all tasks" | Granted at the V1 release to keep today's view. Review: assign the employee's tasks and project memberships, then switch the grant off. Do not assign all tasks automatically |
 | Existing-user invite opens in the same tab | UX only (#114 note) |
 | T45 webhook secret, T46 real-data gate, D5 repository visibility / branch protection | Owner gates; `REAL_CLIENT_DATA_ALLOWED = NO` until G-DATA |
