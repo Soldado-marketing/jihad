@@ -1,7 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { MembershipRole } from '@prisma/client';
 import { assertFileAssetInTenant, assertFileVersionInTenant } from '../../common/tenant/tenant-references';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PermissionService } from '../permissions/permission.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalClosedError, ApprovalsRepository } from './approvals.repository';
 import { CreateApprovalRequestDto } from './dto/create-approval-request.dto';
@@ -21,9 +22,15 @@ export class ApprovalsService {
     private readonly repo: ApprovalsRepository,
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly permissions: PermissionService,
   ) {}
 
   list(tenantId: string) { return this.repo.list(tenantId); }
+
+  /** What the caller may do in the queue: only explicit approvers decide. */
+  async me(tenantId: string, actorId: string) {
+    return { canDecide: await this.permissions.mayDecideApprovals(tenantId, actorId) };
+  }
   async create(tenantId: string, actorId: string, dto: CreateApprovalRequestDto) {
     await assertFileAssetInTenant(this.prisma, tenantId, dto.fileAssetId);
     await assertFileVersionInTenant(this.prisma, tenantId, dto.fileVersionId, dto.fileAssetId);
@@ -53,6 +60,11 @@ export class ApprovalsService {
 
   async decide(tenantId: string, actorId: string, id: string, dto: CreateApprovalDecisionDto) {
     const approval = await this.get(tenantId, id);
+    // The OWNER, or a member the OWNER made an approver (explicit-grants.ts).
+    // Reading the queue alone, or being allowed to request approvals, is not enough.
+    if (!(await this.permissions.mayDecideApprovals(tenantId, actorId))) {
+      throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'not_an_approver' });
+    }
     let decision;
     try {
       decision = await this.repo.createDecision(tenantId, actorId, id, dto);

@@ -28,10 +28,11 @@ describe('the sidebar on desktop', () => {
   });
 
   it('shares its permission filter, groups and active state with the compact menu', () => {
-    assert.match(sidebar, /export function visibleNavGroups\(role: WorkspaceRole\)[\s\S]*filterNavigationItems\(role, workspaceNavigation\)/);
-    assert.match(sidebar, /const visibleGroups = visibleNavGroups\(role\);/);
+    // Same role filter plus the user's explicit grants (owner decision 2026-10-31), on both.
+    assert.match(sidebar, /export function visibleNavGroups\(role: WorkspaceRole, grants: MyGrants = \{\}\)[\s\S]*filterNavigationItems\(role, workspaceNavigation, grants\)/);
+    assert.match(sidebar, /const visibleGroups = visibleNavGroups\(role, useMyGrants\(role !== 'OWNER' && role !== 'CLIENT'\)\);/);
     assert.match(sidebar, /const isActive = isNavItemActive\(item, pathname\);/);
-    assert.match(mobile, /const groups = visibleNavGroups\(role\);/);
+    assert.match(mobile, /const groups = visibleNavGroups\(role, useMyGrants\(role !== 'OWNER' && role !== 'CLIENT'\)\);/);
     assert.doesNotMatch(mobile, /workspaceNavigation|allowedRoles/, 'no second, unfiltered item list');
   });
 });
