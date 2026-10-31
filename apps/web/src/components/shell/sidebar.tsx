@@ -97,7 +97,7 @@ export function Sidebar({ role }: SidebarProps) {
         transition={{ duration: 0.25, delay: 0.1 }}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white text-sm font-black text-navy shadow-lift">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-signal text-sm font-black text-white shadow-lift">
             M
           </div>
           <div className="min-w-0">
