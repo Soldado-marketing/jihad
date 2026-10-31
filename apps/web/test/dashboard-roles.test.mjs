@@ -31,6 +31,12 @@ describe('dashboard links follow the navigation rules', () => {
     assert.equal(navIds('EMPLOYEE').has('approvals'), true);
   });
 
+  it('shows both the company-wide pending approvals and the ones for you to decide', () => {
+    assert.match(dashboard, /\['Pending approvals \(company\)', summary\.collaboration\.pendingApprovals, '\/approvals', 'approvals'\]/);
+    assert.match(dashboard, /Pending in the company: /);
+    assert.match(dashboard, /<ActionCard label="Approvals for you to decide" count=\{mine\.approvals\.toDecide\.length\}/);
+  });
+
   it('keeps CRM chips away from employees and contractors', () => {
     for (const role of ['EMPLOYEE', 'CONTRACTOR']) assert.equal(navIds(role).has('crm'), false, role);
     for (const role of ['OWNER', 'MANAGER']) assert.equal(navIds(role).has('crm'), true, role);

@@ -315,7 +315,12 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {can('approvals') && (
-        <Section title="Approvals for you" href="/approvals">
+        <Section title="Approvals for you to decide" href="/approvals">
+          {typeof summary === 'object' && (
+            <p className="-mt-2 mb-2 text-xs text-slate-500">
+              Pending in the company: <span className="font-semibold tabular-nums text-ink">{summary.collaboration.pendingApprovals}</span>
+            </p>
+          )}
           {toDecide.length > 0 ? (
             <List>
               {toDecide.map((a) => (
@@ -356,6 +361,7 @@ export default function DashboardPage() {
               ['Leads', summary.crm.leads, '/crm/leads', 'crm'],
               ['Opportunities', summary.crm.opportunities, '/crm/opportunities', 'crm'],
               ['Follow-ups due', summary.crm.pendingFollowUps, '/crm/follow-ups', 'crm'],
+              ['Pending approvals (company)', summary.collaboration.pendingApprovals, '/approvals', 'approvals'],
               ['Files', summary.collaboration.files, '/files', 'files'],
               ['Invoices', summary.invoices, '/finance/invoices', 'finance'],
             ] as const
