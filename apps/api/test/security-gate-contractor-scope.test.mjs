@@ -167,9 +167,10 @@ describe('Contractor scope - projects', { skip }, () => {
     assert.equal((await get('contractor', `/api/projects/${ids.P3}`)).status, 404);
   });
 
-  it('employee keeps tenant-wide projects (control)', async () => {
+  it('employee keeps tenant-wide projects; their tasks in a project are the visible ones', async () => {
     assertSet(await listIds('employee', '/api/projects'), ['P1', 'P2', 'P3'], [], 'employee projects');
-    assert.equal((await get('employee', `/api/projects/${ids.P2}`)).body._count.tasks, 2);
+    // Owner decision 2026-10-31: an employee sees assigned tasks (T2b) only.
+    assert.equal((await get('employee', `/api/projects/${ids.P2}`)).body._count.tasks, 1);
   });
 });
 
@@ -221,8 +222,17 @@ describe('Contractor scope - tasks', { skip }, () => {
     assert.equal(t0.projectId, null);
   });
 
-  it('employee keeps tenant-wide tasks (control)', async () => {
-    assertSet(await listIds('employee', '/api/tasks'), ['T1a', 'T2a', 'T2b', 'T3', 'T0', 'T0b'], [], 'employee tasks');
+  it('employee sees assigned tasks only; tasks of other people stay hidden', async () => {
+    assertSet(await listIds('employee', '/api/tasks'), ['T2b'], ['T1a', 'T2a', 'T3', 'T0', 'T0b'], 'employee tasks');
+    assert.equal((await get('employee', `/api/tasks/${ids.T2a}`)).status, 404);
+  });
+
+  it('employee with the explicit all-tasks grant sees every task', async () => {
+    const m = await prisma.tenantMembership.findFirst({ where: { userId: users.employee.id }, select: { id: true } });
+    const grant = await prisma.membershipPermission.create({ data: { membershipId: m.id, action: 'read-all', resource: 'task' } });
+    assertSet(await listIds('employee', '/api/tasks'), ['T1a', 'T2a', 'T2b', 'T3', 'T0', 'T0b'], [], 'employee tasks with grant');
+    await prisma.membershipPermission.delete({ where: { id: grant.id } });
+    assertSet(await listIds('employee', '/api/tasks'), ['T2b'], ['T1a'], 'grant removed');
   });
 });
 

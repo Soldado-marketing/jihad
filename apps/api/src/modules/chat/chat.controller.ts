@@ -16,7 +16,7 @@ export class ChatController {
 
   @Get('channels')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CHAT_CHANNEL })
-  listChannels(@CurrentUser() user: JwtPayload) { return this.svc.listChannels(user.tenantId); }
+  listChannels(@CurrentUser() user: JwtPayload) { return this.svc.listChannels(user.tenantId, user.sub); }
 
   @Post('channels')
   @RequirePermission({ action: PermissionAction.CREATE, resource: PermissionResource.CHAT_CHANNEL })
@@ -27,7 +27,7 @@ export class ChatController {
   @Get('channels/:channelId/messages')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CHAT_MESSAGE })
   listMessages(@CurrentUser() user: JwtPayload, @Param('channelId') channelId: string) {
-    return this.svc.listMessages(user.tenantId, channelId);
+    return this.svc.listMessages(user.tenantId, user.sub, channelId);
   }
 
   @Post('channels/:channelId/messages')

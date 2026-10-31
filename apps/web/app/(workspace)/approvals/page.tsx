@@ -25,6 +25,8 @@ export default function ApprovalsPage() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [decideError, setDecideError] = useState('');
+  // Only the OWNER and members made approvers decide; others see the queue read-only.
+  const [canDecide, setCanDecide] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -37,6 +39,9 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     void load();
+    apiFetch<{ canDecide: boolean }>('/approvals/me')
+      .then((me) => setCanDecide(me.canDecide))
+      .catch(() => setCanDecide(false));
   }, [load]);
 
   async function decide(decision: Decision) {
@@ -109,7 +114,7 @@ export default function ApprovalsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <StatusBadge status={a.status} />
-                {tab === 'waiting' && (
+                {tab === 'waiting' && canDecide && (
                   <button
                     type="button"
                     onClick={() => {
@@ -128,8 +133,12 @@ export default function ApprovalsPage() {
         </ul>
       )}
 
+      {!canDecide && items !== null && (
+        <p className="text-xs text-muted">You can follow these requests. Decisions are made by the company owner or an approver they choose.</p>
+      )}
+
       <DetailPanel
-        open={selected !== null}
+        open={selected !== null && canDecide}
         onClose={() => setSelected(null)}
         title={selected?.title ?? 'Decision'}
         footer={

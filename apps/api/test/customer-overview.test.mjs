@@ -169,7 +169,17 @@ describe('customer overview (MAOS-T54)', { skip }, () => {
     for (const id of [d.c2, d.p2, d.tOther, d.f2, d.a2, d.i2, d.pay2, d.cb]) assert.ok(!body.includes(id), `leaked ${id}`);
   });
 
-  it('MANAGER: invoices without amounts, no finance section, no budget', async () => {
+  it('MANAGER without the invoices grant: no invoices section', async () => {
+    const res = await overview('manager');
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body.sections, ['projects', 'tasks', 'files', 'approvals']);
+    assert.equal(res.body.invoices, undefined);
+  });
+
+  it('MANAGER with the invoices grant: invoices without amounts, no finance section, no budget', async () => {
+    const grant = await request(server).patch(`/api/auth/company-members/${people.manager.id}/grants/invoices`)
+      .set('Authorization', `Bearer ${people.owner.token}`).send({ enabled: true });
+    assert.equal(grant.status, 200, JSON.stringify(grant.body));
     const res = await overview('manager');
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.deepEqual(res.body.sections, ['projects', 'tasks', 'files', 'approvals', 'invoices']);

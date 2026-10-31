@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ChatChannelType } from '@prisma/client';
+import { ChatChannelType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ChatRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  listChannels(tenantId: string) {
+  listChannels(tenantId: string, visible: Prisma.ChatChannelWhereInput = {}) {
     return this.prisma.chatChannel.findMany({
-      where: { tenantId },
+      where: { tenantId, AND: [visible] },
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true, name: true, type: true, createdAt: true, updatedAt: true,
@@ -35,8 +35,11 @@ export class ChatRepository {
     });
   }
 
-  async channelExists(tenantId: string, channelId: string): Promise<boolean> {
-    const channel = await this.prisma.chatChannel.findFirst({ where: { id: channelId, tenantId }, select: { id: true } });
+  async channelExists(tenantId: string, channelId: string, visible: Prisma.ChatChannelWhereInput = {}): Promise<boolean> {
+    const channel = await this.prisma.chatChannel.findFirst({
+      where: { id: channelId, tenantId, AND: [visible] },
+      select: { id: true },
+    });
     return channel !== null;
   }
 
