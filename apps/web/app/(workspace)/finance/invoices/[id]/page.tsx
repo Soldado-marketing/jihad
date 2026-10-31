@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 import { describeInvoiceSend, type InvoiceSendResponse } from '@/lib/invoice-send-result';
 import { createIdempotencyKeys } from '@/lib/idempotency';
+import { getStoredUser } from '@/lib/auth';
+import { useMyGrants } from '@/lib/my-grants';
 
 type Line = {
   id: string;
@@ -58,6 +60,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [recipients, setRecipients] = useState('');
   const [payment, setPayment] = useState({ amount: '', method: 'BANK_TRANSFER' });
   const paymentKeys = useRef(createIdempotencyKeys());
+  // OWNER does everything; a manager only what the OWNER granted. The API checks too.
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => setRole(getStoredUser()?.role ?? null), []);
+  const grants = useMyGrants(role !== null && role !== 'OWNER');
+  const canEdit = role === 'OWNER' || grants['invoices-edit'] === true;
+  const canRecord = role === 'OWNER' || grants['payments-record'] === true;
 
   const load = useCallback(
     () =>
@@ -224,6 +232,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           >
             {busy === 'pdf' ? 'Preparing…' : 'Download PDF'}
           </button>
+          {canEdit && (<>
           <input
             value={recipients}
             onChange={(e) => setRecipients(e.target.value)}
@@ -239,6 +248,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           >
             {busy === 'send' ? 'Sending…' : invoice.issuedAt ? 'Re-send invoice' : 'Send invoice'}
           </button>
+          </>)}
         </div>
       </section>
 
@@ -248,6 +258,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           Outstanding: {formatCents(outstanding, invoice.currency)}
         </p>
 
+        {canRecord && (
         <form onSubmit={recordPayment} className="mt-4 flex flex-wrap items-center gap-3">
           <input
             value={payment.amount}
@@ -277,6 +288,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             {busy === 'payment' ? 'Recording…' : 'Record payment'}
           </button>
         </form>
+        )}
 
         {(invoice.payments ?? []).length > 0 && (
           <ul className="mt-4 divide-y divide-line border-t border-line">

@@ -16,6 +16,7 @@ import { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { LoginDto } from './dto/login.dto';
 import { BootstrapOwnerDto } from './dto/bootstrap-owner.dto';
+import { EXPLICIT_GRANT_KEYS, type ExplicitGrant } from '../permissions/explicit-grants';
 import { AuthService, JwtPayload } from './auth.service';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
@@ -95,6 +96,25 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   companyMembers(@CurrentUser() user: JwtPayload) {
     return this.authService.companyMembers(user);
+  }
+
+  @Get('my-grants')
+  @UseGuards(JwtAuthGuard)
+  myGrants(@CurrentUser() user: JwtPayload) {
+    return this.authService.myGrants(user);
+  }
+
+  @Patch('company-members/:userId/grants/:grant')
+  @UseGuards(JwtAuthGuard)
+  setMemberGrant(
+    @CurrentUser() user: JwtPayload,
+    @Param('userId') userId: string,
+    @Param('grant') grant: string,
+    @Body() body: { enabled?: boolean },
+  ) {
+    if (!(EXPLICIT_GRANT_KEYS as string[]).includes(grant)) throw new BadRequestException('Unknown permission');
+    if (typeof body?.enabled !== 'boolean') throw new BadRequestException('enabled must be a boolean');
+    return this.authService.setMemberGrant(user, userId, grant as ExplicitGrant, body.enabled);
   }
 
   @Patch('company-members/:userId/switch')

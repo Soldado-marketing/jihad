@@ -113,6 +113,10 @@ before(async () => {
   }
   people.foreign = await member(other.id, `other-${RUN}`, 'foreign', 'OWNER');
   token = people.owner.token;
+  // Only explicit approvers decide (owner decision 2026-10-31): the OWNER makes the manager one.
+  const grant = await request(server).patch(`/api/auth/company-members/${people.manager.id}/grants/decide-approvals`)
+    .set('Authorization', `Bearer ${token}`).send({ enabled: true });
+  assert.equal(grant.status, 200, JSON.stringify(grant.body));
 });
 
 after(async () => {
@@ -141,6 +145,17 @@ const state = async (id) => ({
 });
 
 describe('approval decisions', { skip }, () => {
+  it('refuses a decision from a member who is not an approver', async () => {
+    const { id } = await prisma.approvalRequest.create({ data: { tenantId, title: `Not yours ${RUN}`, status: 'REQUESTED' }, select: { id: true } });
+    for (const who of ['employee', 'contractor', 'client']) {
+      assert.ok([403].includes((await decide(who, id, 'APPROVE')).status), who);
+    }
+    const me = await as('employee', request(server).get('/api/approvals/me'));
+    assert.deepEqual(me.body, { canDecide: false });
+    assert.deepEqual((await as('manager', request(server).get('/api/approvals/me'))).body, { canDecide: true });
+    assert.equal((await prisma.approvalRequest.findUnique({ where: { id } })).status, 'REQUESTED');
+  });
+
   it('decides an open approval once and refuses a second decision', async () => {
     const id = await newApproval();
     assert.equal((await decide('owner', id, 'APPROVE')).status, 201);

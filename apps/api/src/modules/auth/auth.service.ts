@@ -23,6 +23,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { BootstrapOwnerDto } from './dto/bootstrap-owner.dto';
+import { EXPLICIT_GRANTS, EXPLICIT_GRANT_KEYS, type ExplicitGrant, hasGrant, rowsAfterChange } from '../permissions/explicit-grants';
 
 export interface JwtPayload {
   sub: string;
@@ -494,19 +495,23 @@ export class AuthService {
       select: {
         userId: true, role: true, status: true,
         user: { select: { email: true, displayName: true } },
-        permissions: {
-          where: { action: 'switch', resource: 'tenant' },
-          select: { granted: true },
-        },
+        permissions: { select: { action: true, resource: true, granted: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
-    return members.map((m) => ({
-      userId: m.userId, role: m.role, status: m.status,
-      displayName: m.user.displayName, email: m.user.email,
-      canSwitch: this.companySwitchAllowed(m),
-      explicitGrant: m.permissions[0]?.granted ?? null,
-    }));
+    return members.map((m) => {
+      const switchRow = m.permissions.filter((p) => p.action === 'switch' && p.resource === 'tenant');
+      return {
+        userId: m.userId, role: m.role, status: m.status,
+        displayName: m.user.displayName, email: m.user.email,
+        canSwitch: this.companySwitchAllowed({ role: m.role, permissions: switchRow }),
+        explicitGrant: switchRow[0]?.granted ?? null,
+        // Explicit per-company grants the OWNER can change, for the roles they apply to.
+        grants: Object.fromEntries(EXPLICIT_GRANT_KEYS
+          .filter((g) => (EXPLICIT_GRANTS[g].roles as readonly string[]).includes(m.role))
+          .map((g) => [g, hasGrant(m.permissions, g)])),
+      };
+    });
   }
 
   async setCompanySwitchPermission(actor: JwtPayload, targetUserId: string, enabled: boolean) {
@@ -540,6 +545,49 @@ export class AuthService {
       payload: { enabled },
     }).catch((err: unknown) => this.logger.error('Could not record switch permission audit event', err));
     return { userId: targetUserId, enabled };
+  }
+
+  /**
+   * The caller's explicit grants in the active company, for showing the right
+   * navigation and actions. The API still checks every request on its own.
+   */
+  async myGrants(actor: JwtPayload) {
+    const m = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: actor.tenantId, userId: actor.sub } },
+      select: { role: true, status: true, permissions: { select: { action: true, resource: true, granted: true } } },
+    });
+    if (!m || m.status !== 'ACTIVE') throw new ForbiddenException('Company access denied');
+    const applicable = EXPLICIT_GRANT_KEYS.filter((g) => (EXPLICIT_GRANTS[g].roles as readonly string[]).includes(m.role));
+    return { role: m.role, grants: Object.fromEntries(applicable.map((g) => [g, hasGrant(m.permissions, g)])) };
+  }
+
+  /** OWNER grants or removes an explicit grant (explicit-grants.ts) for a member of the active company. */
+  async setMemberGrant(actor: JwtPayload, targetUserId: string, grant: ExplicitGrant, enabled: boolean) {
+    await this.requireCurrentOwner(actor);
+    const target = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: actor.tenantId, userId: targetUserId } },
+      select: { id: true, role: true, status: true, permissions: { select: { action: true, resource: true, granted: true } } },
+    });
+    if (!target || target.status !== 'ACTIVE' || !(EXPLICIT_GRANTS[grant].roles as readonly string[]).includes(target.role)) {
+      throw new ForbiddenException('This permission cannot be changed for this member');
+    }
+    await this.prisma.$transaction(rowsAfterChange(target.permissions, target.role, grant, enabled).map((row) =>
+      this.prisma.membershipPermission.upsert({
+        where: { membershipId_action_resource: { membershipId: target.id, action: row.action, resource: row.resource } },
+        create: { membershipId: target.id, action: row.action, resource: row.resource, granted: row.granted },
+        update: { granted: row.granted },
+      })));
+    await this.auditService.createAuditEvent({
+      tenantId: actor.tenantId,
+      actorId: actor.sub, actorRole: 'OWNER',
+      sessionId: actor.sessionId,
+      resourceType: 'TenantMembership', resourceId: target.id,
+      action: 'membership.grant_updated',
+      permissionResult: AuditPermissionResult.ALLOWED,
+      outcome: AuditOutcome.SUCCESS,
+      payload: { grant, enabled },
+    }).catch((err: unknown) => this.logger.error('Could not record grant audit event', err));
+    return { userId: targetUserId, grant, enabled };
   }
 
   // ── Logout ─────────────────────────────────────────────────────────────────
