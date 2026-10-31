@@ -5,12 +5,16 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
+import { ControlCenterService } from './control-center.service';
 import { DashboardsService } from './dashboards.service';
 
 @Controller('dashboards')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class DashboardsController {
-  constructor(private readonly dashboardsService: DashboardsService) {}
+  constructor(
+    private readonly dashboardsService: DashboardsService,
+    private readonly controlCenter: ControlCenterService,
+  ) {}
 
   @Get('workspace-summary')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD })
@@ -22,5 +26,12 @@ export class DashboardsController {
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD, scope: 'client-portal' })
   getClientSummary(@CurrentUser() user: JwtPayload) {
     return this.dashboardsService.getClientSummary(user.tenantId, user.sub, user.role);
+  }
+
+  /** Owner Control Center: every company where the caller is OWNER (sensitive = OWNER-only). */
+  @Get('control-center')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.DASHBOARD, sensitive: true })
+  getControlCenter(@CurrentUser() user: JwtPayload) {
+    return this.controlCenter.getOverview(user);
   }
 }

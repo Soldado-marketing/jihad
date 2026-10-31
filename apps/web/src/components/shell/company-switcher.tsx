@@ -2,18 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
-import { getStoredTenant, setAuthSession } from '@/lib/auth';
+import { getStoredTenant } from '@/lib/auth';
+import { switchCompanySession } from '@/lib/company-switch';
 
 type Company = { id: string; name: string; slug: string; role: string };
 type CompanyList = {
   currentTenantId: string;
   canSwitch: boolean;
   companies: Company[];
-};
-type SwitchResponse = {
-  tokens: { accessToken: string; refreshToken: string; expiresIn: number };
-  user: { id: string; email: string; displayName: string | null; role: string };
-  tenant: { id: string; name: string; slug: string };
 };
 
 /**
@@ -48,18 +44,9 @@ export function CompanySwitcher() {
     setError('');
     setSwitching(true);
     try {
-      const data = await apiFetch<SwitchResponse>('/auth/companies/switch', {
-        method: 'POST',
-        body: JSON.stringify({ tenantId: targetId }),
-      });
-      setAuthSession({
-        accessToken: data.tokens.accessToken,
-        refreshToken: data.tokens.refreshToken,
-        user: { ...data.user, displayName: data.user.displayName ?? '' },
-        tenant: data.tenant,
-      });
+      const role = await switchCompanySession(targetId);
       // Clear entire React state and cached tenant data before rendering the target.
-      window.location.replace(data.user.role === 'CLIENT' ? '/client' : '/dashboard');
+      window.location.replace(role === 'CLIENT' ? '/client' : '/dashboard');
     } catch {
       setError('Unable to switch company. Check your access permissions.');
       setSwitching(false);

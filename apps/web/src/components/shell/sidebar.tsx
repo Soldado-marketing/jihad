@@ -38,7 +38,7 @@ export const navGlyphs: Record<string, string> = {
 
 export const navGroups = [
   {
-    ids: ['dashboard', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
+    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
     label: 'Workspace',
   },
   {
