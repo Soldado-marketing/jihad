@@ -87,7 +87,8 @@ export function CompanySwitcher() {
           {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
         </>
       ) : (
-        <h1 className="truncate text-base font-semibold sm:text-xl tracking-tight text-ink">{currentName}</h1>
+        // Not a heading: each page owns its single <h1> (UX-0 R1).
+        <p className="truncate text-base font-semibold sm:text-xl tracking-tight text-ink">{currentName}</p>
       )}
     </div>
   );
