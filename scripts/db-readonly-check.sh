@@ -72,10 +72,24 @@ if [ "$CONNECTION" = private ]; then
   tunnel_check_settings || { echo "REFUSED: $TUNNEL_ERROR" >&2; exit 5; }
   # Closed on every exit; a signal exits through the EXIT trap.
   trap close_tunnel EXIT
-  trap 'exit 129' HUP
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
 fi
+
+# psql runs in the background and the script waits for it: bash runs a trap
+# only after a foreground command ends, and psql (PID 1 in its container)
+# ignores the TERM docker forwards, so a hung connection would never stop.
+# A signal interrupts the wait; the trap kills this run's container (by name).
+PSQL_CONTAINER="maos-readonly-check-$$"
+PSQL_PID=""
+stop_psql() {
+  [ -n "$PSQL_PID" ] || return 0
+  "$DOCKER_BIN" kill "$PSQL_CONTAINER" >/dev/null 2>&1
+  kill "$PSQL_PID" 2>/dev/null
+  wait "$PSQL_PID" 2>/dev/null
+  PSQL_PID=""
+}
+trap 'stop_psql; exit 129' HUP
+trap 'stop_psql; exit 130' INT
+trap 'stop_psql; exit 143' TERM
 
 "$DOCKER_BIN" info >/dev/null 2>&1 || { echo "REFUSED: Docker is not running" >&2; exit 4; }
 
@@ -98,10 +112,16 @@ if [ "$CONNECTION" = private ]; then
 fi
 export MAOS_PG_URL
 
-"$DOCKER_BIN" run --rm -i -e MAOS_PG_URL -e PGOPTIONS='-c default_transaction_read_only=on' postgres:18 \
-  sh -c 'psql "$MAOS_PG_URL" -X -q -v ON_ERROR_STOP=1' < "$SQL_FILE" 2>&1 \
-  | sed -E 's#postgres(ql)?://[^[:space:]"'\'']*#<redacted-url>#g'
-STATUS="${PIPESTATUS[0]}"
+(
+  "$DOCKER_BIN" run --rm -i --name "$PSQL_CONTAINER" -e MAOS_PG_URL -e PGOPTIONS='-c default_transaction_read_only=on' postgres:18 \
+    sh -c 'psql "$MAOS_PG_URL" -X -q -v ON_ERROR_STOP=1' < "$SQL_FILE" 2>&1 \
+    | sed -E 's#postgres(ql)?://[^[:space:]"'\'']*#<redacted-url>#g'
+  exit "${PIPESTATUS[0]}"
+) &
+PSQL_PID=$!
+wait "$PSQL_PID"
+STATUS=$?
+PSQL_PID=""
 
 if [ "$CONNECTION" = private ]; then
   close_tunnel

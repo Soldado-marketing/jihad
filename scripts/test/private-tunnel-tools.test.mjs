@@ -139,11 +139,12 @@ function installDocker(c, { psqlExit = 0, hang = false } = {}) {
   writeExe(
     join(c.stub, 'docker'),
     `[ "$1" = info ] && exit 0
+[ "$1" = kill ] && { echo "$2" > "$STUB_DIR/docker.killed"; kill "$(cat "$STUB_DIR/docker.pid")" 2>/dev/null; exit 0; }
 printf '%s\\n' "$@" > "$STUB_DIR/docker.argv"; printf '%s' "$MAOS_PG_URL" > "$STUB_DIR/url.received"
 (exec 3<>/dev/tcp/127.0.0.1/${c.port}) 2>/dev/null && echo yes > "$STUB_DIR/tunnel.seen"
 cat > /dev/null; echo "psql output via $MAOS_PG_URL"
 echo "$$" > "$STUB_DIR/docker.pid"
-${hang ? 'sleep 30 & wait $!' : ''}
+${hang ? 'exec sleep 30' : ''}
 exit ${psqlExit}`,
   );
 }
@@ -216,8 +217,13 @@ describe('db-readonly-check.sh - private tunnel', () => {
     const child = spawn('bash', [READONLY, join(c.dir, 'check.sql')], { env: tunnelEnv(c, { MAOS_DOCKER_BIN: join(c.stub, 'docker') }) });
     const code = new Promise((res) => child.on('exit', (status, signal) => res(status ?? signal)));
     for (let i = 0; i < 100 && !read(c, 'docker.pid'); i += 1) await new Promise((res) => setTimeout(res, 100));
+    const sent = Date.now();
     child.kill('SIGTERM');
     assert.equal(await code, 143);
+    // A hung psql must not hold the run: its container is killed at once
+    // (the stub would otherwise sleep for 30s).
+    assert.ok(Date.now() - sent < 10000, `stopped after ${Date.now() - sent}ms`);
+    assert.match(read(c, 'docker.killed'), /^maos-readonly-check-\d+$/m);
     assertClosed(c);
   });
 
