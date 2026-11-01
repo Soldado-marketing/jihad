@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -588,6 +589,42 @@ export class AuthService {
       payload: { grant, enabled },
     }).catch((err: unknown) => this.logger.error('Could not record grant audit event', err));
     return { userId: targetUserId, grant, enabled };
+  }
+
+  /**
+   * OWNER removes a member from the active company only. The account and its
+   * other companies stay; this company's permissions are deleted and its
+   * sessions revoked, so access ends at once (validateSession also refuses a
+   * membership that is not ACTIVE). Owners, the caller included, are never
+   * removed here, so the company always keeps its Owner.
+   */
+  async removeMember(actor: JwtPayload, targetUserId: string) {
+    await this.requireCurrentOwner(actor);
+    const target = await this.prisma.tenantMembership.findUnique({
+      where: { tenantId_userId: { tenantId: actor.tenantId, userId: targetUserId } },
+      select: { id: true, role: true, status: true },
+    });
+    if (!target || target.status === 'REMOVED') throw new NotFoundException('No member with this id in this company');
+    if (target.role === 'OWNER') throw new ForbiddenException('Owners cannot be removed from the company');
+    const [, permissions, sessions] = await this.prisma.$transaction([
+      this.prisma.tenantMembership.update({ where: { id: target.id }, data: { status: 'REMOVED' } }),
+      this.prisma.membershipPermission.deleteMany({ where: { membershipId: target.id } }),
+      this.prisma.session.updateMany({
+        where: { tenantId: actor.tenantId, userId: targetUserId, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      }),
+    ]);
+    await this.auditService.createAuditEvent({
+      tenantId: actor.tenantId,
+      actorId: actor.sub, actorRole: 'OWNER',
+      sessionId: actor.sessionId,
+      resourceType: 'TenantMembership', resourceId: target.id,
+      action: 'membership.removed',
+      permissionResult: AuditPermissionResult.ALLOWED,
+      outcome: AuditOutcome.SUCCESS,
+      payload: { role: target.role, previousStatus: target.status, permissionsCleared: permissions.count, sessionsRevoked: sessions.count },
+    }).catch((err: unknown) => this.logger.error('Could not record member removal audit event', err));
+    return { userId: targetUserId, status: 'REMOVED' as const };
   }
 
   // ── Logout ─────────────────────────────────────────────────────────────────

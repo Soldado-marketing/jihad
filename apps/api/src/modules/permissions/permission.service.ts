@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MembershipRole } from '../../common/identity/membership-role';
-import { EXPLICIT_GRANTS, type ExplicitGrant, hasGrant } from './explicit-grants';
+import { EXPLICIT_GRANTS, type ExplicitGrant, grantRowFitsRole, hasGrant } from './explicit-grants';
 import {
   PermissionAction,
   PermissionDecision,
@@ -150,9 +150,10 @@ export class PermissionService {
 
     const scope = membership.visibilityScope;
 
-    // Custom permission grant takes precedence over role defaults
+    // Custom permission grant takes precedence over role defaults. A stale
+    // explicit-grant row from a former role never allows (a deny still does).
     const grant = membership.permissions[0];
-    if (grant !== undefined) {
+    if (grant !== undefined && (!grant.granted || grantRowFitsRole(requirement, membership.role))) {
       return {
         allowed: grant.granted,
         reason: grant.granted ? 'custom_permission_grant' : 'custom_permission_deny',
