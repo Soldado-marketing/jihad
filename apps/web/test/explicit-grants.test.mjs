@@ -23,7 +23,17 @@ describe('company access grants', () => {
       assert.match(page, new RegExp(`key: '${key}'`));
     }
     assert.match(page, /\/auth\/company-members\/\$\{encodeURIComponent\(member\.userId\)\}\/grants\/\$\{grant\}/);
-    assert.match(page, /aria-pressed=\{!!member\.grants\[g\.key\]\}/);
+    assert.match(page, /on=\{!!member\.grants\[g\.key\]\}/);
+  });
+  it('states each permission and switching as an on/off switch, not only by colour', () => {
+    assert.match(page, /role="switch" aria-checked=\{on\}/);
+    assert.match(page, /\{on \? 'On' : 'Off'\}/);
+    assert.match(page, /<Toggle label="Can switch to their other companies" on=\{member\.canSwitch\}/);
+    assert.doesNotMatch(page, /Revoke access/);
+  });
+  it('lays members out as cards, without a horizontally scrolling table', () => {
+    assert.doesNotMatch(page, /<table/);
+    assert.match(page, /<ul className="space-y-3">/);
   });
   it('shows only grants that apply to the member role', () => {
     assert.match(page, /GRANTS\.filter\(\(g\) => g\.key in \(member\.grants \?\? \{\}\)\)/);
