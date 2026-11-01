@@ -31,6 +31,22 @@ const GRANTS: { key: Grant; label: string }[] = [
   { key: 'all-tasks', label: 'Sees all tasks' },
 ];
 
+/** On/off switch that always states its current value in words, not only by colour. */
+function Toggle({ label, on, disabled, onChange }: { label: string; on: boolean; disabled: boolean; onChange: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} disabled={disabled} onClick={onChange}
+      className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-slate-50 disabled:opacity-50">
+      <span className="text-ink">{label}</span>
+      <span className="flex shrink-0 items-center gap-2">
+        <span className={`w-6 text-xs font-medium ${on ? 'text-accent' : 'text-slate-500'}`}>{on ? 'On' : 'Off'}</span>
+        <span aria-hidden="true" className={`relative h-5 w-9 rounded-full transition-colors ${on ? 'bg-accent' : 'bg-slate-300'}`}>
+          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+        </span>
+      </span>
+    </button>
+  );
+}
+
 /** Owner-only server-enforced exception management, scoped to current tenant. */
 export default function CompanyAccessPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -153,69 +169,62 @@ export default function CompanyAccessPage() {
       </p>
       {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
       {!loaded && <p className="text-sm">Loading team members…</p>}
-      <div className="overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50"><tr>
-            <th className="p-3">Member</th><th className="p-3">Role</th>
-            <th className="p-3">Status</th><th className="p-3">Company switching</th>
-            <th className="p-3">Permissions in this company</th>
-            <th className="p-3">Membership</th>
-          </tr></thead>
-          <tbody>
-            {members.map((member) => (
-              <tr className="border-t border-line" key={member.userId}>
-                <td className="p-3">{member.displayName ?? member.email}
-                  <span className="block text-xs text-slate-500">{member.email}</span>
-                </td>
-                <td className="p-3">{roleLabel(member.role)}</td>
-                <td className="p-3"><StatusBadge status={member.status} /></td>
-                <td className="p-3">
-                  {member.role === 'OWNER' ? 'Always allowed' : member.status === 'REMOVED' ? <span className="text-slate-500">—</span> : (
-                    <button type="button" disabled={busy !== null || member.status !== 'ACTIVE'}
-                      className="rounded-lg border border-line px-3 py-1.5 text-sm disabled:opacity-50"
-                      onClick={() => void update(member)}>
-                      {member.canSwitch ? 'Revoke access' : 'Allow switching'}
-                    </button>
-                  )}
-                </td>
-                <td className="p-3">
-                  {member.role === 'OWNER' ? 'Everything' : member.status === 'REMOVED' ? <span className="text-slate-500">—</span> : (
-                    <div className="flex flex-wrap gap-2">
-                      {GRANTS.filter((g) => g.key in (member.grants ?? {})).map((g) => (
-                        <button key={g.key} type="button" aria-pressed={!!member.grants[g.key]}
-                          disabled={busy !== null || member.status !== 'ACTIVE'}
-                          className={`rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50 ${member.grants[g.key] ? 'border-accent bg-accent/10 font-medium text-ink' : 'border-line'}`}
-                          onClick={() => void toggleGrant(member, g.key)}>
-                          {member.grants[g.key] ? '✓ ' : ''}{g.label}
-                        </button>
-                      ))}
-                      {!Object.keys(member.grants ?? {}).length && <span className="text-xs text-slate-500">None for this role</span>}
-                    </div>
-                  )}
-                </td>
-                <td className="p-3">
-                  {member.role === 'OWNER' || member.status === 'REMOVED' ? <span className="text-slate-500">—</span> : (
-                    <div className="flex flex-wrap gap-2">
-                      {member.status === 'ACTIVE' && (
-                        <button type="button" disabled={busy !== null}
-                          className="rounded-lg border border-line px-3 py-1.5 text-sm disabled:opacity-50"
-                          onClick={() => openRoleDialog(member)}>
-                          Edit role
-                        </button>
-                      )}
+      {/* One card per member instead of a wide table, so every control stays visible on phones. */}
+      <ul className="space-y-3">
+        {members.map((member) => {
+          const editable = member.role !== 'OWNER' && member.status !== 'REMOVED';
+          const locked = busy !== null || member.status !== 'ACTIVE';
+          const memberGrants = GRANTS.filter((g) => g.key in (member.grants ?? {}));
+          return (
+            <li key={member.userId}
+              className={`rounded-xl border border-line bg-white p-4 text-sm ${member.status === 'REMOVED' ? 'opacity-70' : ''}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-medium text-ink">{member.displayName ?? member.email}</h2>
+                  <p className="break-all text-xs text-slate-500">{member.email}</p>
+                  <p className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-slate-700">{roleLabel(member.role)}</span>
+                    <StatusBadge status={member.status} />
+                  </p>
+                </div>
+                {member.role === 'OWNER' || member.status === 'REMOVED' ? <span className="text-xs text-slate-500">{member.role === 'OWNER' ? 'Always allowed · Everything' : 'No access to this company'}</span> : (
+                  <div className="flex flex-wrap gap-2">
+                    {member.status === 'ACTIVE' && (
                       <button type="button" disabled={busy !== null}
-                        className="whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm text-destructive disabled:opacity-50"
-                        onClick={() => { setDialogError(''); setRemoveTarget(member); }}>
-                        Remove from company
+                        className="rounded-lg border border-line px-3 py-1.5 text-sm disabled:opacity-50"
+                        onClick={() => openRoleDialog(member)}>
+                        Edit role
                       </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    )}
+                    <button type="button" disabled={busy !== null}
+                      className="whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm text-destructive disabled:opacity-50"
+                      onClick={() => { setDialogError(''); setRemoveTarget(member); }}>
+                      Remove from company
+                    </button>
+                  </div>
+                )}
+              </div>
+              {editable && (
+                <div className="mt-4 grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+                  <section>
+                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Company switching</h3>
+                    <Toggle label="Can switch to their other companies" on={member.canSwitch} disabled={locked}
+                      onChange={() => void update(member)} />
+                  </section>
+                  <section>
+                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Permissions in this company</h3>
+                    {memberGrants.map((g) => (
+                      <Toggle key={g.key} label={g.label} on={!!member.grants[g.key]} disabled={locked}
+                        onChange={() => void toggleGrant(member, g.key)} />
+                    ))}
+                    {!memberGrants.length && <p className="px-2 py-1.5 text-xs text-slate-500">None for this role</p>}
+                  </section>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
 
       {roleTarget && (
         <ConfirmDialog title="Change role" confirmLabel="Change role" busy={dialogBusy} error={dialogError}
