@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PageTransition } from '@/components/motion';
 import { LoadingState } from '@/components/states/loading-state';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { apiFetch } from '@/lib/fetch';
 import {
   canRevoke,
@@ -64,6 +65,7 @@ export default function InvitesPage() {
   const [result, setResult] = useState<CreateResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [rowError, setRowError] = useState<Record<string, string>>({});
+  const [revokeTarget, setRevokeTarget] = useState<Invite | null>(null);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = useState('');
 
@@ -119,6 +121,8 @@ export default function InvitesPage() {
       void load();
     } catch (err: unknown) {
       setRowError((prev) => ({ ...prev, [id]: err instanceof Error ? err.message : 'Revoke failed.' }));
+    } finally {
+      setRevokeTarget(null);
     }
   }
 
@@ -242,7 +246,7 @@ export default function InvitesPage() {
                     {canRevoke(inv.status) ? (
                       <button
                         type="button"
-                        onClick={() => void handleRevoke(inv.id)}
+                        onClick={() => setRevokeTarget(inv)}
                         className="text-sm text-danger hover:underline"
                       >
                         Revoke
@@ -257,6 +261,13 @@ export default function InvitesPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {revokeTarget && (
+        <ConfirmDialog title="Revoke invitation" confirmLabel="Revoke" danger
+          onCancel={() => setRevokeTarget(null)} onConfirm={() => void handleRevoke(revokeTarget.id)}>
+          <p>Revoke the invitation for <strong className="text-ink">{revokeTarget.email}</strong>?</p>
+          <p>The link stops working at once. You can send a new invitation later.</p>
+        </ConfirmDialog>
       )}
     </PageTransition>
   );

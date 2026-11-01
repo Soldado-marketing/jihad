@@ -72,6 +72,17 @@ type Row = { action: string; resource: string };
 const same = (a: Row, b: Row) => a.action === b.action && a.resource === b.resource;
 
 /**
+ * Whether a stored grant row may still open a route for a member with `role`.
+ * Rows of explicit grants apply only to the roles those grants are for: a
+ * manager's invoice rows must not keep working after the member becomes a
+ * CLIENT or CONTRACTOR. Rows that belong to no explicit grant are unaffected.
+ */
+export function grantRowFitsRole(row: Row, role: string): boolean {
+  const owners = EXPLICIT_GRANT_KEYS.filter((g) => EXPLICIT_GRANTS[g].rows.some((r) => same(r, row)));
+  return owners.length === 0 || owners.some((g) => (EXPLICIT_GRANTS[g].roles as readonly string[]).includes(role));
+}
+
+/**
  * The rows to write when `grant` is switched on or off. Grants share rows
  * (invoice read is part of three of them), so a row stays granted while any
  * other grant the member keeps still needs it: removing "edit" keeps "read"

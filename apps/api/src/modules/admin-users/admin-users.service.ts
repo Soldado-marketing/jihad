@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -404,7 +405,7 @@ export class AdminUsersService {
     tenantId: string,
   ) {
     await this.requireOwner(actorId, tenantId);
-    const clientScopeKey = clientScopeKeyForRole(dto.role, dto.clientScopeKey);
+    const clientScopeKey = await this.clientScopeKeyForChange(tenantId, dto);
 
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
@@ -415,21 +416,34 @@ export class AdminUsersService {
 
     const targetMembership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId: targetUserId } },
-      select: { id: true, role: true, clientScopeKey: true },
+      select: { id: true, role: true, status: true, clientScopeKey: true },
     });
 
     if (!targetMembership) throw new ForbiddenException('User is not a member of this tenant.');
 
+    // Owners (and so the last Owner) are never changed here; nobody becomes an Owner here.
     if (targetMembership.role === 'OWNER') {
       throw new ForbiddenException('Owner role cannot be changed through this endpoint.');
+    }
+    if (targetMembership.status !== 'ACTIVE') {
+      throw new ForbiddenException('Only active members can change role.');
     }
 
     const previousRole = targetMembership.role;
 
-    await this.prisma.tenantMembership.update({
-      where: { tenantId_userId: { tenantId, userId: targetUserId } },
-      data: { role: dto.role as any, clientScopeKey },
-    });
+    // Role and permissions change as one unit: grants given for the old role
+    // (invoices for a manager, all tasks for an employee, custom rows) are
+    // removed, so they never carry over to the new role. Company switching is
+    // separate from the role and stays as it was.
+    const [, cleared] = await this.prisma.$transaction([
+      this.prisma.tenantMembership.update({
+        where: { tenantId_userId: { tenantId, userId: targetUserId } },
+        data: { role: dto.role as any, clientScopeKey, visibilityScope: effectiveVisibilityScope(dto.role) },
+      }),
+      this.prisma.membershipPermission.deleteMany({
+        where: { membershipId: targetMembership.id, NOT: { action: 'switch', resource: 'tenant' } },
+      }),
+    ]);
 
     const actorMembership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId: actorId } },
@@ -450,9 +464,29 @@ export class AdminUsersService {
         newRole: dto.role,
         previousClientScopeKey: targetMembership.clientScopeKey,
         clientScopeKey,
+        permissionsCleared: cleared.count,
       },
     });
 
     return { message: 'Role updated.' };
+  }
+
+  /** The client scope for a role change: a Customer of this company, or an explicit key (CLIENT only). */
+  private async clientScopeKeyForChange(tenantId: string, dto: ChangeRoleDto): Promise<string | null> {
+    if (dto.customerId === undefined) return clientScopeKeyForRole(dto.role, dto.clientScopeKey);
+    if (dto.role !== 'CLIENT' || dto.clientScopeKey !== undefined) {
+      throw new BadRequestException({
+        code: 'CLIENT_SCOPE_NOT_ALLOWED',
+        message: 'customerId applies to the CLIENT role only, instead of clientScopeKey.',
+      });
+    }
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: dto.customerId, tenantId, status: 'ACTIVE' },
+      select: { clientScopeKey: true },
+    });
+    if (!customer) {
+      throw new BadRequestException({ code: 'CLIENT_SCOPE_REQUIRED', message: 'Choose an active customer of this company.' });
+    }
+    return customer.clientScopeKey;
   }
 }

@@ -117,6 +117,13 @@ export class AuthController {
     return this.authService.setMemberGrant(user, userId, grant as ExplicitGrant, body.enabled);
   }
 
+  @Post('company-members/:userId/remove')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  removeMember(@CurrentUser() user: JwtPayload, @Param('userId') userId: string) {
+    return this.authService.removeMember(user, userId);
+  }
+
   @Patch('company-members/:userId/switch')
   @UseGuards(JwtAuthGuard)
   setCompanySwitchPermission(
