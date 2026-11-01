@@ -29,6 +29,7 @@ export function TaskCard({ task, attachmentCount, onOpen, onDragStart }: TaskCar
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8, scale: 0.97 }}
       transition={{ duration: 0.18 }}
+      data-task-card={task.id}
       draggable
       onDragStart={(e) => onDragStart(e as unknown as React.DragEvent, task.id)}
       onClick={() => onOpen(task)}

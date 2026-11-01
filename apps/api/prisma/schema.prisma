@@ -306,6 +306,7 @@ model Tenant {
   dashboardWidgets DashboardWidget[]
   registrationRequests RegistrationRequest[]
   labels               Label[]
+  taskLists            TaskList[]
   taskLabels           TaskLabel[]
   customers   Customer[]
   emailMessages        EmailMessage[]
@@ -529,6 +530,7 @@ model Project {
   voiceNotes  VoiceNote[]    @relation("VoiceNoteProject")
   invoices    Invoice[]      @relation("InvoiceProject")
   timeEntries TimeEntry[]
+  taskLists   TaskList[]
 
   @@index([tenantId, status])
   @@index([tenantId, clientVisible])
@@ -608,6 +610,12 @@ model Task {
   voiceNotes       VoiceNote[]  @relation("VoiceNoteTask")
   labels           TaskLabel[]
   timeEntries TimeEntry[]
+  // Board list (custom, per project). Null: shown in the list mapped to its
+  // status. The second relation is the database guarantee that the list is in
+  // the task's own tenant and project; it is checked only while projectId is set.
+  listId           String?
+  list             TaskList?    @relation("TaskListCards", fields: [listId], references: [id], onDelete: SetNull)
+  listInProject    TaskList?    @relation("TaskListSameProject", fields: [listId, tenantId, projectId], references: [id, tenantId, projectId], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([tenantId, status])
   @@index([tenantId, priority])
@@ -616,6 +624,7 @@ model Task {
   @@index([tenantId, clientVisible])
   @@index([tenantId, clientScopeKey])
   @@index([tenantId, sortOrder])
+  @@index([tenantId, listId, sortOrder])
 }
 
 model Subtask {
@@ -1387,3 +1396,26 @@ model EmailEvent {
   @@index([tenantId])
 }
 
+
+/// A project's board list (Trello-style). Names and order are the project's
+/// own workflow; Task.status stays the internal state used by reports, My Work
+/// and permissions. Lists are archived, never deleted by the API.
+model TaskList {
+  id         String      @id @default(cuid())
+  tenantId   String
+  projectId  String
+  name       String
+  sortOrder  Float
+  /// Status a card takes when moved into this list; null keeps its status.
+  status     TaskStatus?
+  archivedAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks      Task[]      @relation("TaskListCards")
+  sameProjectTasks Task[] @relation("TaskListSameProject")
+
+  @@unique([id, tenantId, projectId])
+  @@index([tenantId, projectId, archivedAt, sortOrder])
+}

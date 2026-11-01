@@ -1,5 +1,6 @@
 'use client';
 import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import { getStoredUser } from '@/lib/auth';
@@ -227,7 +228,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       )}
       <div className="rounded-xl border border-line bg-white overflow-hidden">
         <div className="px-5 py-3 border-b border-line bg-slate-50">
-          <h2 className="text-sm font-semibold text-muted uppercase tracking-wide">Tasks ({project.tasks?.length ?? 0})</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-muted uppercase tracking-wide">Tasks ({project.tasks?.length ?? 0})</h2>
+            <Link href={`/projects/${encodeURIComponent(project.id)}/board`} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent">
+              Open board
+            </Link>
+          </div>
         </div>
         {(!project.tasks || project.tasks.length === 0) && (
           <p className="text-center text-sm text-muted py-8">No tasks yet. Add one above.</p>
