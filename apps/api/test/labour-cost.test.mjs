@@ -17,13 +17,13 @@ describe('ADR-018 rate resolution', () => {
   };
 
   it('a member rate beats the role default, which beats the tenant default', () => {
-    assert.deepEqual(lc.resolveRate(sources, '2026-10-13'), { rateCents: 5000, currency: 'EUR', source: 'MEMBER' });
-    assert.deepEqual(lc.resolveRate({ ...sources, member: [] }, '2026-10-13'), { rateCents: 4200, currency: 'EUR', source: 'ROLE' });
-    assert.deepEqual(lc.resolveRate({ tenant: sources.tenant }, '2026-10-13').source, 'TENANT');
+    assert.deepEqual(lc.resolveRate(sources, '2026-10-13'), { rateCents: 5000, currency: 'EUR', rateSource: 'MEMBER' });
+    assert.deepEqual(lc.resolveRate({ ...sources, member: [] }, '2026-10-13'), { rateCents: 4200, currency: 'EUR', rateSource: 'ROLE' });
+    assert.deepEqual(lc.resolveRate({ tenant: sources.tenant }, '2026-10-13').rateSource, 'TENANT');
   });
 
   it('uses the rate in force on the entry date: an entry before a new rate keeps the old one', () => {
-    assert.equal(lc.resolveRate(sources, '2026-09-30').source, 'ROLE', 'member rate not yet valid');
+    assert.equal(lc.resolveRate(sources, '2026-09-30').rateSource, 'ROLE', 'member rate not yet valid');
     assert.equal(lc.resolveRate(sources, '2026-09-30').rateCents, 4200);
     assert.equal(lc.resolveRate(sources, '2026-06-30').rateCents, 4000);
     assert.equal(lc.resolveRate(sources, '2026-10-01').rateCents, 5000, 'valid from that day');
