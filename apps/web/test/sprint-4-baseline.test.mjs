@@ -60,6 +60,13 @@ describe('Sprint 4 client portal frontend boundary baseline', () => {
     }
   });
 
+  it('lets a client sign out from the portal with the shared account menu', () => {
+    const topbar = readWeb('src/components/client-portal/client-topbar.tsx');
+
+    assert.match(topbar, /import \{ UserMenu \} from '@\/components\/shell\/user-menu'/);
+    assert.match(topbar, /<UserMenu role="CLIENT" \/>/);
+  });
+
   it('keeps client navigation separate from internal workspace navigation', () => {
     const clientNavigation = readWeb('src/navigation/client-navigation.ts');
     const workspaceNavigation = readWeb('src/navigation/navigation.ts');

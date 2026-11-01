@@ -1,5 +1,6 @@
 'use client';
 import { CompanySwitcher } from '@/components/shell/company-switcher';
+import { UserMenu } from '@/components/shell/user-menu';
 
 export function ClientTopbar() {
   return (
@@ -10,9 +11,10 @@ export function ClientTopbar() {
         </p>
         <h1 className="text-xl font-semibold text-ink">Client workspace</h1>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 max-w-full items-center gap-3">
         <CompanySwitcher />
         <span className="rounded-xl border border-line bg-white px-3 py-2 text-xs font-bold text-slate-700">Client-safe view</span>
+        <UserMenu role="CLIENT" />
       </div>
     </header>
   );
