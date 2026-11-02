@@ -133,6 +133,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Tests: new `test/team-access.test.mjs` (10); `access-scope`, `dashboard-roles`, `explicit-grants`, `global-search`, `invites`, `member-management` follow the moved paths / new hrefs. Web typecheck, `next build` and 301/301 tests green locally; CI pending at checkpoint.
 - Not done: production acceptance NOT VERIFIED (not deployed); owner decision O14 (release approval for #137).
 
+## 2026-11-03 — F01 invoice list on a 375 px phone (draft PR #138)
+
+- `/finance/invoices`: under `md` one card per invoice (number as the link, status badge, project, total/due as a two-column `<dl>`); from `md` up the table as before, with `aria-label="Invoices"` on both. Long numbers wrap (`min-w-0 break-words`), project names truncate, the badge never shrinks.
+- `/finance/invoices/[id]`: the line-item table sits in an `overflow-x-auto` box (`min-w-[28rem]`), so it scrolls inside its card, not the page.
+- `/client/invoices` was already a single-column wrapping card list; unchanged, pinned by the test.
+- Tests: new `test/invoice-table-mobile.test.mjs` (5). Web typecheck, `next build`, 296/296 green. E01 PR #137 CI: SUCCESS on all three jobs.
+- Not done: live 375 px browser check (needs an authenticated workspace with invoices); production acceptance NOT VERIFIED (not deployed); owner decision O15 (release approval for #138).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -151,3 +159,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O12 | Accept legacy Office binaries (`.doc/.xls/.ppt`) as uploads, or keep OOXML only; merge test PR #135 | C03 |
 | O13 | Release approval for draft PR #136 (D02 work requests; API + web redeploy) | D02 |
 | O14 | Release approval for draft PR #137 (E01 Team & Access; web redeploy) | E01 |
+| O15 | Release approval for draft PR #138 (F01 invoice list on mobile; web redeploy) | F01 |
