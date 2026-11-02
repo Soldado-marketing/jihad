@@ -118,7 +118,8 @@ Preserve (regression-guarded in CI): deliveries and approvals, revision requests
 | J03 | Complete tenant isolation (finance, projects, files, customers, banking, notifications) | DONE (continuous) | — | Gates 1–3, `TenantContextModule`, tenant-scoped repositories, security suites in CI (`CROSS_CLIENT_LEAKS = 0`) | Every new module adds to the isolation suites | many | deployed |
 | J04 | Different roles for the same user in different companies | DONE | — | `TenantMembership` per tenant; #112, #114, #124 | CI suites | #112, #114, #124 | deployed |
 | J05 | Owner Control Center across companies | DONE | — | #123 | web tests | #123 | deployed |
-| J06 | Verification pass: switching, session context, authorization, caching, direct API access | READY | J02–J05 | Directive asks to verify, not rebuild: scripted probes with two fictional companies on the isolated stack (stale JWT after switch, cached pages, direct IDs across companies) | Probe matrix PASS, gaps become tasks | — | — |
+| J06 | Verification pass: switching, session context, authorization, caching, direct API access | DONE_ISOLATED | J02–J05 | 2026-11-02: 32 probes on the isolated stack with three fictional companies (PROGRESS). Switching, session revocation, refresh-token revocation, per-id 404s across companies, clean lists, header forgery ignored, role-per-company enforcement: all PASS. One gap → J07 | Probe matrix PASS; gap recorded as J07 | — | production NOT VERIFIED (same code; probes are isolated) |
+| J07 | `Cache-Control: no-store` on every `/api` response | READY | J06 | API responses carry no caching header today; add a global header (one middleware/interceptor in `apps/api/src/common`), keep signed download redirects as they are | Web + API test: every JSON response has `Cache-Control: no-store`; CI suites unchanged | — | — |
 
 ## K — MAOS Finance: full accounting (P1, Phase 4)
 

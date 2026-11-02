@@ -76,6 +76,24 @@ Container `maos-b03-pg` (postgres:18, throw-away passwords in files, never print
 
 Conclusion: the plan is safe to apply as written. Production application remains owner decision O10 (roles via the private tunnel, `DATABASE_URL` on `jihad`, Keychain item for the backup). Container removed after the run.
 
+## 2026-11-02 — J06 multi-company verification (isolated stack, fictional data)
+
+API from `main` code on the isolated database (three fictional companies: the owner is OWNER in `soldado-demo` and `second-studio`, MANAGER in `third-agency`; an employee belongs to one company; a manager to two). Probe script kept in the session scratchpad (`demo/j06-probes.sh`); 32 probes, all read-only except the switches themselves.
+
+| Area | Probe | Result |
+|---|---|---|
+| Switching | OWNER switches A→B and B→C; refused for a tenant without membership (403) and for the current tenant (400) | PASS |
+| Session context | After a switch the previous JWT is refused everywhere (401), and the pre-switch refresh token cannot revive it (401) | PASS |
+| Direct API access | With a B token every A resource by id answers 404: project, task, invoice, invoice PDF, file, file download, complaint, activity timeline; PATCH and DELETE on an A project 404 (a 400 appears only when body validation fails, identical for a nonexistent id, so no existence leak) | PASS |
+| Lists | B lists of projects, invoices, files and notifications contain no A id | PASS |
+| Header forgery | `x-tenant-id` / `x-actor-role` on a B token change nothing | PASS |
+| Role per company | Same user as MANAGER in C: OWNER-only routes refused (403): admin requests, finance summary, company members, audit events | PASS |
+| Switch rights | Employee of one company: `canSwitch` false, switch 403. MANAGER in two companies may switch by default unless the owner turned it off (`companySwitchAllowed`: OWNER always, explicit override wins, else MANAGER only) — matches `docs/MAOS_COMPANY_SWITCH_ACCESS.md` | PASS (by design) |
+| Caching | API responses carry no `Cache-Control` header. Authenticated JSON without validators is not cached heuristically by browsers, and the web app re-fetches on company switch, but an explicit `Cache-Control: no-store` on every `/api` response would make this a guarantee instead of a browser default | GAP → J07 |
+| Search | Global search for an A project name from a C token returns nothing; the A owner's search also returned nothing for that term, so the probe is not conclusive | NOT CONCLUSIVE (covered by the `global-search` permission tests in CI) |
+
+Conclusion: J02–J05 hold under direct API probing; one hardening gap (J07) recorded. Isolated API stopped, demo containers stopped and kept.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
