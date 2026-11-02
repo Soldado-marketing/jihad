@@ -12,7 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { FileVersionsService } from '../file-versions/file-versions.service';
-import { safeClientFilename } from '../file-versions/client-file-privacy';
+import { deliveryKind, safeClientFilename } from '../file-versions/client-file-privacy';
 import { extensionOf } from '../storage/object-key';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -189,11 +189,12 @@ export class DeliveriesService {
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true, title: true, status: true, createdAt: true, updatedAt: true,
-        fileVersion: { select: { versionNumber: true } },
+        fileVersion: { select: { versionNumber: true, originalName: true } },
         fileAsset: { select: { project: { select: { id: true, name: true } }, task: { select: { project: { select: { id: true, name: true } } } } } },
       },
     });
     return rows.map((r) => ({
+      kind: deliveryKind(extensionOf(r.fileVersion?.originalName ?? r.title)),
       id: r.id, title: r.title, status: r.status, createdAt: r.createdAt, updatedAt: r.updatedAt,
       versionNumber: r.fileVersion?.versionNumber ?? null,
       project: r.fileAsset?.project ?? r.fileAsset?.task?.project ?? null,
@@ -251,6 +252,7 @@ export class DeliveriesService {
         fileAssetId: delivery.fileAssetId, fileVersionId: delivery.fileVersionId,
         versionNumber: delivery.fileVersion?.versionNumber ?? null,
         name: safeClientFilename(delivery.title, delivery.fileVersion?.versionNumber ?? null, extensionOf(delivery.fileVersion?.originalName ?? delivery.title)),
+        kind: deliveryKind(extensionOf(delivery.fileVersion?.originalName ?? delivery.title)),
         sizeBytes: delivery.fileVersion?.sizeBytes ?? null, mimeType: delivery.fileAsset?.mimeType ?? null,
       },
       canDecide: actor.role === MembershipRole.CLIENT && delivery.status === ApprovalStatus.REQUESTED,

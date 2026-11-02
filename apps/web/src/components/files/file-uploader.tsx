@@ -24,17 +24,18 @@ export function FileUploader({
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [link, setLink] = useState('');
 
   const busy = progress !== null;
 
-  async function handleUpload() {
-    if (!selected) return;
+  async function handleUpload(file: File | null = selected) {
+    if (!file) return;
     setError(null);
     setDone(null);
     setProgress(0);
 
     const body = new FormData();
-    body.append('file', selected);
+    body.append('file', file);
 
     try {
       const version = await apiUpload<{ versionNumber: number }>(
@@ -44,12 +45,25 @@ export function FileUploader({
       );
       setDone(`Uploaded as version ${version?.versionNumber ?? '—'}.`);
       setSelected(null);
+      setLink('');
       if (inputRef.current) inputRef.current.value = '';
       onUploaded?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
       setProgress(null);
+    }
+  }
+
+  // A link (Google Drive, Dropbox…) is stored as a small Internet-shortcut
+  // file, so it is versioned, reviewed and checked like any other upload.
+  function linkFile(): File | null {
+    try {
+      const url = new URL(link.trim());
+      if (url.protocol !== 'https:') return null;
+      return new File([`[InternetShortcut]\r\nURL=${url.href}\r\n`], 'link.url', { type: 'text/plain' });
+    } catch {
+      return null;
     }
   }
 
@@ -81,11 +95,31 @@ export function FileUploader({
         />
         <button
           type="button"
-          onClick={handleUpload}
+          onClick={() => void handleUpload()}
           disabled={!selected || busy}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {busy ? 'Uploading…' : 'Upload'}
+        </button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          type="url"
+          value={link}
+          onChange={(event) => setLink(event.target.value)}
+          disabled={busy}
+          placeholder="Or paste a link (Google Drive, Dropbox…)"
+          aria-label="Link to share instead of a file"
+          className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-sm text-ink"
+        />
+        <button
+          type="button"
+          onClick={() => void handleUpload(linkFile())}
+          disabled={!linkFile() || busy}
+          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
+        >
+          Add link
         </button>
       </div>
 

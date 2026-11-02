@@ -183,6 +183,7 @@ jobs:
             test/security-gate-explicit-grants.test.mjs \
             test/security-gate-member-management.test.mjs \
             test/security-gate-client-deliveries.test.mjs \
+            test/security-gate-client-portal-v2.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \

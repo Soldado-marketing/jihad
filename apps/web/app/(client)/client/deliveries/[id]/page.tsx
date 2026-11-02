@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { use, useCallback, useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 import { DELIVERY_STATUS_LABEL, threadLine } from '@/lib/deliveries';
+import { KIND_LABEL } from '@/lib/client-portal';
 
 type Detail = {
   id: string;
@@ -13,12 +15,12 @@ type Detail = {
   status: string;
   company: string;
   project: { id: string; name: string } | null;
-  file: { fileAssetId: string; fileVersionId: string | null; versionNumber: number | null; name: string; sizeBytes: number | null };
+  file: { fileAssetId: string; fileVersionId: string | null; versionNumber: number | null; name: string; sizeBytes: number | null; kind?: 'image' | 'pdf' | 'video' | 'link' | 'document' };
   canDecide: boolean;
   thread: { at: string; from: 'client' | 'company'; kind: string; note: string | null; versionNumber: number | null }[];
 };
 
-/** One delivery: open the file, read the conversation, approve or request changes. */
+/** One delivery: see it in the page, download it, approve it or ask for a revision. */
 export default function ClientDeliveryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [d, setD] = useState<Detail | null>(null);
@@ -26,6 +28,9 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState(false);
 
   const load = useCallback(() => {
     apiFetch<Detail>(`/client/deliveries/${id}`)
@@ -34,18 +39,35 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
-  async function download(mode: 'inline' | 'attachment') {
-    if (!d?.file.fileVersionId) return;
+  const contentPath = d?.file.fileVersionId ? `/client/files/${d.file.fileAssetId}/versions/${d.file.fileVersionId}/content` : null;
+  const kind = d?.file.kind ?? 'document';
+
+  // The preview is the same prepared copy a download gives (identifying metadata removed).
+  useEffect(() => {
+    if (!contentPath || kind === 'document') return;
+    let url: string | null = null;
+    apiBlob(`${contentPath}?disposition=inline`, d?.file.name ?? 'file')
+      .then(async ({ blob }) => {
+        if (kind === 'link') {
+          const m = /^URL=(https:\/\/\S+)\s*$/m.exec(await blob.text());
+          setLink(m ? m[1] : null);
+          return;
+        }
+        url = URL.createObjectURL(blob);
+        setPreview({ url, type: blob.type });
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not show this delivery.'));
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [contentPath, kind, d?.file.name]);
+
+  async function download() {
+    if (!contentPath || !d) return;
     setError(null);
     try {
-      const { blob, filename } = await apiBlob(
-        `/client/files/${d.file.fileAssetId}/versions/${d.file.fileVersionId}/content?disposition=${mode}`,
-        d.file.name,
-      );
-      if (mode === 'attachment') return saveBlob(blob, filename);
-      if (!window.open(URL.createObjectURL(blob), '_blank')) saveBlob(blob, filename);
+      const { blob, filename } = await apiBlob(`${contentPath}?disposition=attachment`, d.file.name);
+      saveBlob(blob, filename);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open the file.');
+      setError(err instanceof Error ? err.message : 'Could not download the file.');
     }
   }
 
@@ -58,7 +80,8 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({ decision, ...(note.trim() ? { note: note.trim() } : {}) }),
       });
       setNote('');
-      setDone(decision === 'APPROVE' ? 'Thank you, the delivery is approved.' : 'Thank you, we will work on your changes and send a revision.');
+      setConfirmApprove(false);
+      setDone(decision === 'APPROVE' ? 'Thank you, the delivery is approved.' : 'Thank you, we will work on your revision and send a new version.');
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Your answer could not be saved.');
@@ -72,36 +95,46 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="grid gap-6">
-      <Link href="/client/deliveries" className="text-sm text-brand hover:underline">← All deliveries</Link>
+      <Link href="/client/deliveries" className="text-sm text-brand hover:underline">← My Work</Link>
       <PageHeader eyebrow={d.project?.name ?? 'Delivery'} title={d.title} description={`Delivered by ${d.company}`} />
 
-      <section className="rounded-xl border border-line bg-white p-5">
+      <section className="grid gap-4 rounded-xl border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="min-w-0 text-sm text-slate-700">
-            <span className="font-medium text-ink">{d.file.name}</span>
+            <span className="font-medium text-ink">{KIND_LABEL[kind]}</span>
             {d.file.versionNumber ? ` · Version ${d.file.versionNumber}` : ''}
           </p>
           <StatusBadge status={d.status} label={DELIVERY_STATUS_LABEL[d.status]} />
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => void download('inline')} className="rounded-lg border border-line px-3 py-1.5 text-sm">View</button>
-          <button type="button" onClick={() => void download('attachment')} className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Download</button>
-        </div>
+
+        {preview && kind === 'image' && <img src={preview.url} alt={d.title} className="max-h-[70vh] w-full rounded-lg border border-line object-contain" />}
+        {preview && kind === 'video' && <video src={preview.url} controls playsInline className="max-h-[70vh] w-full rounded-lg border border-line bg-black" />}
+        {preview && kind === 'pdf' && <iframe src={preview.url} title={d.title} className="h-[70vh] w-full rounded-lg border border-line" />}
+        {kind === 'link' && (link
+          ? <a href={link} target="_blank" rel="noopener noreferrer" className="inline-block w-fit rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white">Open link ({new URL(link).hostname})</a>
+          : <p className="text-sm text-slate-500">Loading the link…</p>)}
+        {kind === 'document' && <p className="text-sm text-slate-600">This file cannot be shown in the page. Download it to open it.</p>}
+
+        {kind !== 'link' && (
+          <div>
+            <button type="button" onClick={() => void download()} className="rounded-lg border border-line px-3 py-1.5 text-sm">Download</button>
+          </div>
+        )}
       </section>
 
       {d.canDecide && (
         <section aria-labelledby="your-answer" className="rounded-xl border border-line bg-white p-5">
           <h2 id="your-answer" className="font-semibold text-ink">Your answer</h2>
           <label className="mt-3 block text-sm">
-            <span className="mb-1 block text-slate-700">Comments (required when you ask for changes)</span>
+            <span className="mb-1 block text-slate-700">What should we change? (needed for a revision)</span>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={4}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" />
           </label>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" disabled={busy} onClick={() => void decide('APPROVE')}
+            <button type="button" disabled={busy} onClick={() => setConfirmApprove(true)}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Approve</button>
             <button type="button" disabled={busy || note.trim().length < 2} onClick={() => void decide('REQUEST_CHANGES')}
-              className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink disabled:opacity-50">Request changes</button>
+              className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink disabled:opacity-50">Request revision</button>
           </div>
         </section>
       )}
@@ -122,6 +155,14 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
           ))}
         </ol>
       </section>
+
+      {confirmApprove && (
+        <ConfirmDialog title="Approve this delivery?" confirmLabel="Approve" busy={busy}
+          onCancel={() => setConfirmApprove(false)} onConfirm={() => void decide('APPROVE')}>
+          <p>Approving tells us the work is final. You can still download it later from My Work.</p>
+          {note.trim() && <p>Your comment will be sent with the approval.</p>}
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

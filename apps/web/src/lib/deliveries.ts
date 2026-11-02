@@ -1,7 +1,7 @@
 /** What a client reads for a delivery's status (the stored values are approval statuses). */
 export const DELIVERY_STATUS_LABEL: Record<string, string> = {
   REQUESTED: 'Ready for your review',
-  CHANGES_REQUESTED: 'Changes in progress',
+  CHANGES_REQUESTED: 'In revision',
   APPROVED: 'Approved',
 };
 
@@ -11,7 +11,7 @@ export function threadLine(kind: string, from: 'client' | 'company', company: st
   switch (kind) {
     case 'DELIVERED': return `${company} delivered`;
     case 'APPROVE': return `${who} approved`;
-    case 'REQUEST_CHANGES': return `${who} requested changes`;
+    case 'REQUEST_CHANGES': return `${who} asked for a revision`;
     case 'REVISION_SENT': return `${company} sent a revision`;
     default: return who;
   }
