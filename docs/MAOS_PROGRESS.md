@@ -197,6 +197,11 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - "Sees all tasks" review: a per-membership `MembershipPermission` grant read by `resource-scope.service.ts`; OWNER-only to change; cleared by every role change; audited. Nothing changed for any real employee.
 - No application code changed; `ci.yml` gains the suite in the integration batch. Owner decision O21 (merge #143).
 
+## 2026-11-03 — G04 graph freshness recorded; E05 gated
+
+- G04: the per-checkout code graph (`graphify update .`, AST only, no LLM calls) was refreshed after each code task in this session's worktree; latest report 926 files, 10192 nodes, 18198 edges, 721 communities, built from `bb98dfb`. Procedure stays: refresh once after a code-changing task, never commit `graphify-out/`. `graphify-out/` is untracked and not ignored in the repo → O22 (approve adding it to `.gitignore`).
+- E05 needs read-only production access that the owner provides (O23); nothing was read from production in this session (a production variables read was refused by the tool policy and not retried).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -222,3 +227,5 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O19 | Release approval for draft PR #142 (M02 sidebar regroup; web redeploy) | M02 |
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
 | O21 | Merge draft PR #143 (E03 role-transition security gate; test only, CI effect only) | E03 |
+| O22 | Approve adding `graphify-out/` to `.gitignore` (local tooling output) | G04 |
+| O23 | Provide a read-only production path for the removed/test-account review (report only, zero writes) | E05 |
