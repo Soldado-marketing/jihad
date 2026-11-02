@@ -35,25 +35,52 @@ export const navGlyphs: Record<string, string> = {
   reports: 'RE',
   settings: 'SE',
   tasks: 'TA',
+  team: 'TM',
+  requests: 'WR',
   voice: 'VO',
 };
 
+/**
+ * Sidebar groups (M02, owner plan 2026-11-02): Workspace · Company & Team ·
+ * Projects & Delivery · Customers & CRM · Finance & Banking · AI Assistant ·
+ * Reports · Settings. A group is only a heading: visibility still comes from
+ * navigation.ts (`allowedRoles`, grants) through visibleNavGroups, and an
+ * empty group is not rendered (AI Assistant has no item until phase L ships).
+ * Ids that are not in the navigation yet (`team` from E01, `requests` from
+ * D02) already have their slot so neither merge order leaves them without one.
+ */
 export const navGroups = [
   {
-    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
+    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'notifications', 'chat', 'collaboration'],
     label: 'Workspace',
   },
   {
-    ids: ['projects', 'tasks', 'time', 'customers', 'crm'],
-    label: 'Delivery',
+    ids: ['team', 'company-access', 'admin-users', 'admin-invites', 'audit'],
+    label: 'Company & Team',
   },
   {
-    ids: ['collaboration', 'chat', 'notifications'],
-    label: 'Team',
+    ids: ['projects', 'tasks', 'time', 'files', 'approvals', 'voice', 'complaints', 'requests'],
+    label: 'Projects & Delivery',
   },
   {
-    ids: ['files', 'approvals', 'complaints', 'voice', 'finance', 'invoices', 'reports', 'audit', 'data', 'settings'],
-    label: 'Operations',
+    ids: ['customers', 'crm'],
+    label: 'Customers & CRM',
+  },
+  {
+    ids: ['finance', 'invoices'],
+    label: 'Finance & Banking',
+  },
+  {
+    ids: [],
+    label: 'AI Assistant',
+  },
+  {
+    ids: ['reports'],
+    label: 'Reports',
+  },
+  {
+    ids: ['data', 'settings'],
+    label: 'Settings',
   },
 ];
 
