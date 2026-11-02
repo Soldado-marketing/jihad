@@ -141,6 +141,13 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Tests: new `test/invoice-table-mobile.test.mjs` (5). Web typecheck, `next build`, 296/296 green. E01 PR #137 CI: SUCCESS on all three jobs.
 - Not done: live 375 px browser check (needs an authenticated workspace with invoices); production acceptance NOT VERIFIED (not deployed); owner decision O15 (release approval for #138).
 
+## 2026-11-03 — F02 plain-language errors (draft PR #139)
+
+- New `src/lib/api-errors.ts`: `apiErrorMessage(status, body)` returns the API's own sentence when it reads as one written for people (`Invoice not found`, `Only an active version can be delivered.`, class-validator messages joined into one line) and otherwise one plain sentence per status: 400, 404, 409, 410, 413, 415, 422, 429; 5xx "Something went wrong on our side…"; no response "Could not reach the server…". 401 and 403 keep their fixed wording (API reason codes such as `own_entries_only` never reach the screen). Codes, framework defaults (`Not Found`, `Cannot GET /x`), `HTTP 404`, stack and database text are rejected by `isPlainMessage`.
+- `src/lib/fetch.ts`: `apiFetch`, `apiUpload` and `apiBlob` all throw the mapped sentence; network failures map too; `FORBIDDEN_MESSAGE` / `SESSION_EXPIRED_MESSAGE` re-exported so existing imports and the control-center check are unchanged. Pages untouched; clients and staff read the same safe wording.
+- Tests: new `test/plain-language-errors.test.mjs` (10). Web typecheck, `next build`, 301/301 green. F01 PR #138 CI: SUCCESS on all three jobs.
+- Not done: production acceptance NOT VERIFIED (not deployed); owner decision O16 (release approval for #139).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -160,3 +167,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O13 | Release approval for draft PR #136 (D02 work requests; API + web redeploy) | D02 |
 | O14 | Release approval for draft PR #137 (E01 Team & Access; web redeploy) | E01 |
 | O15 | Release approval for draft PR #138 (F01 invoice list on mobile; web redeploy) | F01 |
+| O16 | Release approval for draft PR #139 (F02 plain-language errors; web redeploy) | F02 |
