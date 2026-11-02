@@ -14,6 +14,8 @@ export type QueueApproval = {
   createdAt: string;
   fileAsset?: { id: string; name: string } | null;
   decisions?: { id: string; decision: string; createdAt: string }[];
+  /** A client delivery: the client decides it in the portal, not the queue. */
+  clientVisible?: boolean;
 };
 
 export const WAITING_STATUSES = ['REQUESTED', 'CHANGES_REQUESTED'];

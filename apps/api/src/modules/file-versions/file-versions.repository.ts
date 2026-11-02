@@ -253,4 +253,20 @@ export class FileVersionsRepository {
 
     return approved !== null;
   }
+
+  /**
+   * True when this exact version is a delivery the client is reviewing or was
+   * asked to revise: a client-visible approval in the client's own scope. The
+   * client needs the file to decide; nothing else becomes readable.
+   */
+  async isUnderClientReview(tenantId: string, fileVersionId: string, clientScopeKey: string): Promise<boolean> {
+    const delivery = await this.prisma.approvalRequest.findFirst({
+      where: {
+        tenantId, fileVersionId, clientVisible: true, clientScopeKey,
+        status: { in: [ApprovalStatus.REQUESTED, ApprovalStatus.CHANGES_REQUESTED] },
+      },
+      select: { id: true },
+    });
+    return delivery !== null;
+  }
 }

@@ -377,7 +377,8 @@ export class FileVersionsService {
       });
     }
 
-    const approved = await this.repo.hasApprovedApproval(actor.tenantId, fileAssetId, versionId);
+    const approved = await this.repo.hasApprovedApproval(actor.tenantId, fileAssetId, versionId)
+      || await this.repo.isUnderClientReview(actor.tenantId, versionId, scope);
     if (!approved) {
       await this.recordAudit(actor, 'file.version.download', fileAssetId, {
         outcome: AuditOutcome.BLOCKED,

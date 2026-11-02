@@ -136,6 +136,8 @@ jobs:
       # security-gate-contractor-scope proves a CONTRACTOR sees only assigned work.
       # security-gate-member-management proves role changes drop the old role's
       # permissions, removal ends one company only, and Owners are never changed.
+      # security-gate-client-deliveries proves a client reviews only its own deliveries,
+      # sees the company name only, and change requests reach the assigned employee.
       # client-onboarding-scope proves an approved client gets its client scope.
       # crm-update-validation proves CRM updates and reports validate their bodies.
       # notification-writers proves events reach only their audience (T47).
@@ -179,6 +181,7 @@ jobs:
             test/security-gate-contractor-scope.test.mjs \
             test/security-gate-explicit-grants.test.mjs \
             test/security-gate-member-management.test.mjs \
+            test/security-gate-client-deliveries.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \

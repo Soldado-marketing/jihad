@@ -65,6 +65,11 @@ export class ApprovalsService {
     if (!(await this.permissions.mayDecideApprovals(tenantId, actorId))) {
       throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'not_an_approver' });
     }
+    // A client delivery is the client's to approve or send back; staff may
+    // only withdraw it (deliveries.service.ts).
+    if (approval.clientVisible && dto.decision !== 'CANCEL') {
+      throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'client_decides_deliveries' });
+    }
     let decision;
     try {
       decision = await this.repo.createDecision(tenantId, actorId, id, dto);

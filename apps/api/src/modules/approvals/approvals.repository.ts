@@ -33,7 +33,7 @@ export class ApprovalsRepository {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true, title: true, status: true, dueAt: true, createdAt: true, updatedAt: true,
-        requestedByUserId: true,
+        requestedByUserId: true, clientVisible: true,
         fileAsset: { select: { id: true, name: true } },
         decisions: { select: { id: true, decision: true, createdAt: true } },
       },
