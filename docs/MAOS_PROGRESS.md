@@ -117,6 +117,13 @@ Conclusion: J02–J05 hold under direct API probing; one hardening gap (J07) rec
 
 Also confirmed: size limit checked before content; empty files refused; double extensions judged by the last one; a renamed file is refused when its bytes disagree; downloads force `attachment` for everything not inline-safe. New `test/file-formats-matrix.test.mjs` (60 tests, in the CI unit gate) pins every row. No behaviour change.
 
+## 2026-11-02 — D02 client requests for new work (draft PR #136)
+
+- API: the problem-report service is now a kind-parameterised conversation service (`KINDS.complaint`, `KINDS.request`); `WorkRequestsService` subclasses it with `resourceType 'request'`, audit resource `WorkRequest`, actions `request.*` and its own notification texts. Controllers `/client/requests` and `/requests` subclass the complaint controllers; `chat.service` excludes both resource types. No migration.
+- Web: `/client/requests` (list + "Request new work" form, detail with reply) and `/requests` (management: open/closed tabs, answer, internal note, close, reopen), derived from the problem-report pages with request wording; notification links; "Work requests" entry in the Operations group (OWNER, MANAGER).
+- Tests: `security-gate-client-work-requests` (10, own fixture prefix, in the CI integration list) and the complaints gate pass together 20/20 on a disposable PG18 (removed afterwards); web 291/291; API and web typecheck clean (API spec-file errors unchanged from main).
+- Not done: a "Request new work" link on the client dashboard (one line once #136 is merged); production acceptance NOT VERIFIED (not deployed).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -133,3 +140,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
 | O11 | Release approval for draft PR #134 (J07 no-store header; API redeploy) | J07 |
 | O12 | Accept legacy Office binaries (`.doc/.xls/.ppt`) as uploads, or keep OOXML only; merge test PR #135 | C03 |
+| O13 | Release approval for draft PR #136 (D02 work requests; API + web redeploy) | D02 |
