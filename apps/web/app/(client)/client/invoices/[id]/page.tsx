@@ -63,9 +63,9 @@ export default function ClientInvoiceDetailPage({ params }: Props) {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Client finance view"
+        eyebrow="Billing"
         title="Invoice detail"
-        description="Invoice summary for your account. Internal cost and margin data are not shown."
+        description="Invoice details and PDF."
       />
       <ClientSafeNotice />
       {error && (

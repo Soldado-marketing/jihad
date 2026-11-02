@@ -67,9 +67,9 @@ export default function ClientFilesPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Client workspace"
+        eyebrow="Files"
         title="Files"
-        description="Files your team has shared with you. Only approved versions appear here."
+        description="Approved files, ready to download."
       />
       <ClientSafeNotice />
       {error && (
@@ -95,7 +95,7 @@ export default function ClientFilesPage() {
                   <li key={version.id} className="flex items-center justify-between gap-4 py-3">
                     <span className="text-sm text-slate-700">
                       Version {version.versionNumber} · {name}
-                      {version.sizeBytes !== undefined && ` · ${version.sizeBytes} B`}
+                      {version.sizeBytes !== undefined && ` · ${version.sizeBytes < 1024 * 1024 ? `${Math.max(1, Math.round(version.sizeBytes / 1024))} KB` : `${(version.sizeBytes / 1024 / 1024).toFixed(1)} MB`}`}
                     </span>
                     <span className="flex gap-2">
                       {PREVIEWABLE.test(name) && (

@@ -11,8 +11,8 @@ export function ClientProjectList({ projects }: { projects: ClientProjectListIte
   if (projects.length === 0) {
     return (
       <EmptyState
-        title="No visible projects"
-        description="Approved project information will appear here when it is available for your account."
+        title="No projects yet"
+        description="Your projects will appear here as soon as we share them with you."
       />
     );
   }
@@ -25,7 +25,7 @@ export function ClientProjectList({ projects }: { projects: ClientProjectListIte
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="font-semibold text-ink">{project.name}</span>
               <span className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-slate-600">
-                {project.status}
+                {({ ACTIVE: 'In progress', PAUSED: 'Paused', ARCHIVED: 'Completed' } as const)[project.status] ?? project.status}
               </span>
             </div>
           </Link>

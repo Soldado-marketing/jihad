@@ -73,7 +73,8 @@ describe('Sprint 4 client portal frontend boundary baseline', () => {
 
     assert.match(clientNavigation, /\/client/);
     assert.match(clientNavigation, /\/client\/projects/);
-    assert.match(clientNavigation, /\/client\/tasks/);
+    assert.match(clientNavigation, /\/client\/deliveries/);
+    assert.doesNotMatch(clientNavigation, /\/client\/tasks/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client'/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client\/projects'/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client\/tasks'/);

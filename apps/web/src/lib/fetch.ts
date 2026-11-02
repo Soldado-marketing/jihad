@@ -105,7 +105,8 @@ export async function apiFetch<T = unknown>(
     let message = `HTTP ${res.status}`;
     try {
       const body = await res.json();
-      message = body.message ?? message;
+      // The API explains refusals in `reason` (as apiBlob reads it below).
+      message = body.reason ?? body.message ?? message;
     } catch {
       // ignore
     }

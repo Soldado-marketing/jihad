@@ -31,7 +31,7 @@ export default function ClientDeliveriesPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Client workspace"
+        eyebrow="Review"
         title="Deliveries"
         description="Work delivered for your review. Approve it, or tell us what to change."
       />
