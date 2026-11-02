@@ -101,6 +101,22 @@ Conclusion: J02–J05 hold under direct API probing; one hardening gap (J07) rec
 - Tests: new `test/no-store-cache.test.mjs` (added to the CI unit gate), four integration-api assertions, hardening regex relaxed for the two-middleware `apply`. Local: unit gate 407/407, integration-api 39/39 on a disposable PG18 (removed afterwards), build OK; typecheck errors identical to main (149, pre-existing jest spec files).
 - Draft PR #134 opened; not merged (owner release approval O11).
 
+## 2026-11-02 — C03 supported formats review (draft PR #135, tests only)
+
+| Format | Accepted | Verified by | Served to the browser |
+|---|---|---|---|
+| PNG, JPG/JPEG, GIF, WEBP | yes | magic bytes (+ WEBP fourcc at byte 8) | inline |
+| PDF | yes | `%PDF-` | inline |
+| TXT, CSV | yes | no NUL byte in the first 4 KiB | attachment |
+| ZIP | yes | PK signatures; never extracted or inspected inside | attachment |
+| DOCX, XLSX, PPTX | yes | PK signatures (OOXML is a ZIP) | attachment |
+| MP4, MOV | yes | `ftyp` / QuickTime atom at byte 4 | inline (portal `<video>` playback) |
+| `.url` link | yes | text; the web wraps a URL into an Internet shortcut; the portal renders it as an external link | attachment |
+| DOC, XLS, PPT (legacy OLE) | no | — | owner decision O12 whether to add |
+| SVG, HTML, JS, EXE, JSON | no (by design) | — | — |
+
+Also confirmed: size limit checked before content; empty files refused; double extensions judged by the last one; a renamed file is refused when its bytes disagree; downloads force `attachment` for everything not inline-safe. New `test/file-formats-matrix.test.mjs` (60 tests, in the CI unit gate) pins every row. No behaviour change.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -116,3 +132,4 @@ Conclusion: J02–J05 hold under direct API probing; one hardening gap (J07) rec
 | O9 | Merge docs PR #133 (planning files) | G03 |
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
 | O11 | Release approval for draft PR #134 (J07 no-store header; API redeploy) | J07 |
+| O12 | Accept legacy Office binaries (`.doc/.xls/.ppt`) as uploads, or keep OOXML only; merge test PR #135 | C03 |
