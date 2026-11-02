@@ -3,14 +3,14 @@ import { AuditOutcome, AuditPermissionResult, ChatChannelType, Prisma } from '@p
 import { AuditService } from '../audit/audit.service';
 import { ResourceScopeService } from '../permissions/resource-scope.service';
 import { ChatRepository } from './chat.repository';
-import { COMPLAINT_RESOURCE } from '../complaints/complaints.service';
+import { CONVERSATION_RESOURCES } from '../complaints/complaints.service';
 
 /**
  * Client problem reports live in channels tagged "complaint" (complaints.service.ts).
  * They are management-only, so the generic chat routes never list or open them,
  * whatever the caller's role. Channels without a resourceType stay visible.
  */
-const NOT_A_COMPLAINT: Prisma.ChatChannelWhereInput = { OR: [{ resourceType: null }, { resourceType: { not: COMPLAINT_RESOURCE } }] };
+const NOT_A_COMPLAINT: Prisma.ChatChannelWhereInput = { OR: [{ resourceType: null }, { resourceType: { notIn: CONVERSATION_RESOURCES } }] };
 
 @Injectable()
 export class ChatService {
