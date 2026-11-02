@@ -148,6 +148,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Tests: new `test/plain-language-errors.test.mjs` (10). Web typecheck, `next build`, 301/301 green. F01 PR #138 CI: SUCCESS on all three jobs.
 - Not done: production acceptance NOT VERIFIED (not deployed); owner decision O16 (release approval for #139).
 
+## 2026-11-03 — F03 deadline-reminders test stabilised (draft PR #140, test only)
+
+- Reproduction on a disposable `postgres:18` (`maos-f03-pg`, migrated, fictional secrets, removed afterwards): the full 44-file CI batch failed **6/6** at `a second run sends nothing new`; a 9-suite subset passed 20/20 — hence "intermittent" in CI, where timing decides whether a sibling suite's due-soon item exists between the two runs.
+- Root cause: the assertion compared the job's returned count (every tenant in the shared database) to 0. `my-work` (task due in 3 h, assigned), `customer-overview` (task due in 24 h, assigned) and `calendar` (requested approval due in range) create such items concurrently. Secondary: `runNow` can answer `skipped_locked` while another instance holds advisory lock 2.
+- Fix in `apps/api/test/deadline-reminders.test.mjs` only: `inOurTenants()` before/after counts replace the global count (both "once" assertions); `run()` retries skipped rounds; new case "another company's due-soon work raises the job count, not ours". `deadline-reminders.job.ts` and `scheduler.service.ts` untouched.
+- Evidence: suite alone 5/5; full batch 20 consecutive runs 459/459 (≈13 s each). F02 PR #139 CI: SUCCESS on all three jobs.
+- Owner decision O17 (merge #140; test-only, no deploy effect).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -168,3 +176,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O14 | Release approval for draft PR #137 (E01 Team & Access; web redeploy) | E01 |
 | O15 | Release approval for draft PR #138 (F01 invoice list on mobile; web redeploy) | F01 |
 | O16 | Release approval for draft PR #139 (F02 plain-language errors; web redeploy) | F02 |
+| O17 | Merge draft PR #140 (F03 test isolation; test only, CI effect only) | F03 |
