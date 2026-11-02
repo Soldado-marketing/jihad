@@ -27,7 +27,7 @@ export class TasksService {
     await this.assertReferences(tenantId, dto);
     const scope = await this.resourceScope.resolveWorkScope(tenantId, actorId);
     this.resourceScope.assertMayUseProject(scope, dto.projectId);
-    const task = await this.tasksRepository.create(tenantId, actorId, dto);
+    const task = await this.tasksRepository.create(tenantId, actorId, dto, await this.projectScope(tenantId, dto.projectId));
     await this.notifyAssignee(tenantId, actorId, task.id, task.title, dto.assignedToUserId);
     return task;
   }
@@ -43,7 +43,9 @@ export class TasksService {
     const before = await this.getTask(tenantId, id, actorId);
     await this.assertReferences(tenantId, dto);
     this.resourceScope.assertMayUseProject(await this.resourceScope.resolveWorkScope(tenantId, actorId), dto.projectId);
-    const task = await this.tasksRepository.update(tenantId, id, dto);
+    // A task belongs to its project's client: moving it moves the client scope with it.
+    const scope = dto.projectId !== undefined ? await this.projectScope(tenantId, dto.projectId) : undefined;
+    const task = await this.tasksRepository.update(tenantId, id, dto, scope);
 
     // Only a CHANGE of assignee is an assignment. Re-saving a task with the
     // same assignee must not notify them again.
@@ -80,6 +82,17 @@ export class TasksService {
       resourceType: 'task',
       resourceId: taskId,
     });
+  }
+
+  /**
+   * The client scope a task inherits from its project (ADR-017: the project
+   * carries the customer link). A task without a project belongs to no client,
+   * so sharing it never reaches a client portal.
+   */
+  private async projectScope(tenantId: string, projectId: string | null | undefined): Promise<string | null> {
+    if (!projectId) return null;
+    const project = await this.prisma.project.findFirst({ where: { id: projectId, tenantId }, select: { clientScopeKey: true } });
+    return project?.clientScopeKey ?? null;
   }
 
   /** Body references (project, assignee) must belong to the caller's tenant. */
