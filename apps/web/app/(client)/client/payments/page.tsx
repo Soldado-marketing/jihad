@@ -32,9 +32,9 @@ export default function ClientPaymentsPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Client finance view"
+        eyebrow="Billing"
         title="Payments"
-        description="Payment summaries for invoices linked to your account."
+        description="Payments we have received for your invoices."
       />
       <ClientSafeNotice />
       {loading ? (

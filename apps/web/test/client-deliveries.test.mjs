@@ -11,6 +11,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 import { DELIVERY_STATUS_LABEL, threadLine } from '../src/lib/deliveries.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,5 +53,22 @@ describe('staff side', () => {
 
   it('leaves client deliveries to the client in the approvals queue', () => {
     assert.match(read('app/(workspace)/approvals/page.tsx'), /a\.clientVisible && a\.fileAsset/);
+  });
+});
+
+describe('client portal wording', () => {
+  it('speaks to the client, not in technical terms, and shows no task counters', () => {
+    const { readdirSync, statSync } = require('node:fs');
+    const walk = (dir) => readdirSync(join(root, dir)).flatMap((n) => {
+      const p = `${dir}/${n}`;
+      return statSync(join(root, p)).isDirectory() ? walk(p) : [p];
+    });
+    // The old task views are no longer reachable (the routes redirect to deliveries).
+    const portal = [...walk('app/(client)'), ...walk('src/components/client-portal'), 'src/components/dashboard/client-dashboard-summary.tsx']
+      .filter((f) => !/client-task-/.test(f)).map(read).join('\n');
+    for (const phrase of [/Portal foundation/i, /suppressed/i, /Client finance view/i, /margin/i, /Reference:/, /Client-safe (view|workspace)/i, /Client-visible task/i, /visible to your account/i]) {
+      assert.doesNotMatch(portal, phrase);
+    }
+    assert.doesNotMatch(read('src/components/dashboard/client-dashboard-summary.tsx'), /tasks|client-summary/);
   });
 });

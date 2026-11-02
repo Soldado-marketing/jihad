@@ -65,6 +65,7 @@ export class FilesRepository {
       select: {
         id: true, name: true, mimeType: true, versionCount: true, createdAt: true,
         project: { select: { id: true, name: true } },
+        task: { select: { project: { select: { id: true, name: true } } } },
         versions: {
           where: {
             status: FileVersionStatus.ACTIVE,

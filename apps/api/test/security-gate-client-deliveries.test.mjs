@@ -54,6 +54,9 @@ const call = (token, method, path, body) => {
   const req = request(server)[method](path).set('Authorization', `Bearer ${token}`);
   return body ? req.send(body) : req;
 };
+// Stored objects for this suite (the real bucket is unroutable): one clean PDF per key unless set otherwise.
+const objects = new Map();
+const pdfBytes = (label) => Buffer.from(`%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n3 0 obj << /Author (${label}) /Producer (Tool) >> endobj\ntrailer << /Root 1 0 R /Info 3 0 R >>\n%%EOF\n`, 'latin1');
 const submit = (token, file, version, message) => call(token, 'post', '/api/deliveries', { fileAssetId: file.id, fileVersionId: version.id, ...(message ? { message } : {}) });
 const content = (token, file, version) => call(token, 'get', `/api/client/files/${file.id}/versions/${version.id}/content`);
 async function fileWithVersions(tenant, label, links, count) {
@@ -64,6 +67,7 @@ async function fileWithVersions(tenant, label, links, count) {
       data: { tenantId: tenant.id, fileAssetId: asset.id, versionNumber: n, originalName: `${label}-v${n}.pdf`, sizeBytes: 100, storageKey: `tenants/${tenant.id}/files/${asset.id}/v${n}/${label}.pdf` },
     }));
   }
+  for (const v of versions) objects.set(v.storageKey, pdfBytes(`${label} v${v.versionNumber} by ${p.employee?.name ?? 'staff'}`));
   return { asset, versions };
 }
 /** No staff identity may appear in anything a client receives. */
@@ -95,6 +99,13 @@ before(async () => {
   request = require('supertest');
   const { PrismaService } = require(join(apiRoot, 'dist/modules/prisma/prisma.service.js'));
   prisma = app.get(PrismaService);
+  const { StorageService } = require(join(apiRoot, 'dist/modules/storage/storage.service.js'));
+  const { Readable } = require('node:stream');
+  app.get(StorageService).getObjectStream = async (key) => {
+    const body = objects.get(key);
+    if (!body) throw new Error('no such object');
+    return { stream: Readable.from([body]), contentLength: body.length, contentType: 'application/pdf' };
+  };
 
   co.a = await prisma.tenant.create({ data: { name: `Agency A ${RUN}`, slug: `${RUN}-a`, status: 'ACTIVE' } });
   co.b = await prisma.tenant.create({ data: { name: `Agency B ${RUN}`, slug: `${RUN}-b`, status: 'ACTIVE' } });
@@ -132,6 +143,11 @@ describe('Delivery: who may send work to the client', { skip }, () => {
     assert.equal((await submit(p.ownerBToken, rec.x.asset, v1)).status, 404, 'other company');
     assert.equal((await submit(p.employeeToken, rec.internal.asset, rec.internal.versions[0])).status, 409, 'project not shared with a client');
     assert.equal((await submit(p.employeeToken, rec.x.asset, rec.internal.versions[0])).status, 404, 'version of another file');
+    const office = await fileWithVersions(co.a, 'deck', { taskId: rec.x.asset.taskId }, 1);
+    await prisma.fileVersion.update({ where: { id: office.versions[0].id }, data: { originalName: 'deck-v1.pptx' } });
+    const refused = await submit(p.employeeToken, office.asset, office.versions[0]);
+    assert.equal(refused.status, 422, 'an Office file is not sent to a client');
+    assert.match(JSON.stringify(refused.body), /FILE_NOT_CLEARED_FOR_CLIENT/);
   });
 
   it('the assigned employee sends version 1 and only that client is notified', async () => {
@@ -163,7 +179,12 @@ describe('Delivery: the client sees only its own work, under the company name', 
   });
 
   it('client X may open the delivered version, not the undelivered one', async () => {
-    assert.notEqual((await content(p.clientXToken, rec.x.asset, rec.x.versions[0])).status, 403, 'delivered version');
+    const got = await content(p.clientXToken, rec.x.asset, rec.x.versions[0]).buffer(true).parse((res, cb) => { const c = []; res.on('data', (d) => c.push(d)); res.on('end', () => cb(null, Buffer.concat(c))); });
+    assert.equal(got.status, 200, 'delivered version');
+    assert.equal(got.headers['content-disposition'], `attachment; filename="video ${RUN} v1.pdf"`, 'neutral client file name');
+    assert.ok(!got.body.toString('latin1').includes(p.employee.name), 'author removed from the client copy');
+    assert.equal(got.body.length, objects.get(rec.x.versions[0].storageKey).length, 'same length, offsets intact');
+    assert.ok(objects.get(rec.x.versions[0].storageKey).toString('latin1').includes(p.employee.name), 'the stored original is unchanged');
     assert.equal((await content(p.clientXToken, rec.x.asset, rec.x.versions[1])).status, 403, 'version 2 not delivered');
   });
 

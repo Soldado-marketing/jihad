@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { assertProjectInTenant, assertTaskInTenant } from '../../common/tenant/tenant-references';
 import { ClientScopeService } from '../memberships/client-scope.service';
+import { safeClientFilename } from '../file-versions/client-file-privacy';
+import { extensionOf } from '../storage/object-key';
 import {
   UnsafeObjectKeyError,
   assertKeyBelongsToTenant,
@@ -39,7 +41,16 @@ export class FilesService {
   /** Client-portal list: the caller's client scope, client-visible, approved only. */
   async listForClient(tenantId: string, actorId: string, role: string) {
     const scope = await this.clientScope.resolve(tenantId, actorId, role);
-    return this.repo.listForClient(tenantId, scope);
+    const files = await this.repo.listForClient(tenantId, scope);
+    // Clients see the deliverable's title and version, never the uploaded file name.
+    return files.map(({ task, ...file }) => ({
+      ...file,
+      project: file.project ?? task?.project ?? null,
+      versions: file.versions.map((v) => ({
+        ...v,
+        originalName: safeClientFilename(file.name, v.versionNumber, extensionOf(v.originalName ?? file.name)),
+      })),
+    }));
   }
 
   async create(tenantId: string, actorId: string, dto: CreateFileDto) {

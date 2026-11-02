@@ -5,11 +5,15 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ApprovalStatus, FileVersionStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { ClientScopeService } from '../memberships/client-scope.service';
+import { FileVersionsService } from '../file-versions/file-versions.service';
+import { safeClientFilename } from '../file-versions/client-file-privacy';
+import { extensionOf } from '../storage/object-key';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientDeliveryDecisionDto, SubmitDeliveryDto } from './dto/delivery.dto';
@@ -45,6 +49,7 @@ export class DeliveriesService {
     private readonly clientScope: ClientScopeService,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
+    private readonly fileVersions: FileVersionsService,
   ) {}
 
   // ── Staff ──────────────────────────────────────────────────────────────────
@@ -102,6 +107,11 @@ export class DeliveriesService {
     if (previous && (previous.fileVersion?.versionNumber ?? 0) >= version.versionNumber) {
       throw new ConflictException({ code: 'NEW_VERSION_REQUIRED', reason: 'Upload a new version with the changes first.' });
     }
+
+    // Never send what the client could not open: the client copy is checked
+    // first (identifying metadata removed, or a reason to fix the file).
+    const release = await this.fileVersions.clientReleaseCheck(tenantId, asset.id, version.id);
+    if (!release.ok) throw new UnprocessableEntityException({ code: 'FILE_NOT_CLEARED_FOR_CLIENT', reason: release.reason });
 
     const delivery = await this.prisma.$transaction(async (tx) => {
       if (previous) {
@@ -242,7 +252,8 @@ export class DeliveriesService {
       project: delivery.fileAsset?.project ?? delivery.fileAsset?.task?.project ?? null,
       file: {
         fileAssetId: delivery.fileAssetId, fileVersionId: delivery.fileVersionId,
-        versionNumber: delivery.fileVersion?.versionNumber ?? null, name: delivery.fileVersion?.originalName ?? delivery.title,
+        versionNumber: delivery.fileVersion?.versionNumber ?? null,
+        name: safeClientFilename(delivery.title, delivery.fileVersion?.versionNumber ?? null, extensionOf(delivery.fileVersion?.originalName ?? delivery.title)),
         sizeBytes: delivery.fileVersion?.sizeBytes ?? null, mimeType: delivery.fileAsset?.mimeType ?? null,
       },
       canDecide: actor.role === MembershipRole.CLIENT && delivery.status === ApprovalStatus.REQUESTED,

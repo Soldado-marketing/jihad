@@ -32,9 +32,9 @@ export default function ClientInvoicesPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Client finance view"
+        eyebrow="Billing"
         title="Invoices"
-        description="Your invoice records. Margin and restricted finance details remain hidden."
+        description="Invoices issued to your company."
       />
       <ClientSafeNotice />
       {loading ? (

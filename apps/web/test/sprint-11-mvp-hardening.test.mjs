@@ -50,7 +50,9 @@ describe('Sprint 11 MVP frontend hardening regression', () => {
 
     assert.match(clientNavigation, /href: '\/client'/);
     assert.match(clientNavigation, /href: '\/client\/projects'/);
-    assert.match(clientNavigation, /href: '\/client\/tasks'/);
+    // Tasks are internal (owner decision 2026-11-02); clients review deliveries.
+    assert.match(clientNavigation, /href: '\/client\/deliveries'/);
+    assert.doesNotMatch(clientNavigation, /href: '\/client\/tasks'/);
     assert.match(clientNavigation, /href: '\/client\/invoices'/);
     assert.match(clientNavigation, /href: '\/client\/payments'/);
     // /client/files is a client-portal route added in Phase 6, so the check is

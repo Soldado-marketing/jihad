@@ -107,7 +107,8 @@ jobs:
             test/migrate-deploy-one-script.test.mjs \
             test/csv-transfer.test.mjs \
             test/rate-resolution.test.mjs \
-            test/labour-profitability.test.mjs
+            test/labour-profitability.test.mjs \
+            test/client-file-privacy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
       # service above and drives it over HTTP. Green (398/398), so it blocks.
