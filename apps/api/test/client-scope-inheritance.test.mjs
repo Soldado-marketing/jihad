@@ -169,11 +169,34 @@ describe('a task inherits its project client scope', { skip }, () => {
   });
 });
 
+describe('a delivery whose file was deleted', { skip }, () => {
+  it('disappears from the client list instead of opening as "not found"', async () => {
+    const asset = await prisma.fileAsset.create({
+      data: { tenantId, projectId: clientProject, name: `${RUN}-deleted.pdf`, mimeType: 'application/pdf', clientVisible: true, visibility: 'CLIENT_VISIBLE', clientScopeKey: SCOPE, versionCount: 1 },
+      select: { id: true },
+    });
+    const delivery = await prisma.approvalRequest.create({
+      data: { tenantId, fileAssetId: asset.id, title: `${RUN}-deleted.pdf`, status: 'REQUESTED', clientVisible: true, clientScopeKey: SCOPE },
+      select: { id: true },
+    });
+    let list = await auth(clientToken, request(server).get('/api/client/deliveries'));
+    assert.equal(list.status, 200, JSON.stringify(list.body));
+    assert.ok(list.body.some((d) => d.id === delivery.id), 'listed while its file exists');
+
+    await prisma.fileAsset.delete({ where: { id: asset.id } });
+    list = await auth(clientToken, request(server).get('/api/client/deliveries'));
+    assert.ok(!list.body.some((d) => d.id === delivery.id), 'a delivery without a file must not be listed');
+    const one = await auth(clientToken, request(server).get(`/api/client/deliveries/${delivery.id}`));
+    assert.equal(one.status, 404);
+  });
+});
+
 describe('source guard', () => {
   it('tasks resolve the scope from the project, never from the request', () => {
     assert.match(src('modules/tasks/tasks.service.ts'), /private async projectScope\(/);
     assert.match(src('modules/tasks/tasks.service.ts'), /await this\.projectScope\(tenantId, dto\.projectId\)/);
     assert.match(src('modules/projects/projects.service.ts'), /this\.projectsRepository\.retagTasks\(tenantId, id, link\.clientScopeKey\)/);
     assert.doesNotMatch(src('modules/tasks/dto/create-task.dto.ts'), /clientScopeKey/);
+    assert.match(src('modules/approvals/deliveries.service.ts'), /fileAssetId: \{ not: null \},/);
   });
 });
