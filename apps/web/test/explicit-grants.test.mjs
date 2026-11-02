@@ -44,7 +44,8 @@ describe('approval queue', () => {
   const page = read('app/(workspace)/approvals/page.tsx');
   it('asks the API whether the user is an approver and hides decisions otherwise', () => {
     assert.match(page, /apiFetch<\{ canDecide: boolean \}>\('\/approvals\/me'\)/);
-    assert.match(page, /\{tab === 'waiting' && canDecide && \(/);
+    // Client deliveries are decided by the client in the portal, never here.
+    assert.match(page, /\{tab === 'waiting' && canDecide && !a\.clientVisible && \(/);
     assert.match(page, /open=\{selected !== null && canDecide\}/);
   });
 });

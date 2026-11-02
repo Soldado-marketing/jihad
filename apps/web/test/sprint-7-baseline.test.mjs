@@ -75,7 +75,11 @@ describe('Sprint 7 chat, notifications, and realtime frontend baseline', () => {
       .join('\n');
 
     assert.doesNotMatch(clientFiles, /\/chat/);
-    assert.doesNotMatch(clientFiles, /\/notifications/);
+    // The one exception (owner decision 2026-11-02, client deliveries): the
+    // bell, which shows only the caller's own notifications; the API never
+    // sends a CLIENT an INTERNAL notification. No other notification UI.
+    const withoutBell = clientFiles.replace("import { NotificationBell } from '@/components/notifications/notification-bell';", '');
+    assert.doesNotMatch(withoutBell, /\/notifications/);
     assert.doesNotMatch(clientFiles, /ChatChannelList/);
     assert.doesNotMatch(clientFiles, /NotificationList/);
   });

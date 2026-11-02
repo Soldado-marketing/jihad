@@ -131,7 +131,12 @@ export default function ApprovalsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <StatusBadge status={a.status} />
-                {tab === 'waiting' && canDecide && (
+                {a.clientVisible && a.fileAsset && (
+                  <Link href={`/files/${a.fileAsset.id}`} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50">
+                    With client · open file
+                  </Link>
+                )}
+                {tab === 'waiting' && canDecide && !a.clientVisible && (
                   <button
                     type="button"
                     onClick={() => {
