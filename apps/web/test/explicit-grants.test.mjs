@@ -17,7 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
 describe('company access grants', () => {
-  const page = read('app/(workspace)/dashboard/admin/company-access/page.tsx');
+  const page = read('src/components/team/company-access-panel.tsx');
   it('offers the three grants through the owner-only endpoint', () => {
     for (const key of ['decide-approvals', 'invoices-read', 'invoices-edit', 'payments-record', 'all-tasks']) {
       assert.match(page, new RegExp(`key: '${key}'`));
