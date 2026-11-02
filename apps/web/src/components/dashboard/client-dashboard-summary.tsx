@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
-import { type Appointment, type ClientInvoice, type Delivery, KIND_LABEL, money, remainingCents, when } from '@/lib/client-portal';
+import { type Appointment, type ClientInvoice, type ClientProblem, type Delivery, KIND_LABEL, money, remainingCents, when } from '@/lib/client-portal';
 
 type Action = { key: string; label: string; detail: string; href: string; cta: string };
 
@@ -16,13 +16,15 @@ export function ClientDashboardSummary() {
   const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
+  const [problems, setProblems] = useState<ClientProblem[]>([]);
 
   useEffect(() => {
     void Promise.all([
       apiFetch<Delivery[]>('/client/deliveries').catch(() => []),
       apiFetch<Appointment[]>('/client/appointments').catch(() => []),
       apiFetch<ClientInvoice[]>('/client/invoices').catch(() => []),
-    ]).then(([d, a, i]) => { setDeliveries(d); setAppointments(a); setInvoices(i); });
+      apiFetch<ClientProblem[]>('/client/problems').catch(() => []),
+    ]).then(([d, a, i, r]) => { setDeliveries(d); setAppointments(a); setInvoices(i); setProblems(r); });
   }, []);
 
   const now = Date.now();
@@ -30,7 +32,9 @@ export function ClientDashboardSummary() {
   const upcoming = appointments.filter((a) => a.status === 'SCHEDULED' && new Date(a.startsAt).getTime() > now);
   const toConfirm = upcoming.filter((a) => !a.seenCurrent);
   const open = invoices.filter((i) => i.status !== 'VOID' && remainingCents(i) > 0);
+  const answered = problems.filter((r) => r.status === 'ANSWERED');
   const actions: Action[] = [
+    ...answered.map((r) => ({ key: `r${r.id}`, label: r.subject, detail: 'our management answered your problem report', href: `/client/problems/${r.id}`, cta: 'Read answer' })),
     ...toReview.map((d) => ({ key: `d${d.id}`, label: d.title, detail: [KIND_LABEL[d.kind ?? 'document'], d.project?.name, 'ready for your review'].filter(Boolean).join(' · '), href: `/client/deliveries/${d.id}`, cta: 'Review' })),
     ...toConfirm.map((a) => ({ key: `a${a.id}`, label: a.title, detail: `${when(a.startsAt)} · ${a.location}`, href: `/client/appointments#appointment-${a.id}`, cta: 'See appointment' })),
     ...open.map((i) => ({ key: `i${i.id}`, label: `Invoice ${i.invoiceNumber}`, detail: `${money(remainingCents(i), i.currency)} open${i.dueAt ? ` · due ${new Date(i.dueAt).toLocaleDateString()}` : ''}`, href: `/client/invoices/${i.id}`, cta: 'View invoice' })),

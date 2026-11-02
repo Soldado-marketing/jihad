@@ -138,6 +138,9 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
           </div>
         </section>
       )}
+      <p className="text-xs text-slate-500">
+        Not about the work itself, but about how things went? <Link href={`/client/problems?delivery=${encodeURIComponent(d.id)}`} className="text-brand hover:underline">Report a problem to our management</Link>.
+      </p>
       {done && <p className="text-sm text-green-700">{done}</p>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 

@@ -35,6 +35,18 @@ export type ClientInvoice = {
   project?: { id: string; name: string } | null;
 };
 
+export type ClientProblem = {
+  id: string;
+  subject: string;
+  status: 'OPEN' | 'ANSWERED' | 'RESOLVED';
+  createdAt: string;
+  updatedAt: string;
+  delivery: { id: string; title: string } | null;
+  messages: { id: string; from: 'you' | 'company'; body: string; at: string }[];
+};
+
+export const PROBLEM_STATUS_LABEL: Record<string, string> = { OPEN: 'Sent to management', ANSWERED: 'Answered', RESOLVED: 'Resolved' };
+
 export const KIND_LABEL: Record<string, string> = { image: 'Image', pdf: 'PDF', video: 'Video', link: 'Link', document: 'Document' };
 
 export const INVOICE_STATUS_LABEL: Record<string, string> = {

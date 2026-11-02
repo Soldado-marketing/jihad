@@ -8,8 +8,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+  ServiceUnavailableException, ConflictException } from '@nestjs/common';
 import { InvoiceStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ClientScopeService } from '../memberships/client-scope.service';
@@ -78,14 +77,37 @@ export class InvoicesService {
 
   async create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
     await assertProjectInTenant(this.prisma, tenantId, dto.projectId);
+    const clientScopeKey = await this.scopeForNewInvoice(tenantId, dto);
     try {
-      return await this.repo.create(tenantId, actorId, dto);
+      return await this.repo.create(tenantId, actorId, { ...dto, clientScopeKey });
     } catch (error) {
       if (error instanceof InvoiceAmountError) {
         throw new BadRequestException({ code: 'INVALID_INVOICE_AMOUNT', reason: error.message });
       }
       throw error;
     }
+  }
+
+  /**
+   * Which customer a NEW invoice belongs to (owner decision 2026-11-02). An
+   * invoice raised on a customer's project inherits that project's
+   * clientScopeKey, so the customer can see it in the portal. A request that
+   * names a different customer than the project is ambiguous and refused; an
+   * invoice without a project, or on an internal project, keeps whatever the
+   * request said (possibly nothing, so no client sees it). Existing invoices
+   * are never re-assigned by this code.
+   */
+  private async scopeForNewInvoice(tenantId: string, dto: CreateInvoiceDto): Promise<string | undefined> {
+    if (!dto.projectId) return dto.clientScopeKey;
+    const project = await this.prisma.project.findFirst({ where: { id: dto.projectId, tenantId }, select: { clientScopeKey: true } });
+    const fromProject = project?.clientScopeKey ?? null;
+    if (dto.clientScopeKey && fromProject && dto.clientScopeKey !== fromProject) {
+      throw new ConflictException({
+        code: 'INVOICE_SCOPE_MISMATCH',
+        reason: "The customer on the invoice does not match the project's customer. Use the project's customer or leave it empty.",
+      });
+    }
+    return dto.clientScopeKey ?? fromProject ?? undefined;
   }
 
   async get(tenantId: string, id: string) {

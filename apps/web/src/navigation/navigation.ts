@@ -211,6 +211,14 @@ export const workspaceNavigation: NavigationItem[] = [
     clientSafe: false,
   },
   {
+    id: 'complaints',
+    label: 'Problem reports',
+    href: '/complaints',
+    allowedRoles: ['OWNER', 'MANAGER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
     id: 'approvals',
     label: 'Approvals',
     href: '/approvals',
