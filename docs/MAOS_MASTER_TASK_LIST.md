@@ -69,7 +69,7 @@ Preserve (regression-guarded in CI): deliveries and approvals, revision requests
 
 | ID | Task | Status | Deps | Notes / implementation | Tests & acceptance | PR / commit | Production |
 |---|---|---|---|---|---|---|---|
-| E01 | One Team & Access experience (Members, Invitations, Company Access, User Requests) | NOT_STARTED | — | Pieces exist: members (#126), invitations (#114/#126), company access (#127), registration requests (`admin-users`). Consolidate under one route with tabs; keep every existing route as a redirect; no permission change | All four tabs show the same data as today; OWNER-only admin kept; last-owner protection test still green | — | — |
+| E01 | One Team & Access experience (Members, Invitations, Company Access, User Requests) | DONE (awaiting merge) | — | Delivered 2026-11-03 as draft PR #137: `/team` with tabs Members & access (`/team/members`), Invitations (`/team/invitations`), User requests (`/team/requests`); the three page components moved unchanged to `src/components/team/`; old routes `/dashboard/admin/{company-access,invites,users/requests}` redirect (e-mail review link kept); one OWNER-only "Team & Access" nav entry replaces three; no API or permission change | `test/team-access.test.mjs` 10/10; six suites updated for the moved files; web typecheck + `next build` + 301/301 green; CI pending at checkpoint | #137 (draft) | not deployed |
 | E02 | Permission and membership audit history | PARTIAL | — | `AuditEvent` records membership/permission changes; no UI. Add a history panel per member (OWNER) | History shows role changes and grant changes with actor and time; CLIENT never sees it | — | — |
 | E03 | Review temporary "Sees all tasks" permission | READY | — | Per-company grants (#124); check expiry/revocation and that a role change drops it (#126 fixed stale grants) | Grant → role change → grant gone; test exists or is added | #124, #126 | — |
 | E04 | Invitations and memberships across companies | DONE | — | #112 switcher, #114 existing-account invites, company-access-isolation suite in CI | CI suites | #112, #114 | deployed; real-user acceptance NOT VERIFIED (A02) |
@@ -79,7 +79,7 @@ Preserve (regression-guarded in CI): deliveries and approvals, revision requests
 
 | ID | Task | Status | Deps | Notes / implementation | Tests & acceptance | PR / commit | Production |
 |---|---|---|---|---|---|---|---|
-| F01 | Invoice table responsiveness on mobile | READY | — | `/invoices` and `/client/invoices` on 375 px: no horizontal overflow; card layout under `md` | agent-browser check at 375 px: `scrollWidth <= innerWidth`; web test for the responsive class set | — | — |
+| F01 | Invoice table responsiveness on mobile | IN_PROGRESS | — | `/invoices` and `/client/invoices` on 375 px: no horizontal overflow; card layout under `md` | agent-browser check at 375 px: `scrollWidth <= innerWidth`; web test for the responsive class set | — | — |
 | F02 | Generic error and access-denied messages | READY | — | Map API codes (401/403/404/409) to plain-language messages; never leak internal names to CLIENT | Web test per code; client pages checked for forbidden words (sprint-4 test) | — | — |
 | F03 | Intermittent deadline-reminder test | READY | — | Failed once in a 44-file batch on 2026-11-02, passed 3/3 alone and in a second batch; earlier CI-3/CI-4 showed similar shared-DB timing. Reproduce under parallel load; fix the test's isolation (own tenant, own clock) | 20 consecutive parallel runs clean | — | — |
 

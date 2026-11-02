@@ -124,6 +124,15 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Tests: `security-gate-client-work-requests` (10, own fixture prefix, in the CI integration list) and the complaints gate pass together 20/20 on a disposable PG18 (removed afterwards); web 291/291; API and web typecheck clean (API spec-file errors unchanged from main).
 - Not done: a "Request new work" link on the client dashboard (one line once #136 is merged); production acceptance NOT VERIFIED (not deployed).
 
+## 2026-11-03 — E01 one Team & Access experience (draft PR #137)
+
+- Web only. New route `/team` (redirects to `/team/members`) with a tab bar (`src/components/team/team-tabs.tsx`, list in `src/navigation/team-tabs.ts`): Members & access, Invitations, User requests. The former Company Access, Invitations and User Requests pages moved unchanged (`git mv`) to `src/components/team/*-panel.tsx` and are re-exported by the tab routes.
+- Old routes `/dashboard/admin/company-access`, `/dashboard/admin/invites`, `/dashboard/admin/users/requests` are server redirects; the registration e-mail review link (API `mail.service`) still points at the last one and keeps working. Dashboard OWNER shortcuts point at the new addresses.
+- Navigation: one OWNER-only `team` entry ("Team & Access", glyph TM) in the Workspace group replaces `company-access`, `admin-users`, `admin-invites`; the `admin-users` active-state special case in `sidebar.tsx` removed. Role filter untouched: CLIENT and granted managers never see it.
+- No API change, no permission change, no migration. Owner-only endpoints, confirm dialogs and "no edit/remove for Owners" kept verbatim (moved files).
+- Tests: new `test/team-access.test.mjs` (10); `access-scope`, `dashboard-roles`, `explicit-grants`, `global-search`, `invites`, `member-management` follow the moved paths / new hrefs. Web typecheck, `next build` and 301/301 tests green locally; CI pending at checkpoint.
+- Not done: production acceptance NOT VERIFIED (not deployed); owner decision O14 (release approval for #137).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -141,3 +150,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O11 | Release approval for draft PR #134 (J07 no-store header; API redeploy) | J07 |
 | O12 | Accept legacy Office binaries (`.doc/.xls/.ppt`) as uploads, or keep OOXML only; merge test PR #135 | C03 |
 | O13 | Release approval for draft PR #136 (D02 work requests; API + web redeploy) | D02 |
+| O14 | Release approval for draft PR #137 (E01 Team & Access; web redeploy) | E01 |
