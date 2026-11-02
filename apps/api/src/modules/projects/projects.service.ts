@@ -107,8 +107,10 @@ export class ProjectsService {
     if (dto.ownerUserId !== undefined) {
       data.ownerUserId = dto.ownerUserId === null ? null : await this.checkOwnerUser(tenantId, dto.ownerUserId);
     }
+    let link: { customerId: string | null; clientScopeKey: string | null } | undefined;
     if (dto.customerId !== undefined) {
-      Object.assign(data, dto.customerId === null ? { customerId: null, clientScopeKey: null } : await this.customerLink(tenantId, dto.customerId));
+      link = dto.customerId === null ? { customerId: null, clientScopeKey: null } : await this.customerLink(tenantId, dto.customerId);
+      Object.assign(data, link);
     }
     try {
       await this.projectsRepository.update(tenantId, id, data);
@@ -116,6 +118,8 @@ export class ProjectsService {
       if (isUnique(err, 'projectNumber')) this.numberTaken();
       throw err;
     }
+    // Tasks carry their project's client scope; a customer change moves them with it.
+    if (link) await this.projectsRepository.retagTasks(tenantId, id, link.clientScopeKey);
     return this.getProject(tenantId, id, actorId);
   }
 
