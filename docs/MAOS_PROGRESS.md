@@ -178,6 +178,25 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Not done: collapsible group headings (M03 wording) — not implemented; recorded as owner decision O20 (recommend: collapsible groups remembered per browser, OWNER sidebar only, since the compact menu already scrolls). Production NOT VERIFIED (not deployed).
 - Local server stopped; nothing committed for M03/M04 (no defect found).
 
+## 2026-11-03 — E03 security regression audit: role transitions and permission revocation (draft PR #143, test only)
+
+| Item | Result | Evidence |
+|---|---|---|
+| E03-01 Manager → Client | PASS | invoices list/by-id 403, approval decision 403, `/leads` 403, member list 403, `/client/projects` 200; DB role CLIENT, scope from the customer, CLIENT_LEVEL, no grant rows |
+| E03-02 Employee → Manager | PASS | `all-tasks` + `decide-approvals` rows removed; `/leads` 200 on the same token; a manager still needs the approver grant |
+| E03-03 Revoke "Sees all tasks" | PASS | list hides the unassigned task, `GET /tasks/:id` 404, member view shows off, audit +1 per change |
+| E03-04 Company A vs B | PASS | B role, grant row, session unchanged; A invoice 404 through B; audit event in A only |
+| E03-05 Existing JWT / refresh | PASS | old token refused; refreshed token carries `role: CLIENT` and is refused the same way (+ `company-access-isolation`) |
+| E03-06 Grants never return | PASS | employee→manager→employee: both grants off (+ existing employee→contractor→employee case) |
+| E03-07 Unauthorized changes | PASS | employee, self, Owner of another company → 403 for role and grants; nothing written |
+| E03-08 Audit without duplicates | PASS | `role.changed` +1 per success, 0 on refusal; `membership.grant_updated` +1 per change |
+| E03-09 Atomic / rollback | PASS | OWNER, unknown role, foreign customer, missing customer, customer for non-client → 400; role, rows, audit count and the kept grant unchanged |
+| E03-10 Last Owner | PASS | single-owner company: change 403, remove 403, suspend 403 (even by themself); second Owner also unchangeable |
+
+- Method: disposable `postgres:18` (`maos-e03-pg`, migrated, fictional secrets, removed afterwards), real Nest HTTP, three fictional companies. Existing suites first: `security-gate-member-management`, `security-gate-explicit-grants`, `company-access-isolation`, `security-gate-session-revocation`, `security-gate-contractor-scope`, `audit-log` → 73/73 (baseline). New suite 8/8; together 81/81; inside the 44-file parallel batch 3 runs, new suite green each time (18 failures per run are `integration-api` bootstrap/login, which CI runs alone and first by design; not related).
+- "Sees all tasks" review: a per-membership `MembershipPermission` grant read by `resource-scope.service.ts`; OWNER-only to change; cleared by every role change; audited. Nothing changed for any real employee.
+- No application code changed; `ci.yml` gains the suite in the integration batch. Owner decision O21 (merge #143).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -202,3 +221,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O18 | Read and merge docs PR #141 (M01 navigation audit) | M01 |
 | O19 | Release approval for draft PR #142 (M02 sidebar regroup; web redeploy) | M02 |
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
+| O21 | Merge draft PR #143 (E03 role-transition security gate; test only, CI effect only) | E03 |
