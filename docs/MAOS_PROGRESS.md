@@ -162,6 +162,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Decisions recorded for M02: Notifications, Chat and Collaboration → Workspace; `team` (E01) and Audit Log → Company & Team; Files, Approvals, Voice Notes, Problem reports, Work requests → Projects & Delivery; Import & export → Settings; AI Assistant group appears only with an item (phase L). Routes and `allowedRoles` untouched.
 - F03 PR #140 CI: web + audit SUCCESS, API job pending at checkpoint.
 
+## 2026-11-03 — M02 sidebar regroup (draft PR #142)
+
+- `sidebar.tsx` `navGroups`: Workspace (dashboard, control-center, my-work, calendar, notifications, chat, collaboration) · Company & Team (team, company-access, admin-users, admin-invites, audit) · Projects & Delivery (projects, tasks, time, files, approvals, voice, complaints, requests) · Customers & CRM (customers, crm) · Finance & Banking (finance, invoices) · AI Assistant (empty until L; never rendered empty) · Reports · Settings (data, settings). Glyphs `team: 'TM'`, `requests: 'WR'` added.
+- Nothing else changed: routes, `allowedRoles`, grants, `visibleNavGroups` (permission filter first, grouping after), compact menu.
+- Tests: new `test/sidebar-groups.test.mjs` (8: order, one slot per id incl. pending ids, CLIENT none, CONTRACTOR view, MANAGER finance via grant only, OWNER view); `time-entries` now asserts a slot for `time` instead of the old neighbours. Web typecheck, `next build`, 299/299.
+- Merge note: #137 (E01) pins the old Workspace ids in `test/team-access.test.mjs`; the second of #137/#142 to merge updates that one line.
+- CI: #140 and #141 SUCCESS on all jobs. Owner decision O19 (release approval for #142).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -184,3 +192,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O16 | Release approval for draft PR #139 (F02 plain-language errors; web redeploy) | F02 |
 | O17 | Merge draft PR #140 (F03 test isolation; test only, CI effect only) | F03 |
 | O18 | Read and merge docs PR #141 (M01 navigation audit) | M01 |
+| O19 | Release approval for draft PR #142 (M02 sidebar regroup; web redeploy) | M02 |
