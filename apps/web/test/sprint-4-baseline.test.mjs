@@ -72,7 +72,7 @@ describe('Sprint 4 client portal frontend boundary baseline', () => {
     const workspaceNavigation = readWeb('src/navigation/navigation.ts');
 
     assert.match(clientNavigation, /\/client/);
-    assert.match(clientNavigation, /\/client\/projects/);
+    // Client Portal V2: projects are a filter inside My Work (deliveries).
     assert.match(clientNavigation, /\/client\/deliveries/);
     assert.doesNotMatch(clientNavigation, /\/client\/tasks/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client'/);

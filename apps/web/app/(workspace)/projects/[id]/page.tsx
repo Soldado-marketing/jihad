@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import { getStoredUser } from '@/lib/auth';
 import { ProjectProfitabilityPreview } from '@/components/projects/project-profitability-preview';
+import { ProjectAppointmentsPanel } from '@/components/projects/project-appointments-panel';
 import {
   budgetLabel,
   canSeeBudget,
@@ -217,6 +218,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         ))}
       </dl>
       {canSeeBudget(role) && <ProjectProfitabilityPreview projectId={project.id} />}
+      {(role === 'OWNER' || role === 'MANAGER' || role === 'EMPLOYEE') && <ProjectAppointmentsPanel projectId={project.id} />}
       {addingTask && (
         <form onSubmit={addTask} className="flex gap-3 rounded-xl border border-line bg-white p-4">
           <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)}

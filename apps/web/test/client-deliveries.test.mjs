@@ -35,7 +35,7 @@ describe('client portal deliveries', () => {
   });
 
   it('names only the client and the company in the conversation', () => {
-    assert.equal(threadLine('REQUEST_CHANGES', 'client', 'Acme Agency'), 'You requested changes');
+    assert.equal(threadLine('REQUEST_CHANGES', 'client', 'Acme Agency'), 'You asked for a revision');
     assert.equal(threadLine('REVISION_SENT', 'company', 'Acme Agency'), 'Acme Agency sent a revision');
     assert.equal(threadLine('DELIVERED', 'company', 'Acme Agency'), 'Acme Agency delivered');
     assert.doesNotMatch(detail, /displayName|email|requestedBy|decidedBy/);

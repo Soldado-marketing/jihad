@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 import { describe, it } from 'node:test';
-import { prepareForClient, safeClientFilename } from '../src/modules/file-versions/client-file-privacy.ts';
+import { deliveryKind, linkAddress, prepareForClient, safeClientFilename } from '../src/modules/file-versions/client-file-privacy.ts';
 
 const NAME = 'Erika Example';
 const has = (buf, text) => buf.toString('latin1').includes(text);
@@ -164,6 +164,61 @@ describe('client copies keep the file intact and drop identifying metadata', () 
     const txt = Buffer.from('plain text', 'latin1');
     assert.ok(prepareForClient(txt, '.txt').buffer.equals(txt));
     assert.equal(prepareForClient(Buffer.from('broken'), '.png').action, 'block', 'unreadable files are never served raw');
+  });
+});
+
+// MP4/MOV boxes: 4-byte size + 4-byte type + payload.
+const box = (type, ...parts) => { const body = Buffer.concat(parts); const h = Buffer.alloc(8); h.writeUInt32BE(body.length + 8, 0); h.write(type, 4, 'latin1'); return Buffer.concat([h, body]); };
+const XMP_UUID = Buffer.from('be7acfcb97a942e89c71999491e3afac', 'hex');
+function mp4() {
+  return Buffer.concat([
+    box('ftyp', Buffer.from('isom\0\0\x02\0isomiso2', 'latin1')),
+    box('moov',
+      box('mvhd', Buffer.alloc(20)),
+      box('trak', box('tkhd', Buffer.alloc(12)), box('udta', box('\xa9ART', Buffer.from(NAME, 'latin1')))),
+      box('udta', box('meta', Buffer.from(`author ${NAME}`, 'latin1'))),
+      box('meta', Buffer.from(`com.apple.quicktime.author ${NAME}`, 'latin1')),
+    ),
+    box('uuid', XMP_UUID, Buffer.from(`<dc:creator>${NAME}</dc:creator>`, 'latin1')),
+    box('mdat', Buffer.from('udta frames stay untouched', 'latin1')),
+  ]);
+}
+const boxTypes = (buf, start = 0, end = buf.length) => { const out = []; for (let i = start; i + 8 <= end; i += buf.readUInt32BE(i)) out.push(buf.toString('latin1', i + 4, i + 8)); return out; };
+
+describe('client copies of videos and shared links', () => {
+  it('MP4/MOV: metadata boxes become free space; the length and the video data stay the same', () => {
+    const src = mp4();
+    const copy = prepareForClient(src, '.mp4');
+    assert.equal(copy.action, 'serve');
+    assert.equal(copy.buffer.length, src.length, 'same length, so every sample offset still points at the right bytes');
+    assert.deepEqual(boxTypes(copy.buffer), ['ftyp', 'moov', 'free', 'mdat']);
+    const moov = copy.buffer.indexOf('moov', 0, 'latin1') - 4;
+    assert.deepEqual(boxTypes(copy.buffer, moov + 8, moov + copy.buffer.readUInt32BE(moov)), ['mvhd', 'trak', 'free', 'free']);
+    assert.ok(copy.buffer.includes('udta frames stay untouched', 0, 'latin1'), 'media data is never rewritten');
+    assert.ok(!has(copy.buffer.subarray(0, copy.buffer.indexOf('mdat', 0, 'latin1')), 'udta'));
+    assert.ok(!has(copy.buffer, NAME), 'the old contents are blanked, not just renamed');
+    assert.deepEqual(prepareForClient(src, '.mov').buffer, copy.buffer);
+  });
+
+  it('a file that is not a valid MP4/MOV is refused, never served raw', () => {
+    assert.equal(prepareForClient(Buffer.from('not a video at all'), '.mp4').action, 'block');
+    const broken = mp4(); broken.writeUInt32BE(0xffffff, broken.indexOf('mvhd', 0, 'latin1') - 4);
+    assert.equal(prepareForClient(broken, '.mov').action, 'block', 'a box that overruns the file');
+  });
+
+  it('a shared link keeps only its https address', () => {
+    const src = Buffer.from(`[InternetShortcut]\r\nURL=https://drive.google.com/file/d/abc/view\r\nIconFile=C:\\Users\\${NAME}\\icon.ico\r\n`, 'utf8');
+    const copy = prepareForClient(src, '.url');
+    assert.equal(copy.action, 'serve');
+    assert.equal(copy.buffer.toString('utf8'), '[InternetShortcut]\r\nURL=https://drive.google.com/file/d/abc/view\r\n');
+    for (const bad of ['URL=http://example.com/x', 'URL=javascript:alert(1)', 'URL=https://user:pw@example.com/', 'URL=file:///etc/passwd', 'no address here']) {
+      assert.equal(prepareForClient(Buffer.from(`[InternetShortcut]\r\n${bad}\r\n`), '.url').action, 'block', bad);
+    }
+    assert.equal(linkAddress(Buffer.from('URL=https://example.com/a b')), null, 'one address only');
+  });
+
+  it('every delivery has a kind the portal can show', () => {
+    assert.deepEqual(['.jpg', '.png', '.pdf', '.mp4', '.mov', '.url', '.txt', ''].map(deliveryKind), ['image', 'image', 'pdf', 'video', 'video', 'link', 'document', 'document']);
   });
 });
 

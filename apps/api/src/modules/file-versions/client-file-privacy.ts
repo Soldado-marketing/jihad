@@ -18,6 +18,12 @@ import { inflateSync, constants as zlibConstants } from 'node:zlib';
  *                         or edited that way: encrypted, signed with author
  *                         data, author data inside compressed streams, review
  *                         comments carrying author names.
+ *   MP4, MOV              serve: metadata boxes (udta, meta, XMP uuid) are
+ *                         renamed to 'free' in place, which players skip; no
+ *                         byte moves, so sample offsets stay valid.
+ *   URL (shared link)     serve: rebuilt to the single https address only.
+ *                         The page behind the link (e.g. a Drive owner name)
+ *                         is outside MAOS and cannot be checked.
  *   TXT, CSV              serve unchanged: no metadata container.
  *   DOCX, XLSX, PPTX, ZIP refused: authors live in many places inside the
  *                         package (properties, comments, tracked changes) and
@@ -44,6 +50,9 @@ export function prepareForClient(buffer: Buffer, extension: string): ClientCopy 
       case '.gif': return stripGif(buffer);
       case '.webp': return stripWebp(buffer);
       case '.pdf': return cleanPdf(buffer);
+      case '.mp4':
+      case '.mov': return neutraliseMp4(buffer);
+      case '.url': return cleanLink(buffer);
       case '.txt':
       case '.csv': return serve(buffer);
       case '.docx':
@@ -222,6 +231,65 @@ function stripWebp(buf: Buffer): ClientCopy {
   return serve(Buffer.concat([header, body]), [...removed]);
 }
 
+// ── MP4 / MOV ────────────────────────────────────────────────────────────────
+
+const XMP_UUID = 'be7acfcb97a942e89c71999491e3afac';
+const MP4_CONTAINERS = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'dinf', 'mvex', 'moof', 'traf']);
+
+function neutraliseMp4(buf: Buffer): ClientCopy {
+  const out = Buffer.from(buf);
+  const removed = new Set<string>();
+  const walk = (start: number, end: number, depth: number) => {
+    let i = start;
+    while (i + 8 <= end) {
+      let size = buf.readUInt32BE(i);
+      let header = 8;
+      if (size === 1) {
+        if (i + 16 > end) throw new Error('mp4 box overruns');
+        const big = buf.readBigUInt64BE(i + 8);
+        if (big > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('mp4 box too large');
+        size = Number(big); header = 16;
+      } else if (size === 0) size = end - i;
+      if (size < header || i + size > end) throw new Error('mp4 box overruns');
+      const type = buf.toString('latin1', i + 4, i + 8);
+      const isXmp = type === 'uuid' && buf.subarray(i + header, i + header + 16).toString('hex') === XMP_UUID;
+      if (type === 'udta' || type === 'meta' || isXmp) {
+        // Free space players skip, with the old contents blanked: renaming alone would leave the text in the file.
+        out.write('free', i + 4, 'latin1');
+        out.fill(0, i + header, i + size);
+        removed.add(isXmp ? 'XMP' : type);
+      } else if (MP4_CONTAINERS.has(type) && depth < 8) {
+        walk(i + header, i + size, depth + 1);
+      }
+      i += size;
+    }
+  };
+  if (buf.toString('latin1', 4, 8) === 'ftyp' || ['moov', 'wide', 'mdat', 'free'].includes(buf.toString('latin1', 4, 8))) walk(0, buf.length, 0);
+  else return block('Not a valid MP4/MOV video.');
+  return serve(out, [...removed]);
+}
+
+// ── Shared link (.url) ───────────────────────────────────────────────────────
+
+/** Reads the address from an Internet-shortcut file. Only a plain https address without credentials is passed on. */
+export function linkAddress(buf: Buffer): string | null {
+  const m = /^URL=(\S+)\s*$/m.exec(buf.toString('utf8'));
+  if (!m) return null;
+  try {
+    const url = new URL(m[1]);
+    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function cleanLink(buf: Buffer): ClientCopy {
+  const url = linkAddress(buf);
+  if (!url) return block('A shared link must be a single https address.');
+  return serve(Buffer.from(`[InternetShortcut]\r\nURL=${url}\r\n`, 'utf8'));
+}
+
 // ── PDF ──────────────────────────────────────────────────────────────────────
 
 const INFO_KEYS = ['Author', 'Creator'];
@@ -325,4 +393,13 @@ function xmpIdentitySpans(x: string): [number, number][] {
     }
   }
   return spans;
+}
+
+/** How the client portal shows a deliverable, by its stored extension. */
+export function deliveryKind(extension: string): 'image' | 'pdf' | 'video' | 'link' | 'document' {
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(extension)) return 'image';
+  if (extension === '.pdf') return 'pdf';
+  if (extension === '.mp4' || extension === '.mov') return 'video';
+  if (extension === '.url') return 'link';
+  return 'document';
 }

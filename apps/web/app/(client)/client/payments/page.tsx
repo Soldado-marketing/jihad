@@ -1,47 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useEffect, useState } from 'react';
-import { ClientPaymentList, type ClientPaymentListItem } from '@/components/finance/client-payment-list';
-import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
-import { PageHeader } from '@/components/ui/page-header';
-import { formatCents } from '@/lib/money';
-import { apiFetch } from '@/lib/fetch';
-
-type RawPayment = { id: string; amountCents: number; currency?: string; status: string; invoice?: { invoiceNumber: string } };
-
-function toListItem(r: RawPayment): ClientPaymentListItem {
-  return {
-    id: r.id,
-    invoiceNumber: r.invoice?.invoiceNumber ?? '—',
-    amount: formatCents(r.amountCents, r.currency ?? 'EUR'),
-    status: r.status as ClientPaymentListItem['status'],
-  };
-}
-
-export default function ClientPaymentsPage() {
-  const [payments, setPayments] = useState<ClientPaymentListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    apiFetch<RawPayment[]>('/client/payments')
-      .then((data) => setPayments(data.map(toListItem)))
-      .catch(() => setPayments([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <div className="grid gap-6">
-      <PageHeader
-        eyebrow="Billing"
-        title="Payments"
-        description="Payments we have received for your invoices."
-      />
-      <ClientSafeNotice />
-      {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
-      ) : (
-        <ClientPaymentList payments={payments} />
-      )}
-    </div>
-  );
+/** Client Portal V2 (owner decision 2026-11-02): this view is part of Invoices now. */
+export default function ClientRedirectPage() {
+  redirect('/client/invoices');
 }

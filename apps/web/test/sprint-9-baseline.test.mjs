@@ -81,8 +81,8 @@ describe('Sprint 9 finance basic frontend baseline', () => {
     assert.doesNotMatch(financeNavigationBlock, /CLIENT/);
     assert.match(clientNavigation, /id: 'client-invoices'/);
     assert.match(clientNavigation, /href: '\/client\/invoices'/);
-    assert.match(clientNavigation, /id: 'client-payments'/);
-    assert.match(clientNavigation, /href: '\/client\/payments'/);
+    // Client Portal V2: payments are shown on each invoice; /client/payments redirects there.
+    assert.doesNotMatch(clientNavigation, /href: '\/client\/payments'/);
   });
 
   it('keeps client invoice and payment views client-safe', () => {

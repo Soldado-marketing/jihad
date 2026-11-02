@@ -78,8 +78,18 @@ describe('Sprint 7 chat, notifications, and realtime frontend baseline', () => {
     // The one exception (owner decision 2026-11-02, client deliveries): the
     // bell, which shows only the caller's own notifications; the API never
     // sends a CLIENT an INTERNAL notification. No other notification UI.
-    const withoutBell = clientFiles.replace("import { NotificationBell } from '@/components/notifications/notification-bell';", '');
+    // Client Portal V2 (owner decision 2026-11-02) adds the client's own
+    // "View all" page, on the same caller-scoped endpoints as the bell.
+    const ownPage = 'app/(client)/client/notifications/page.tsx';
+    const withoutBell = listFiles('app/(client)')
+      .concat(listFiles('src/components/client-portal'))
+      .filter((file) => file !== ownPage)
+      .map((file) => readWeb(file))
+      .join('\n')
+      .replace("import { NotificationBell } from '@/components/notifications/notification-bell';", '');
     assert.doesNotMatch(withoutBell, /\/notifications/);
+    const ownPaths = [...readWeb(ownPage).matchAll(/apiFetch(?:<[^>]*>)?\(\s*[`'"]([^`'"]+)/g)].map((m) => m[1]);
+    assert.deepEqual([...new Set(ownPaths)].sort(), ['/notifications', '/notifications/${id}/read', '/notifications/read-all']);
     assert.doesNotMatch(clientFiles, /ChatChannelList/);
     assert.doesNotMatch(clientFiles, /NotificationList/);
   });

@@ -3,16 +3,20 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
-import { parseUnreadCount, UNREAD_REFRESH_MS, unreadBadgeLabel } from '@/lib/notifications';
+import { NOTIFICATIONS_CHANGED, notificationHref, parseUnreadCount, UNREAD_REFRESH_MS, unreadBadgeLabel } from '@/lib/notifications';
 
-type BellItem = { id: string; title: string; body?: string | null; status: string; createdAt: string };
+type BellItem = {
+  id: string; title: string; body?: string | null; status: string; createdAt: string;
+  resourceType?: string | null; resourceId?: string | null;
+};
 
 /**
  * Unread count + latest notifications in the workspace top bar (MAOS-T48).
  * Uses the existing self-scoped endpoints only; every failure degrades to an
  * empty bell instead of an error in the shell.
  */
-export function NotificationBell() {
+/** `portal` decides where items and "View all" lead: the client portal only to its own pages. */
+export function NotificationBell({ portal = 'workspace' }: { portal?: 'client' | 'workspace' } = {}) {
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<BellItem[] | null>(null);
@@ -31,9 +35,11 @@ export function NotificationBell() {
     const timer = setInterval(() => void refreshCount(), UNREAD_REFRESH_MS);
     const onFocus = () => void refreshCount();
     window.addEventListener('focus', onFocus);
+    window.addEventListener(NOTIFICATIONS_CHANGED, onFocus);
     return () => {
       clearInterval(timer);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener(NOTIFICATIONS_CHANGED, onFocus);
     };
   }, [refreshCount]);
 
@@ -74,6 +80,16 @@ export function NotificationBell() {
     }
   }
 
+  async function markAllRead() {
+    try {
+      await apiFetch('/notifications/read-all', { method: 'PATCH' });
+      setItems((list) => list?.map((n) => ({ ...n, status: 'READ' })) ?? null);
+      await refreshCount();
+    } catch {
+      /* the next refresh shows the real state */
+    }
+  }
+
   const label = unreadBadgeLabel(count);
 
   return (
@@ -104,27 +120,47 @@ export function NotificationBell() {
         >
           <div className="flex items-center justify-between border-b border-line px-4 py-2">
             <p className="text-sm font-semibold text-ink">Notifications</p>
-            <Link href="/notifications" onClick={() => setOpen(false)} className="text-xs text-brand hover:underline">
-              View all
-            </Link>
+            <span className="flex items-center gap-3">
+              {count > 0 && (
+                <button type="button" onClick={() => void markAllRead()} className="text-xs text-brand hover:underline">
+                  Mark all read
+                </button>
+              )}
+              <Link href={portal === 'client' ? '/client/notifications' : '/notifications'} onClick={() => setOpen(false)} className="text-xs text-brand hover:underline">
+                View all
+              </Link>
+            </span>
           </div>
           {items === null && <p className="px-4 py-6 text-sm text-muted">Loading…</p>}
           {items !== null && items.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted">No notifications.</p>}
           {items !== null && items.length > 0 && (
             <ul className="max-h-96 divide-y divide-line overflow-y-auto">
-              {items.map((n) => (
-                <li key={n.id} className={`flex items-start gap-3 px-4 py-3 ${n.status === 'UNREAD' ? 'bg-blue-50/40' : ''}`}>
-                  <div className="min-w-0 flex-1">
+              {items.map((n) => {
+                const href = notificationHref(n.resourceType, n.resourceId, portal);
+                const text = (
+                  <>
                     <p className="truncate text-sm font-medium text-ink">{n.title}</p>
                     {n.body && <p className="line-clamp-2 text-xs text-muted">{n.body}</p>}
-                  </div>
+                  </>
+                );
+                return (
+                <li key={n.id} className={`flex items-start gap-3 px-4 py-3 ${n.status === 'UNREAD' ? 'bg-blue-50/40' : ''}`}>
+                  {href ? (
+                    <Link href={href} className="min-w-0 flex-1 hover:underline"
+                      onClick={() => { setOpen(false); if (n.status === 'UNREAD') void markRead(n.id); }}>
+                      {text}
+                    </Link>
+                  ) : (
+                    <div className="min-w-0 flex-1">{text}</div>
+                  )}
                   {n.status === 'UNREAD' && (
                     <button type="button" onClick={() => void markRead(n.id)} className="shrink-0 text-xs text-brand hover:underline">
                       Mark read
                     </button>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>

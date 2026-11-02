@@ -49,12 +49,12 @@ describe('Sprint 11 MVP frontend hardening regression', () => {
     const clientNavigation = readWeb('src/navigation/client-navigation.ts');
 
     assert.match(clientNavigation, /href: '\/client'/);
-    assert.match(clientNavigation, /href: '\/client\/projects'/);
-    // Tasks are internal (owner decision 2026-11-02); clients review deliveries.
+    // Client Portal V2 (owner decision 2026-11-02): Overview, My Work,
+    // Invoices (with their payments) and Appointments. Tasks stay internal.
     assert.match(clientNavigation, /href: '\/client\/deliveries'/);
     assert.doesNotMatch(clientNavigation, /href: '\/client\/tasks'/);
     assert.match(clientNavigation, /href: '\/client\/invoices'/);
-    assert.match(clientNavigation, /href: '\/client\/payments'/);
+    assert.match(clientNavigation, /href: '\/client\/appointments'/);
     // /client/files is a client-portal route added in Phase 6, so the check is
     // on internal routes: none of them may be reachable from the client nav.
     assert.doesNotMatch(

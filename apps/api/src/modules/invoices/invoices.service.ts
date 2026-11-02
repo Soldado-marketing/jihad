@@ -240,6 +240,7 @@ export class InvoicesService {
       resourceType: 'invoice',
       resourceId: id,
     });
+    await this.notifyClient(tenantId, actor.actorId, invoice, `invoice.sent.client:${id}`, 'New invoice', `Invoice ${invoice.invoiceNumber} is ready in your portal.`);
 
     return {
       invoice: updated,
@@ -279,6 +280,14 @@ export class InvoicesService {
     const updated = await this.repo.recalculatePaid(tenantId, invoiceId);
     if (!updated) return null;
 
+    // Once per new paid total, so a replayed payment does not notify twice.
+    // No amount in the text: the invoice page shows the figures.
+    if (updated.clientVisible && updated.paidCents > 0 && updated.status !== InvoiceStatus.DRAFT && updated.status !== InvoiceStatus.VOID) {
+      await this.notifyClient(tenantId, actor.actorId, updated, `invoice.payment.client:${updated.id}:${updated.paidCents}`,
+        updated.status === InvoiceStatus.PAID ? 'Invoice paid in full' : 'Payment received',
+        `We have received a payment for invoice ${updated.invoiceNumber}.`);
+    }
+
     if (updated.status === InvoiceStatus.PAID) {
       const { created } = await this.repo.postRevenueOnce({
         actorId: actor.actorId,
@@ -299,6 +308,41 @@ export class InvoicesService {
     }
 
     return updated;
+  }
+
+  /**
+   * A portal notice for the invoice's own client (its scope's CLIENT
+   * members, never anyone else). Failure-safe: it never changes the result.
+   */
+  private async notifyClient(
+    tenantId: string,
+    actorId: string,
+    invoice: { id: string; clientScopeKey: string | null },
+    dedupeKey: string,
+    title: string,
+    body: string,
+  ) {
+    if (!invoice.clientScopeKey) return;
+    try {
+      const members = await this.prisma.tenantMembership.findMany({
+        where: { tenantId, role: MembershipRole.CLIENT, status: 'ACTIVE', clientScopeKey: invoice.clientScopeKey },
+        select: { userId: true },
+      });
+      if (members.length === 0) return;
+      await this.notifications.notify({
+        tenantId,
+        recipientUserIds: members.map((m) => m.userId),
+        audience: 'DIRECT',
+        actorUserId: actorId,
+        dedupeKey,
+        title,
+        body,
+        resourceType: 'invoice',
+        resourceId: invoice.id,
+      });
+    } catch (err) {
+      this.logger.warn(`Client invoice notice failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
   }
 
   /**
