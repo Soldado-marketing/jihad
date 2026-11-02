@@ -59,6 +59,23 @@ Backlog of record: `docs/MAOS_MASTER_TASK_LIST.md`. Checkpoint: `docs/MAOS_RESUM
 - **B03 (design only, nothing applied):** `docs/security/postgres-least-privilege-plan.md` — roles `maos_app` (DML only, default privileges for future migrations), `maos_backup` (`pg_read_all_data`), administrator kept for `migrate-deploy-one.sh`; SQL, verification queries, disposable-PG18 rehearsal steps, production window and rollback. Grounded in a code check: the API runs no DDL (raw SQL is `SELECT 1`, `SELECT … FOR UPDATE`, advisory lock, one `UPDATE`).
 - Docs PR #133 opened (not merged; owner decision).
 
+## 2026-11-02 — B03 rehearsal on a disposable PostgreSQL 18 (nothing touched in production)
+
+Container `maos-b03-pg` (postgres:18, throw-away passwords in files, never printed), 15 migrations applied as the administrator, then the plan's SQL as-is.
+
+| Check | Result |
+|---|---|
+| Role and grant inventory | `maos_app`: SELECT 48 / INSERT, UPDATE, DELETE 47 tables (`_prisma_migrations` read-only); `has_schema_privilege(maos_app, public, CREATE)` = false |
+| `integration-api` as `maos_app` | 35/35 |
+| Integration + security suites (44 files) as `maos_app` | 456/458. The 2 failures are the expected fault-injection tests that create a PostgreSQL trigger from the test itself (`time-entries` "a database refusal answers 400", `data-transfer` "rolls the whole file back"): test-only DDL, not application behaviour. CI keeps the administrator role, so CI is unaffected |
+| Advisory lock as `maos_app` | `pg_try_advisory_xact_lock` → true (scheduler works) |
+| Negative, `maos_app` | CREATE TABLE → permission denied for schema; DROP/ALTER TABLE → must be owner; INSERT/DELETE on `_prisma_migrations` → permission denied |
+| Negative, `maos_backup` | INSERT and UPDATE → permission denied; SELECT works |
+| `pg_dump` as `maos_backup` vs administrator | identical: 523 entries, 48 tables each |
+| Default privileges | new table created by the administrator afterwards: `maos_app` INSERT … RETURNING works without a new GRANT |
+
+Conclusion: the plan is safe to apply as written. Production application remains owner decision O10 (roles via the private tunnel, `DATABASE_URL` on `jihad`, Keychain item for the backup). Container removed after the run.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
