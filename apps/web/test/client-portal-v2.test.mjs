@@ -26,6 +26,8 @@ describe('client portal v2', () => {
     assert.equal(notificationHref('delivery', 'd1', 'client'), '/client/deliveries/d1');
     assert.equal(notificationHref('invoice', 'i1', 'client'), '/client/invoices/i1');
     assert.equal(notificationHref('appointment', 'a1', 'client'), '/client/appointments#appointment-a1');
+    assert.equal(notificationHref('complaint', 'c1', 'client'), '/client/problems/c1');
+    assert.equal(notificationHref('complaint', 'c1', 'workspace'), '/complaints?open=c1');
     for (const type of ['file', 'approval', 'task', 'project', 'time-entry', null]) assert.equal(notificationHref(type, 'x', 'client'), null, String(type));
     assert.equal(notificationHref('approval', 'r1', 'workspace'), '/approvals?open=r1');
     const bell = read('src/components/notifications/notification-bell.tsx');
@@ -39,7 +41,19 @@ describe('client portal v2', () => {
     assert.match(appointments, /`\/client\/appointments\/\$\{id\}\/seen`/);
     const overview = read('src/components/dashboard/client-dashboard-summary.tsx');
     const paths = [...overview.matchAll(/apiFetch<[^>]+>\('([^']+)'\)/g)].map((m) => m[1]).sort();
-    assert.deepEqual(paths, ['/client/appointments', '/client/deliveries', '/client/invoices']);
+    assert.deepEqual(paths, ['/client/appointments', '/client/deliveries', '/client/invoices', '/client/problems']);
+  });
+
+  it('"Report a problem" goes to management and is separate from a revision request', () => {
+    const problems = read('app/(client)/client/problems/page.tsx');
+    assert.match(problems, /apiFetch\('\/client\/problems', \{\s*method: 'POST'/);
+    assert.match(problems, /Report a problem/);
+    assert.match(read('app/(client)/client/deliveries/[id]/page.tsx'), /\/client\/problems\?delivery=/);
+    const nav = read('src/navigation/navigation.ts');
+    assert.match(nav, /id: 'complaints',\s*label: 'Problem reports',\s*href: '\/complaints',\s*allowedRoles: \['OWNER', 'MANAGER'\]/);
+    const staff = read('app/(workspace)/complaints/page.tsx');
+    assert.match(staff, /internal/);
+    assert.match(staff, /\/complaints\/\$\{selected\.id\}\/\$\{path\}/);
   });
 
   it('shows the same paid total as the API: every payment except failed, refunded or cancelled', () => {

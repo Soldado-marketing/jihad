@@ -139,6 +139,8 @@ jobs:
       # permissions, removal ends one company only, and Owners are never changed.
       # security-gate-client-deliveries proves a client reviews only its own deliveries,
       # sees the company name only, and change requests reach the assigned employee.
+      # security-gate-client-complaints proves a problem report reaches management only,
+      # internal notes never reach the client, and a project invoice inherits its customer.
       # client-onboarding-scope proves an approved client gets its client scope.
       # crm-update-validation proves CRM updates and reports validate their bodies.
       # notification-writers proves events reach only their audience (T47).
@@ -184,6 +186,7 @@ jobs:
             test/security-gate-member-management.test.mjs \
             test/security-gate-client-deliveries.test.mjs \
             test/security-gate-client-portal-v2.test.mjs \
+            test/security-gate-client-complaints.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \

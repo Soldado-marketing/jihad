@@ -52,7 +52,7 @@ export const navGroups = [
     label: 'Team',
   },
   {
-    ids: ['files', 'approvals', 'voice', 'finance', 'invoices', 'reports', 'audit', 'data', 'settings'],
+    ids: ['files', 'approvals', 'complaints', 'voice', 'finance', 'invoices', 'reports', 'audit', 'data', 'settings'],
     label: 'Operations',
   },
 ];

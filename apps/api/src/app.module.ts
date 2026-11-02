@@ -14,6 +14,7 @@ import { DevicesModule } from './modules/devices/devices.module';
 import { DashboardsModule } from './modules/dashboards/dashboards.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { ComplaintsModule } from './modules/complaints/complaints.module';
 import { FileVersionsModule } from './modules/file-versions/file-versions.module';
 import { FilesModule } from './modules/files/files.module';
 import { FinanceModule } from './modules/finance/finance.module';
@@ -75,6 +76,7 @@ import { MailModule } from './modules/mail/mail.module';
     FileVersionsModule,
     ApprovalsModule,
     AppointmentsModule,
+    ComplaintsModule,
     ChatModule,
     CalendarModule,
     MyWorkModule,

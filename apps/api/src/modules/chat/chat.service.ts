@@ -3,6 +3,14 @@ import { AuditOutcome, AuditPermissionResult, ChatChannelType, Prisma } from '@p
 import { AuditService } from '../audit/audit.service';
 import { ResourceScopeService } from '../permissions/resource-scope.service';
 import { ChatRepository } from './chat.repository';
+import { COMPLAINT_RESOURCE } from '../complaints/complaints.service';
+
+/**
+ * Client problem reports live in channels tagged "complaint" (complaints.service.ts).
+ * They are management-only, so the generic chat routes never list or open them,
+ * whatever the caller's role. Channels without a resourceType stay visible.
+ */
+const NOT_A_COMPLAINT: Prisma.ChatChannelWhereInput = { OR: [{ resourceType: null }, { resourceType: { not: COMPLAINT_RESOURCE } }] };
 
 @Injectable()
 export class ChatService {
@@ -69,11 +77,16 @@ export class ChatService {
    */
   private async visibleChannels(tenantId: string, actorId: string): Promise<Prisma.ChatChannelWhereInput> {
     const scope = await this.resourceScope.resolveWorkScope(tenantId, actorId);
-    if (!scope || scope.tasksOnly) return {};
+    if (!scope || scope.tasksOnly) return NOT_A_COMPLAINT;
     return {
-      OR: [
-        { memberships: { some: { tenantId, userId: actorId } } },
-        { resourceType: 'project', resourceId: { in: scope.visibleProjectIds } },
+      AND: [
+        NOT_A_COMPLAINT,
+        {
+          OR: [
+            { memberships: { some: { tenantId, userId: actorId } } },
+            { resourceType: 'project', resourceId: { in: scope.visibleProjectIds } },
+          ],
+        },
       ],
     };
   }
