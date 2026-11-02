@@ -174,6 +174,9 @@ export class DeliveriesService {
     const rows = await this.prisma.approvalRequest.findMany({
       where: {
         tenantId: actor.tenantId, clientVisible: true, status: { in: SHOWN_TO_CLIENT },
+        // A deleted file leaves its rounds behind (fileAssetId set to null);
+        // they would open as "not found", so they are not listed either.
+        fileAssetId: { not: null },
         ...(scope === null ? {} : { clientScopeKey: scope }),
       },
       orderBy: { updatedAt: 'desc' },
