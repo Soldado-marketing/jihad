@@ -94,6 +94,13 @@ API from `main` code on the isolated database (three fictional companies: the ow
 
 Conclusion: J02–J05 hold under direct API probing; one hardening gap (J07) recorded. Isolated API stopped, demo containers stopped and kept.
 
+## 2026-11-02 — J07 no-store default (draft PR #134)
+
+- Inspection: API responses had no `Cache-Control`; only file streams, invoice PDFs and CSV exports set `private, no-store` themselves (files are streamed through the API with their own headers; no signed-URL redirects).
+- Change: `NoStoreMiddleware` registered in `AppModule` for every route, before handlers, as an overridable default. No request data inspected; downloads, streaming and health unchanged beyond the header.
+- Tests: new `test/no-store-cache.test.mjs` (added to the CI unit gate), four integration-api assertions, hardening regex relaxed for the two-middleware `apply`. Local: unit gate 407/407, integration-api 39/39 on a disposable PG18 (removed afterwards), build OK; typecheck errors identical to main (149, pre-existing jest spec files).
+- Draft PR #134 opened; not merged (owner release approval O11).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -108,3 +115,4 @@ Conclusion: J02–J05 hold under direct API probing; one hardening gap (J07) rec
 | O8 | E-mail notifications to real clients (D01) and AI provider/cost (L) when those phases start | D01, L |
 | O9 | Merge docs PR #133 (planning files) | G03 |
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
+| O11 | Release approval for draft PR #134 (J07 no-store header; API redeploy) | J07 |
