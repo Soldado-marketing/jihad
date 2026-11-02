@@ -170,6 +170,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Merge note: #137 (E01) pins the old Workspace ids in `test/team-access.test.mjs`; the second of #137/#142 to merge updates that one line.
 - CI: #140 and #141 SUCCESS on all jobs. Owner decision O19 (release approval for #142).
 
+## 2026-11-03 — M03/M04 navigation visual check (branch `feat/sidebar-regroup`, #142)
+
+- Method: local `next dev` of the branch, a fictional OWNER stored in the browser (no API; dashboard sections show "Could not load", which is irrelevant to the shell), built-in browser at 1440×900, 768×1024, 375×812.
+- 1440: sidebar shows Workspace (7) · Company & Team (4) · Projects & Delivery (7) · Customers & CRM (2) · Finance & Banking (1) · Reports (1) · Settings (2); AI Assistant hidden; glyphs and active indicator as before; page `scrollWidth` 1430 ≤ 1440. The sidebar is 1661 px tall, so the last groups need a page scroll on a 900 px screen.
+- 768 and 375: sidebar hidden; bottom bar + Menu dialog with the same groups and order; `scrollWidth` = `innerWidth` (no horizontal overflow); smallest link 44 px; `aria-current="page"` on Dashboard; the dialog scrolls down to Settings. PASS.
+- Not done: collapsible group headings (M03 wording) — not implemented; recorded as owner decision O20 (recommend: collapsible groups remembered per browser, OWNER sidebar only, since the compact menu already scrolls). Production NOT VERIFIED (not deployed).
+- Local server stopped; nothing committed for M03/M04 (no defect found).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -193,3 +201,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O17 | Merge draft PR #140 (F03 test isolation; test only, CI effect only) | F03 |
 | O18 | Read and merge docs PR #141 (M01 navigation audit) | M01 |
 | O19 | Release approval for draft PR #142 (M02 sidebar regroup; web redeploy) | M02 |
+| O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
