@@ -156,6 +156,12 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Evidence: suite alone 5/5; full batch 20 consecutive runs 459/459 (≈13 s each). F02 PR #139 CI: SUCCESS on all three jobs.
 - Owner decision O17 (merge #140; test-only, no deploy effect).
 
+## 2026-11-03 — M01 navigation audit (draft PR #141, docs only)
+
+- `docs/ux/MAOS_NAVIGATION_AUDIT_M01.md`: 27 navigation items with route, roles/grants, group today (Workspace, Delivery, Team, Operations) and target group (Workspace · Company & Team · Projects & Delivery · Customers & CRM · Finance & Banking · AI Assistant · Reports · Settings); per-role view; findings; M02 acceptance.
+- Decisions recorded for M02: Notifications, Chat and Collaboration → Workspace; `team` (E01) and Audit Log → Company & Team; Files, Approvals, Voice Notes, Problem reports, Work requests → Projects & Delivery; Import & export → Settings; AI Assistant group appears only with an item (phase L). Routes and `allowedRoles` untouched.
+- F03 PR #140 CI: web + audit SUCCESS, API job pending at checkpoint.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -177,3 +183,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O15 | Release approval for draft PR #138 (F01 invoice list on mobile; web redeploy) | F01 |
 | O16 | Release approval for draft PR #139 (F02 plain-language errors; web redeploy) | F02 |
 | O17 | Merge draft PR #140 (F03 test isolation; test only, CI effect only) | F03 |
+| O18 | Read and merge docs PR #141 (M01 navigation audit) | M01 |
