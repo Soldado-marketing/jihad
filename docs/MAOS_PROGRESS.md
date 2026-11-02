@@ -53,6 +53,12 @@ Backlog of record: `docs/MAOS_MASTER_TASK_LIST.md`. Checkpoint: `docs/MAOS_RESUM
 - Created `docs/MAOS_MASTER_TASK_LIST.md`, this file and `docs/MAOS_RESUME.md`; the ledger's RESUME CAPSULE now points to `MAOS_RESUME.md`.
 - Phase 1 reconciliation: A01–A03 and B01, B02, B04 need the owner (production session, Resend dashboard, off-site provider, Drive connector approval). B03 (least-privilege design) and B05 (storage inventory) are the only Phase 1 rows Claude can advance without approval.
 
+## 2026-11-02 — B05 storage inventory, B03 least-privilege design
+
+- **B05 (read-only production check):** bucket inventory with credentials injected in-process (`railway run -s jihad`), output limited to counts: 0 objects, 0 bytes, versioning off. From today's dump (`maos-20261102T154400Z`): `FileAsset` 2 rows, both metadata-only (mime type and size null, `versionCount` 0, created 2026-10-24), `FileVersion` 0. Bucket and database are consistent: nothing has been uploaded to production yet, no orphan objects, no dangling references. Capacity not a concern at 0 bytes; storage monitoring does not exist yet (follow-up noted in the task list).
+- **B03 (design only, nothing applied):** `docs/security/postgres-least-privilege-plan.md` — roles `maos_app` (DML only, default privileges for future migrations), `maos_backup` (`pg_read_all_data`), administrator kept for `migrate-deploy-one.sh`; SQL, verification queries, disposable-PG18 rehearsal steps, production window and rollback. Grounded in a code check: the API runs no DDL (raw SQL is `SELECT 1`, `SELECT … FOR UPDATE`, advisory lock, one `UPDATE`).
+- Docs PR #133 opened (not merged; owner decision).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -65,3 +71,5 @@ Backlog of record: `docs/MAOS_MASTER_TASK_LIST.md`. Checkpoint: `docs/MAOS_RESUM
 | O6 | Production upload limit value (`FILE_MAX_UPLOAD_BYTES` on `jihad`, ≤ 100 MiB) | C01, C02 |
 | O7 | Merge decisions for #109, #110; migration window for #120 | G01, G02 |
 | O8 | E-mail notifications to real clients (D01) and AI provider/cost (L) when those phases start | D01, L |
+| O9 | Merge docs PR #133 (planning files) | G03 |
+| O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
