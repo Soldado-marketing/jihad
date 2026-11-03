@@ -260,6 +260,40 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Release procedure once the owner approves (one message for #147): fresh production backup with sha256 + `pg_restore --list` + isolated rehearsal → `gh pr merge --merge --match-head-commit` on the exact head → Railway deploy of `jihad` and `maos-web` verified → readiness 200 → unauthenticated/forged-token smoke (expect 401 on API routes, 200 on the new pages `/team/members`, `/client/requests`, `/files/[id]`) → PASS/FAIL recorded here, production columns updated, panel republished. No migration in the train.
 - GitHub CI on #147 head `aba3f60`: SUCCESS on all four checks (API: unit 467/467, integration-api 39/39, integration batch 487/487, full suite 572 pass/10 todo, operator scripts 16/16; web; dependency audit; graphify); merge state CLEAN. Checklist posted on the PR. A CI-monitor switch was refused by the tool policy, so CI was read from the run log by hand.
 
+## 2026-11-03 — RELEASE: train #147 merged and deployed (owner approval O32)
+
+**Sequence (all evidence on the exact head `aba3f60`, merge commit `e301574`):**
+1. CI reconfirmed on `aba3f60`: API (unit 467, integration-api 39, batch 487, full 572/10 todo, operator scripts 16), web, dependency audit, graphify — SUCCESS; merge state CLEAN.
+2. Train diff against `main`: no change under `apps/api/prisma/` — **no migration, no destructive operation**; Docker/Railway config untouched.
+3. Backup through Railway's private tunnel (Keychain credential, runner `scripts/nightly-backup.sh`, tunnel port 15433): `maos-20261103T122203Z.dump` (202,489 bytes), sha256 OK; `scripts/restore-rehearsal.sh` on a network-less PostgreSQL 18 container: **REHEARSAL OK** (15 migrations, 48 tables; e.g. Tenant 1, User 4, TenantMembership 4, Task 5, Payment 2).
+4. Production baseline before merge: API health/ready 200; web `/` 307 → `/dashboard`.
+5. `gh pr merge 147 --merge --match-head-commit aba3f60` → `main` = `e301574` at 12:24Z. GitHub marked #109, #110, #134–#146 MERGED automatically (their commits are in `main`). #133 stays open with the later checkpoint commits only.
+6. Railway: `jihad` a6770bc0 and `maos-web` f02bdeef built from `e301574` → both **SUCCESS** (API started 12:25Z; scheduler lists the four jobs incl. `client-review-reminders@1800000ms`; web "Ready"). No error lines in the recent logs of either service.
+7. Production smoke (`smoke.sh`, unauthenticated/forged only): API health 200/200; 20 protected routes → 401; forged JWT on 5 routes → 401; `Cache-Control: no-store` present (J07); 11 pages served 200 incl. new `/team/members`, `/team/invitations`, `/team/requests`, `/client/requests`; old admin routes answer 200 with a client-side `NEXT_REDIRECT` to `/team/*` (verified in the payload). The five "FAIL" lines of the script were expectation errors, not regressions: `/login` does not exist (also 404 before the release; sign-in lives at `/`), `GET /api/admin/users` has no handler (404; `/api/admin/users/requests` → 401), and the three redirects are client-side rather than HTTP 3xx.
+
+**Per task (owner format):**
+
+| Task | PR | CI | Deployment | Production verification |
+|---|---|---|---|---|
+| J07 no-store | MERGED (#134 in #147) | PASS | SUCCESS | PASS (header observed on production) |
+| C03 format tests | MERGED (#135) | PASS | SUCCESS (no behaviour) | n/a (CI-only) |
+| D02 client work requests | MERGED (#136) | PASS | SUCCESS | PASS unauthenticated (`/client/requests` served, API refuses anonymous) · signed-in flow NOT VERIFIED |
+| E01 Team & Access | MERGED (#137) | PASS | SUCCESS | PASS unauthenticated (new routes served, old routes redirect) · signed-in NOT VERIFIED |
+| F01 invoice list mobile | MERGED (#138) | PASS | SUCCESS | page served · 375 px look NOT VERIFIED |
+| F02 plain-language errors | MERGED (#139) | PASS | SUCCESS | NOT VERIFIED (needs a signed-in error case) |
+| F03 reminder test isolation | MERGED (#140) | PASS | n/a | n/a (CI-only) |
+| M01 navigation audit | MERGED (#141) | PASS | n/a | docs |
+| M02 sidebar groups | MERGED (#142) | PASS | SUCCESS | NOT VERIFIED (sidebar needs a signed-in user) |
+| E03 role-transition gate | MERGED (#143) | PASS | n/a | n/a (CI-only) |
+| D04 version comparison | MERGED (#144) | PASS | SUCCESS | `/files` served · comparison NOT VERIFIED (needs stored files) |
+| D03 review deadlines + reminder job | MERGED (#145) | PASS | SUCCESS | job registered in production (scheduler log) · client view NOT VERIFIED |
+| E02 member access history | MERGED (#146) | PASS | SUCCESS | route refuses anonymous/forged · OWNER view NOT VERIFIED |
+| F-6 rate/cost module (#109), UX audit docs (#110) | MERGED | PASS | SUCCESS | no user-visible change |
+
+**Not done:** #120 (board lists, migration A) — BLOCKED, needs a migration window (O7). Signed-in production verification (login, permissions, company isolation, client portal, team management, invoices as a user) — **NOT VERIFIED**: no authorized production account is available to this session; the owner walk-through (O1) covers it. Rollback path if needed: `git revert e301574` on `main` (code only; the database is unchanged by this release).
+
+**Decisions closed by this release:** O9, O11–O19, O21, O26–O28, O32 and the #109/#110 part of O7.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -270,29 +304,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O4 | Rotate `RESEND_API_KEY` in the Resend dashboard and on `jihad` | B02 |
 | O5 | Approve a Drive-side sharing audit with the Drive connector | B04 |
 | O6 | Production upload limit value (`FILE_MAX_UPLOAD_BYTES` on `jihad`, ≤ 100 MiB) | C01, C02 |
-| O7 | Merge decisions for #109, #110; migration window for #120 | G01, G02 |
+| O7 | Migration window for #120 (board lists); #109 and #110 merged 2026-11-03 | G01, G02 |
 | O8 | E-mail notifications to real clients (D01) and AI provider/cost (L) when those phases start | D01, L |
-| O9 | Merge docs PR #133 (planning files) | G03 |
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
-| O11 | Release approval for draft PR #134 (J07 no-store header; API redeploy) | J07 |
-| O12 | Accept legacy Office binaries (`.doc/.xls/.ppt`) as uploads, or keep OOXML only; merge test PR #135 | C03 |
-| O13 | Release approval for draft PR #136 (D02 work requests; API + web redeploy) | D02 |
-| O14 | Release approval for draft PR #137 (E01 Team & Access; web redeploy) | E01 |
-| O15 | Release approval for draft PR #138 (F01 invoice list on mobile; web redeploy) | F01 |
-| O16 | Release approval for draft PR #139 (F02 plain-language errors; web redeploy) | F02 |
-| O17 | Merge draft PR #140 (F03 test isolation; test only, CI effect only) | F03 |
-| O18 | Read and merge docs PR #141 (M01 navigation audit) | M01 |
-| O19 | Release approval for draft PR #142 (M02 sidebar regroup; web redeploy) | M02 |
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
-| O21 | Merge draft PR #143 (E03 role-transition security gate; test only, CI effect only) | E03 |
 | O22 | Approve adding `graphify-out/` to `.gitignore` (local tooling output) | G04 |
 | O23 | Provide a read-only production path for the removed/test-account review (report only, zero writes) | E05 |
 | O24 | J01: approve a `TenantSettings` ADR + migration task and name which company settings matter first (branding, sender name, locale/currency/timezone, defaults, cost rules) | J01 |
 | O25 | D04 client side: extend the client read rule so a client may re-open versions previously delivered to its scope (comparison of rounds), or keep the portal on the current version only | D04 |
-| O26 | Release approval for draft PR #144 (D04 version comparison; web redeploy) | D04 |
-| O27 | Release approval for draft PR #145 (D03 client review deadlines + reminder job; API + web redeploy) | D03 |
-| O28 | Release approval for draft PR #146 (E02 member access history; API + web redeploy) | E02 |
-| O32 | **Release approval for PR #147 (release train: #109, #110, #133–#146 integrated and tested together; API + web redeploy; no migration)** — supersedes O9, O11–O19, O21, O26–O28 and the #109/#110 part of O7 | all awaiting-merge rows |
 | O29 | K06 route: EXTF Buchungsstapel file first (recommended) vs. DATEV Buchungsdatenservice API (new external integration, certification) | K06 |
 | O30 | Per company: SKR03 or SKR04, Sachkontenlänge, debtor accounts per customer from the start (ask the tax adviser) | K06, K01 |
 | O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
