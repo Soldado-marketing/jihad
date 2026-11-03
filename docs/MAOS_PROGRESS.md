@@ -251,6 +251,15 @@ Also confirmed: size limit checked before content; empty files refused; double e
 
 - `docs/finance/MAOS_FINANCE_ROADMAP_ALIGNMENT_G06.md`: the Phase 8 finance spec is the operational layer, K01–K10 the accounting layer underneath (journal, accounts, VAT, documents, banking read-only, DATEV); five alignment rules; schema gates named. Panel: docs/research/tooling rows now appear as DONE (docs/tooling) and never count as production verified.
 
+## 2026-11-03 — Release train #147 (owner directive: finish the unfinished work, one approval)
+
+- Fourteen open PRs were each clean against `main` but conflicted with one another. Branch `release/train-2026-11-03` (PR #147) merges them in age order with every conflict resolved once: #109, #110 (ledger kept from `main`), #133, #134, #135 (CI list), #136 (with the D02 menu fix), #137, #138, #139, #140, #141, #142 (M02 sidebar wins over the E01 slot), #143 (CI list), #144, #145 (CI list, with the cancelled-round test), #146 (History panel moved into `src/components/team/company-access-panel.tsx`).
+- Integration fixes that existed in no single PR: the three admin ids replaced by E01 leave the sidebar glyphs and the Company & Team group (now Team & Access + Audit Log); `isNavItemActive` simplified; tests `sidebar-groups`, `team-access`, `member-history` follow. `.github/workflows/ci.yml` keeps all four integration-batch additions.
+- **Excluded:** #120 (board lists, migration A) — needs a migration window (O7). Stays BLOCKED.
+- Evidence on the train head `aba3f60`: web typecheck + `next build` clean, web **348/348**; API build clean, unit **572 pass** (10 todo); on a disposable PostgreSQL 18 (`maos-train-pg`, removed): `integration-api` exit 0, then the 47-file CI batch **487/487**. GitHub CI on #147 running at this checkpoint.
+- Release procedure once the owner approves (one message for #147): fresh production backup with sha256 + `pg_restore --list` + isolated rehearsal → `gh pr merge --merge --match-head-commit` on the exact head → Railway deploy of `jihad` and `maos-web` verified → readiness 200 → unauthenticated/forged-token smoke (expect 401 on API routes, 200 on the new pages `/team/members`, `/client/requests`, `/files/[id]`) → PASS/FAIL recorded here, production columns updated, panel republished. No migration in the train.
+- A CI-monitor switch for #147 was refused by the tool policy; CI is checked by hand before the approval request.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -283,6 +292,7 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O26 | Release approval for draft PR #144 (D04 version comparison; web redeploy) | D04 |
 | O27 | Release approval for draft PR #145 (D03 client review deadlines + reminder job; API + web redeploy) | D03 |
 | O28 | Release approval for draft PR #146 (E02 member access history; API + web redeploy) | E02 |
+| O32 | **Release approval for PR #147 (release train: #109, #110, #133–#146 integrated and tested together; API + web redeploy; no migration)** — supersedes O9, O11–O19, O21, O26–O28 and the #109/#110 part of O7 | all awaiting-merge rows |
 | O29 | K06 route: EXTF Buchungsstapel file first (recommended) vs. DATEV Buchungsdatenservice API (new external integration, certification) | K06 |
 | O30 | Per company: SKR03 or SKR04, Sachkontenlänge, debtor accounts per customer from the start (ask the tax adviser) | K06, K01 |
 | O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
