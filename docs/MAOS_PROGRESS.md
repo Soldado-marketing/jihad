@@ -344,6 +344,12 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Panel generator: departments A–Z, new status vocabulary (NOT STARTED / IN PROGRESS / IMPLEMENTED / TESTED / READY FOR RELEASE / BLOCKED — OWNER / DEPLOYED / VERIFIED / DONE), active-phase line.
 - First implementation task: **B06 operational alerts to the OWNER** (no gate, no schema). Then B08, B09, B10, A08, A09; then C05/C06/F04 while the Phase 2 gates (O8, O24, O34, O39) are decided.
 
+## 2026-11-03 — B06 operational alerts implemented (PR #150)
+
+- Branch `feat/ops-alerts` from `main` `3baaad7`, commit `4ae3ee6`: `ops-watchdog` job (failed or silent jobs → one in-app notice per owner of every active company, INTERNAL audience), `storage-capacity` job (read-only `ListObjectsV2` inventory vs `MAOS_STORAGE_ALERT_BYTES` 5 GiB / `MAOS_STORAGE_ALERT_OBJECTS` 50,000, one notice per day), `GET /health/ops` OWNER-only status. `JobStatus.everyMs` added. No schema change.
+- Evidence: `test/ops-alerts.test.mjs` 5/5 and `scheduler.test.mjs` 6/6 on a disposable PG18; API unit 572 pass; typecheck clean; Graphify refreshed (three new nodes, dependencies on scheduler/storage/notifications/prisma only). Full local batch and GitHub CI running at checkpoint.
+- Release needs one approval (O50: merge #150, API redeploy, no migration). Next Phase 1 engineering: B08 blocking audit + secret scan, B09 isolation gate job, B10/A08 runbooks + rollback drill, A09 e2e smoke.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -378,3 +384,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O47 | Approve content items + media rights when Phase 8 starts | Q01, Q04 |
 | O48 | Social-platform integrations only after platform app reviews | Q06 |
 | O49 | Transcription provider, cost and data handling | R02 |
+| O50 | Release approval for PR #150 (B06 operational alerts; API redeploy, no migration) | B06 |
