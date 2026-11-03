@@ -4,9 +4,9 @@ Read this first in every new session (also on `كمل MAOS`), then `docs/MAOS_MA
 
 | Field | Value |
 |---|---|
-| LAST_COMPLETED_TASK | O1/O2: authenticated production walk-through with fictional accounts 53/53 PASS, fictional data removed, A01–A04 closed. Before: G01/#120 closed, #148, release 2026-11-03 |
-| CURRENT_TASK_ID | none active — remaining rows owner-gated: O20 (collapsible sidebar groups), O24 (ADR-019), O34 (ADR-020), O35 (name), O31 (G05 rows), O29/O30 + K01/K04 (K06 impl), O8 (L), O23 (E05), O3–O6 (B01/B02/B04/C01), O22 (.gitignore) |
-| EXACT_STEP_REACHED | main `3baaad7` live; production state unchanged after the fictional-data removal; docs PR #149 open; panel version 19 |
+| LAST_COMPLETED_TASK | Roadmap v2: full development tree (154 rows, phases 0–10, decisions O36–O49) in `docs/MAOS_MASTER_DEVELOPMENT_TREE.md`. Before: O1/O2 53/53, G01/#120, #148, release 2026-11-03 |
+| CURRENT_TASK_ID | B06 — operational alerts to the OWNER (scheduler watchdog, storage capacity check, `GET /health/ops`); branch `feat/ops-alerts` from `origin/main` `3baaad7` |
+| EXACT_STEP_REACHED | B06 starting: design from scheduler.service.ts + notifications writer; no schema change |
 | CURRENT_BRANCH | code worktree on `release/train-2026-11-03` (merged; may be deleted); `docs/master-plan` (PR #133) for these files |
 | WORKTREE | code: `~/Developer/MAOS/claude/.claude/worktrees/team-access-e01-2e2441` (from `origin/main` `de2ee1b`; untracked `graphify-out/` there is local tooling, never commit it). Docs: previous session scratchpad `plan-wt` on `docs/master-plan`. The main checkout `~/Developer/MAOS/claude` belongs to another session (branch `fix/client-scope-inheritance`) — do not touch |
 | LAST_RELEVANT_COMMIT | main `e301574` (release train); train head `aba3f60` |
@@ -16,7 +16,8 @@ Read this first in every new session (also on `كمل MAOS`), then `docs/MAOS_MA
 | TESTS_PENDING | none — signed-in browser UI on production not run by rule (credential in chat); covered on the isolated stack |
 | PRODUCTION | `jihad` + `maos-web` SUCCESS on `3baaad7` (16 migrations); readiness 200; fictional O2 data removed (1 tenant / 4 users / 5 tasks / 1 invoice as before); backups `maos-20261103T140958Z`, `…T155001Z` verified |
 | KNOWN_BLOCKERS | all remaining rows need an owner decision (O3–O6, O8, O20, O22–O25, O29–O31, O34, O35); no safe code task is left ungated |
-| EXACT_NEXT_ACTION | 1) Wait for owner decisions. On O20 implement collapsible sidebar groups (web, tests, draft PR); on O24/O34 implement ADR-019/ADR-020 on disposable DBs; on O35 continue H03; on O22 add `graphify-out/` to .gitignore. 2) Keep the panel current; docs PR #149 collects the checkpoint commits |
+| EXACT_NEXT_ACTION | 1) B06: read scheduler.service.ts run/status, notifications.service notify(), storage.service list; implement `OpsWatchdogJob` (failed outcome → OWNER notice once per failure streak; job silent for 2× interval → notice), `StorageCapacityJob` (ListObjects count/bytes vs `MAOS_STORAGE_ALERT_BYTES`, default 5 GiB), `GET /health/ops` OWNER-only (job statuses, last backup file age is not known to the API → omit); tests on a disposable DB with fault injection; web: no UI yet (R04 later); PR, CI, release approval batched. 2) Then B08 (blocking audit + secret scan), B09 (isolation gate job), B10 + A08 (runbooks + drill), A09 (e2e smoke in CI). 3) Panel at each boundary |
 | PROGRESS_PANEL | Artifact https://claude.ai/artifact/YQKvn1ZehmcspeJFtjemmP (owner's side panel). Pinned to the owner's claude.ai sidebar on 2026-11-03. Regenerate after every task boundary: `sh docs/tools/fetch_prs.sh > prs.json` (n/state/draft/merged/ci in the shape the generator reads), then `python3 docs/tools/progress_panel.py --docs docs --prs prs.json --out panel.html` and publish `panel.html` to that URL. The planning files stay the source of truth; the panel never edits them |
 | STANDING_RULES | one task at a time; fictional data only; `REAL_CLIENT_DATA_ALLOWED = no`; merges/deploys/migrations/secrets/paid services/DNS are owner actions (one owner message per merge); never print secrets; never use the owner's computer or remote desktop without separate authorization |
-| LAST_UPDATED | 2026-11-03 22:40Z |
+| ACTIVE_PHASE | Phase 1 — security, backups, monitoring, release stability (engineering open: B06, B08, B09, B10, A08, A09; owner: B01–B04, B07) |
+| LAST_UPDATED | 2026-11-03 23:30Z |

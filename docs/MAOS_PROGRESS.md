@@ -338,6 +338,12 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Everything created was removed afterwards (file via API → object purged; audit rows, login history, both tenants, seven users via the tunnel with guards); counts back to 1 tenant / 4 users / 5 tasks / 1 invoice, zero leftovers. The random secret existed only in a local file and was deleted.
 - Not run: the signed-in browser UI on production — doing so would require a password or session token inside a recorded tool call, which the "never expose credentials in chat" rule forbids (the tool policy also refused materialising the token). The identical commit's UI was verified on the isolated stack (24/24 + 13/13). A01–A04 closed; O1 and O2 closed.
 
+## 2026-11-03 — Roadmap v2: full development tree (owner directive A–Z)
+
+- Phase 0 audit done against `main` `3baaad7` (live on both Railway services): 67 rows reconciled by evidence; 87 rows added for every blueprint capability the list did not cover (A05–A09, B06–B10, C05–C08, D06–D08, E06–E08, F04–F07, G07–G20, J08–J11, K11–K14, M05–M12 and new departments N CRM, O services/packages, P operations/people, Q content/social, R automation/knowledge/system) → **154 rows**. Dependency tree, phases 0–10 with exit criteria, per-workstream acceptance and the consolidated decision list with recommendations: `docs/MAOS_MASTER_DEVELOPMENT_TREE.md`.
+- Panel generator: departments A–Z, new status vocabulary (NOT STARTED / IN PROGRESS / IMPLEMENTED / TESTED / READY FOR RELEASE / BLOCKED — OWNER / DEPLOYED / VERIFIED / DONE), active-phase line.
+- First implementation task: **B06 operational alerts to the OWNER** (no gate, no schema). Then B08, B09, B10, A08, A09; then C05/C06/F04 while the Phase 2 gates (O8, O24, O34, O39) are decided.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -358,3 +364,17 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
 | O34 | Approve ADR-020 (`ApprovalRequestFile`, message-only deliveries) and its migration task; max files per delivery | D05 |
 | O35 | Product name: accept a variant domain for Klarwerk / Taktwerk / Studiokern (natural domains taken) or ask for a second naming round; register-level trademark search by owner/counsel | H02, H03, H04 |
+| O36 | Browser acceptance on production: sign in yourself with a fictional account, or allow a one-time credential entry in a tool call | A05 |
+| O37 | Uptime monitor provider (recommend UptimeRobot free tier → owner e-mail) | B07 |
+| O38 | Allow deletion of orphan storage objects after the first report | C07 |
+| O39 | Approve the `NotificationPreference` model (with D01) | D06, J11 |
+| O40 | Approve the contractor invoice record | E06, P02 |
+| O41 | Approve the project-management schema batch (dependencies, saved views, templates, recurrence, milestones) as one ADR + migration | G08, G09, G11, G12, G17 |
+| O42 | Approve knowledge-base document records | G16 |
+| O43 | Approve contacts + contracts (one ADR) | N02, N07 |
+| O44 | Approve service catalogue + packages (one ADR) | O01, O02 |
+| O45 | Approve capacity fields on memberships | P01 |
+| O46 | Payroll provider/validation (later; no in-house payroll) | P06 |
+| O47 | Approve content items + media rights when Phase 8 starts | Q01, Q04 |
+| O48 | Social-platform integrations only after platform app reviews | Q06 |
+| O49 | Transcription provider, cost and data handling | R02 |
