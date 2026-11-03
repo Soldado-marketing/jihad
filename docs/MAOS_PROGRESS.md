@@ -202,6 +202,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - G04: the per-checkout code graph (`graphify update .`, AST only, no LLM calls) was refreshed after each code task in this session's worktree; latest report 926 files, 10192 nodes, 18198 edges, 721 communities, built from `bb98dfb`. Procedure stays: refresh once after a code-changing task, never commit `graphify-out/`. `graphify-out/` is untracked and not ignored in the repo → O22 (approve adding it to `.gitignore`).
 - E05 needs read-only production access that the owner provides (O23); nothing was read from production in this session (a production variables read was refused by the tool policy and not retried).
 
+## 2026-11-03 — D04 side-by-side version comparison (draft PR #144) and J01 settings verification
+
+- D04 (web only, branch `feat/version-compare` from `origin/main` `de2ee1b`, commit `c49e59f`): on the file page staff pick two versions; images and PDFs render side by side, every other type is compared by its details (name, size, upload time, status) with the size difference in plain words; quarantined/blocked versions cannot be picked; stacked on a phone, two columns from `md` up. Bytes come through the existing `GET /files/:id/versions/:versionId/content?disposition=inline` route; no storage key or pre-signed URL reaches the browser; object URLs are revoked. Blueprint §30 check: enrichment of the Files detail (§14 "versions" action list, §25 ENRICH_EXISTING); no schema, no authorisation, no tenant-scope change; Phase 3 D row, in order.
+- D04 client side not built: `assertClientMayRead` lets a client open only a version under review or approved for its scope, so an earlier round (changes requested) is refused. Comparing rounds in the client portal would need that rule extended to "every version previously delivered to this scope" → owner decision O25.
+- Evidence: new `apps/web/test/file-version-compare.test.mjs` 10/10; web suite 301/301; `tsc --noEmit` and `next build` clean. Not yet checked in a live browser with stored files; listed under the isolated acceptance walk. Owner decision O24 is unrelated to the PR (J01), O26 is its release approval.
+- J01 verification (no code): `Tenant` holds only `name`, `slug`, `status`; no tenants controller, no settings endpoint; `/settings` is read-only display. Everything the row names (branding, sender name, locale/currency/timezone, defaults, cost rules) has no storage, so the settings page needs the `TenantSettings` model from Blueprint §22 → ADR + migration approval and the owner's priority list → O24.
+- Progress panel: pinned to the owner's claude.ai sidebar (owner message 2026-11-03); `docs/tools/fetch_prs.sh` now writes the PR state file the generator reads. CI on #133–#143: all three jobs SUCCESS.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -229,3 +237,6 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O21 | Merge draft PR #143 (E03 role-transition security gate; test only, CI effect only) | E03 |
 | O22 | Approve adding `graphify-out/` to `.gitignore` (local tooling output) | G04 |
 | O23 | Provide a read-only production path for the removed/test-account review (report only, zero writes) | E05 |
+| O24 | J01: approve a `TenantSettings` ADR + migration task and name which company settings matter first (branding, sender name, locale/currency/timezone, defaults, cost rules) | J01 |
+| O25 | D04 client side: extend the client read rule so a client may re-open versions previously delivered to its scope (comparison of rounds), or keep the portal on the current version only | D04 |
+| O26 | Release approval for draft PR #144 (D04 version comparison; web redeploy) | D04 |
