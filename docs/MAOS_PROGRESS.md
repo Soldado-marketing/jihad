@@ -322,8 +322,9 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
 | O22 | Approve adding `graphify-out/` to `.gitignore` (local tooling output) | G04 |
 | O23 | Provide a read-only production path for the removed/test-account review (report only, zero writes) | E05 |
-| O24 | J01: approve a `TenantSettings` ADR + migration task and name which company settings matter first (branding, sender name, locale/currency/timezone, defaults, cost rules) | J01 |
+| O24 | J01: approve ADR-019 (`TenantSettings`, incl. DATEV master data) + migration task; name which settings groups come first | J01, K06 |
 | O25 | D04 client side: extend the client read rule so a client may re-open versions previously delivered to its scope (comparison of rounds), or keep the portal on the current version only | D04 |
 | O29 | K06 route: EXTF Buchungsstapel file first (recommended) vs. DATEV Buchungsdatenservice API (new external integration, certification) | K06 |
 | O30 | Per company: SKR03 or SKR04, Sachkontenlänge, debtor accounts per customer from the start (ask the tax adviser) | K06, K01 |
 | O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
+| O34 | Approve ADR-020 (`ApprovalRequestFile`, message-only deliveries) and its migration task; max files per delivery | D05 |
