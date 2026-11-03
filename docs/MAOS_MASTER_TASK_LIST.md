@@ -21,7 +21,7 @@ Evidence words: PASS / FAIL / NOT VERIFIED (production) — never upgrade NOT VE
 
 ## Phase and order
 
-Phase 1 Stability (A → B) · Phase 2 Core company architecture (J) · Phase 3 Existing product (C → D → E → F → M) · Phase 4 Finance (K) · Phase 5 AI Assistant (L) · Phase 6 Platform (G) · Phase 7 Branding (H) · Phase 8 Website (I, separate project). Within a phase, confirmed security and data-integrity issues first. A BLOCKED_OWNER row never blocks the next READY row.
+Phase 1 Stability (A → B) · Phase 2 Core company architecture (J) · Phase 3 Existing product (C → D → E → F → M) · Phase 4 Finance (K) · Phase 5 AI Assistant (L) · Phase 6 Platform (G) · Phase 7 Branding (H). The Soldado Marketing website (soldado-marketing.de) is a separate project outside MAOS and is not tracked here (owner decision 2026-11-03). Within a phase, confirmed security and data-integrity issues first. A BLOCKED_OWNER row never blocks the next READY row.
 
 ---
 
@@ -103,12 +103,6 @@ Preserve (regression-guarded in CI): deliveries and approvals, revision requests
 | H03 | Branding and logo proposals | NOT_STARTED | — |
 | H04 | Apply the owner-approved brand | BLOCKED_OWNER | Owner approval required |
 
-## I — Soldado Marketing Website (separate project)
-
-| ID | Task | Status | Notes |
-|---|---|---|---|
-| I01–I04 | Inspect assets, UI/UX, build, test and release | NOT_STARTED | Separate repository; never mixed into MAOS PRs |
-
 ## J — Multi-Company Management (P0)
 
 | ID | Task | Status | Deps | Notes / implementation | Tests & acceptance | PR / commit | Production |
@@ -138,9 +132,20 @@ Preserve (regression-guarded in CI): deliveries and approvals, revision requests
 
 ## L — MAOS AI Assistant (P1, Phase 5)
 
-| ID | Task | Status | Notes |
-|---|---|---|---|
-| L01–L07 | Assistant, task/project help, financial insights, multi-company awareness, controlled actions, role capabilities, authorized search | NOT_STARTED | No AI provider dependency exists in the code today (voice-to-task is schema-only). Provider, cost and data-handling need an owner decision before any dependency is added; design must inherit the caller's permissions and log sensitive actions |
+Source of truth: `docs/MAOS_AI_ECOSYSTEM_PHASE_9.md` (§3 security rules, §5 capability map, §8 permission matrix, §9 assistant, §10 copilot, §11 analyst, §14 search, §15–16 reporting/analytics, §17 permissions, §18 audit logs, §19 human approval, §20 data access, §21 languages, §23–24 suggested actions/task creation). No AI provider dependency exists in the code today (voice-to-task is schema-only). Nothing below is started; nothing is counted as done.
+
+| ID | Task | Status | Deps | Notes / implementation | Tests & acceptance | PR / commit | Production |
+|---|---|---|---|---|---|---|---|
+| L01 | AI permission gate and data-access rules | NOT_STARTED | — | One gate every AI feature calls before retrieval (§3, §17, §20): `ai.use` permission plus permission to each referenced resource; permission equivalence (AI sees only what the caller could open by hand); tenant isolation; client boundary (own client-visible records only); Owner-only global finance/profitability/payroll unless explicitly granted; no hidden-record inference through counts or hints; stale context invalidated on role change | Isolated suite: cross-tenant, cross-client, finance-by-employee and revoked-permission requests are refused with no data in the answer; the same questions as OWNER succeed | — | — |
+| L02 | AI provider adapter, cost and data-handling controls | BLOCKED_OWNER | O8 | Pluggable provider behind one interface; fake provider for tests; per-tenant/per-user limits; what leaves MAOS is logged by category, never secrets or payroll; provider, cost ceiling and data-processing terms are an owner decision before any dependency is added | Fake-provider suite passes; no network call without the owner-approved key; limits enforced with 429 | — | — |
+| L03 | AI Assistant: natural-language questions over accessible records | NOT_STARTED | L01, L02 | §9: answers, summaries, navigation help and record explanations from projects, tasks, customers, CRM, files, invoices and approvals the caller may open; source references on every factual statement; facts labelled apart from suggestions; Arabic, English and German; safe denial when data is inaccessible | Acceptance per §9: answers only from accessible data, three languages, sources cited, denial stated plainly; client asking about another client gets a denial and no hint | — | — |
+| L04 | Natural-language task and project management (proposals) | NOT_STARTED | L01, L02, L05 | §10, §24: "create a task for X due Friday", subtasks, follow-ups, assignment and status proposals from prompts, meetings and voice drafts; every change is a proposal shown with before/after fields, never applied directly | Proposals never write without an approval; wrong assignee or inaccessible project is refused at the gate; i18n of dates and names | — | — |
+| L05 | Human approval layer and action safety | NOT_STARTED | L01 | §19 and §3: every create/update/assign/send/export/publish/approve is reviewed, edited, approved, rejected or cancelled by a user who holds the target permission; no destructive automation (delete, void, cancel, archive, overwrite); **no banking transaction, payment or transfer is ever initiated by the assistant, with or without approval**; proposals expire; approval decision audited with before/after | Suite: unapproved proposals change nothing; approver without permission refused; expired proposal refused; transfer-like intents are refused outright | — | — |
+| L06 | Company-specific information and permission-safe search | NOT_STARTED | L01, L02 | §14: natural-language search across the active company's records with results the caller may open and a source for each; no result, count or snippet from records outside the caller's scope | Search as EMPLOYEE/CLIENT/OWNER over the same fixtures returns strictly nested result sets; no cross-tenant hit | — | — |
+| L07 | Customer and workflow assistance | NOT_STARTED | L03, L05 | §22–23 and §13: next-step suggestions on customers, deliveries, follow-ups and approvals; client-safe wording for client-facing drafts; meeting notes to action items (proposals) | Suggestions reference sources; client-facing drafts never contain internal notes, staff identities or costs; every write goes through L05 | — | — |
+| L08 | Finance analysis and reporting assistance | NOT_STARTED | L01, L02, L05, K05 | §11, §15–16 and §8: explanations and trends over invoices, payments, costs and profitability for the OWNER (or explicit grant); clients only over their own invoices and payments; reports and exports need approval; **read-only: no payment, transfer or bank action** | Employee and client finance questions refused beyond their own scope; owner analysis cites records; export requires approval; no write path exists | — | — |
+| L09 | AI audit logging and blocked-attempt reporting | NOT_STARTED | L01 | §18: every AI interaction logged (user, tenant, feature, language, scope, permission result, action result); sensitive, financial, client-facing, export and blocked events also in the audit log; OWNER report of blocked attempts and sensitive actions | Every test request in L01–L08 leaves a log row; blocked attempts appear in the OWNER report; no prompt content for payroll/finance in logs beyond category | — | — |
+| L10 | Multi-company awareness | NOT_STARTED | L01 | The assistant acts only in the active company of the session (company switch re-issues the token); no cross-company summaries, counts or comparisons even for a user who belongs to both | Two-company fixture: the same user gets company-A answers in A and company-B answers in B, never both | — | — |
 
 ## M — Sidebar & Navigation (P1)
 

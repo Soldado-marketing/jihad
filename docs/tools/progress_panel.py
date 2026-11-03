@@ -121,6 +121,26 @@ def main():
     verified = counts["done"]
     delivered = verified + counts["unverified"] + counts["awaiting"]
 
+    def stage(t) -> str:
+        """How far one row has travelled: none → developed → ci → merged → deployed → verified."""
+        if t["bucket"] == "done":
+            return "verified"
+        prod = t["prod"].lower()
+        if "deployed" in prod or prod.startswith("pass"):
+            return "deployed"
+        if not t["prs"]:
+            return "none"
+        states = [prs.get(n) for n in t["prs"]]
+        if all(p and p.get("merged") for p in states):
+            return "merged"
+        if all(p and (p.get("merged") or p.get("ci") == "SUCCESS") for p in states):
+            return "ci"
+        return "developed"
+    STAGES = [("developed", "Developed (PR open)"), ("ci", "CI passed"), ("merged", "Merged"), ("deployed", "Deployed"), ("verified", "Production verified")]
+    stage_of = {t["id"]: stage(t) for t in all_tasks}
+    stage_rank = {"none": 0, "developed": 1, "ci": 2, "merged": 3, "deployed": 4, "verified": 5}
+    stage_counts = {k: sum(1 for v in stage_of.values() if stage_rank[v] >= stage_rank[k]) for k, _ in STAGES}
+
     def pr_chip(n: int) -> str:
         p = prs.get(n)
         if not p:
@@ -207,6 +227,9 @@ header .sub {{ color:var(--muted); font-size:11.5px; margin-top:2px }}
 .s-active {{ background:var(--info) }} .s-blocked {{ background:var(--crit) }} .s-partial {{ background:color-mix(in srgb,var(--info) 45%,var(--bg)) }}
 .s-ready, .s-todo, .s-na {{ background:transparent }}
 .legend {{ display:flex; flex-wrap:wrap; gap:4px; margin-top:8px }}
+.stages {{ display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:8px; font-size:11px; color:var(--muted) }}
+.stages .stage b {{ color:var(--fg); font-variant-numeric:tabular-nums }}
+.stages .stage + .stage::before {{ content:"›"; margin-inline-end:6px; color:var(--line) }}
 .chip {{ display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); white-space:nowrap }}
 .chip b {{ font-weight:700; color:var(--fg) }}
 .chip.done {{ color:var(--ok); border-color:var(--ok) }} .chip.unverified {{ color:var(--ok); border-style:dashed }}
@@ -265,6 +288,7 @@ footer {{ color:var(--muted); font-size:11px; margin-top:14px; line-height:1.5 }
     <div class="big" style="font-size:15px;margin-top:4px">{pct_delivered}%<small>delivered (verified + not verified + awaiting merge) · {delivered} of {total}</small></div>
     <div class="bar">{"".join(f'<i class="s-{b}" style="width:{100*counts[b]/total:.1f}%"></i>' for b in ORDER if counts[b])}</div>
     <div class="legend">{legend}</div>
+    <div class="stages" aria-label="Pipeline">{"".join(f'<span class="stage"><b>{stage_counts[k]}</b> {label}</span>' for k, label in STAGES)}</div>
   </div>
   <div class="now">
     <div class="active-task"><div class="k">Active task</div><div class="v">{md_inline(resume.get("CURRENT_TASK_ID", "—"))}</div></div>
@@ -279,7 +303,7 @@ footer {{ color:var(--muted); font-size:11px; margin-top:14px; line-height:1.5 }
 {"".join(dept_block(d) for d in depts)}
 <h2>Owner decisions open ({len(decisions)})</h2>
 <ul class="decisions">{decisions_html}</ul>
-<footer>Status words come from the task list verbatim (shown under each task). "Verified" counts only rows marked DONE and verified in production; draft PRs are never shown as deployed. Checkpoint last updated {html.escape(resume.get("LAST_UPDATED", "—"))}.</footer>
+<footer>Status words come from the task list verbatim (shown under each task). "Verified" counts only rows marked DONE and verified in production; the pipeline line counts rows that reached at least that stage (a PR open, every CI job green, merged, deployed, verified); draft PRs are never shown as deployed. This page is a snapshot: Claude regenerates and republishes it at each task boundary from the planning files and GitHub; it does not update by itself. Checkpoint last updated {html.escape(resume.get("LAST_UPDATED", "—"))}.</footer>
 <script>
 (function () {{
   var KEY = 'maos-panel-open';

@@ -228,6 +228,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Evidence (disposable `postgres:18` `maos-e02-pg`, fictional data, removed afterwards): `audit-log.test.mjs` 6/6 with the two new cases (manager/employee/contractor/client → 403, unknown and foreign user → 404; events under both ids joined newest first with details, same-id event of another company excluded, no ids beyond the actor); web `test/member-history.test.mjs` 6/6; web 297/297; API unit 506 pass; typecheck and builds clean. Not yet seen in a live browser. Release approval O28.
 - Phase 3 is now fully delivered or gated: D05 needs a schema change (multi-file delivery), D01 waits on O8, E05 on O23, J01 on O24. Next READY rows by phase order are docs-only: K06 (DATEV export: spec verification first) and G05 (gap analysis vs Trello/ClickUp/Notion).
 
+## 2026-11-03 — Scope correction (owner directive): website removed, AI Assistant backlog restored
+
+- Section I (Soldado Marketing website) removed from the master task list and the panel: soldado-marketing.de is a separate project outside MAOS; nothing there is developed, modified or deployed from this plan.
+- Section L restored from the approved specification `docs/MAOS_AI_ECOSYSTEM_PHASE_9.md` as ten independently testable rows L01–L10 (permission gate, provider/cost controls [O8], assistant Q&A, natural-language task/project proposals, human approval layer with no banking action ever, permission-safe search, customer/workflow assistance, finance analysis read-only, AI audit logging, multi-company awareness). All NOT_STARTED except L02 BLOCKED_OWNER (O8); nothing counted as done.
+- Finance K01–K10 kept in full (double-entry, journals/SKR03-SKR04, supplier bills and credit notes, VAT, reporting, DATEV, separate ledgers, Open Banking read-only first, reconciliation, multiple bank accounts). K06 starts as documented specification research; no production migration, no real bank, no real financial data without separate approval.
+- Totals are recomputed by the panel generator from the real rows: 57 → 67. The old summary rows `I01–I04` and `L01–L07` were never counted (not real task ids); L01–L10 are ten real rows. The panel now also shows the pipeline (developed → CI passed → merged → deployed → production verified), each counted from the rows and GitHub, never from status words.
+- Panel wording corrected: the Artifact is a snapshot that Claude regenerates and republishes at each task boundary; it does not update by itself.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
