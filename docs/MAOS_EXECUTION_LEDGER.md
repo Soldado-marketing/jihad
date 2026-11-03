@@ -12,25 +12,14 @@ Operational execution state for MAOS, kept so that any Claude Code session can r
 
 ## RESUME CAPSULE
 
-Read this first on `كمل MAOS`; verify it against `git status`, branch, HEAD and the active PR, and continue from EXACT_NEXT_ACTION. Read deeper sections only if the checks disagree.
+**Superseded 2026-11-02.** The live checkpoint is `docs/MAOS_RESUME.md`; the backlog of record is `docs/MAOS_MASTER_TASK_LIST.md`; the chronological log from 2026-11-02 on is `docs/MAOS_PROGRESS.md`. On `كمل MAOS` read `MAOS_RESUME.md` first. This ledger keeps the history up to #114 (2026-10-28) and the owner gates below; the capsule table is frozen at that date.
 
-| Field | Value |
+| Field | Value (frozen 2026-10-28; see MAOS_RESUME.md) |
 |---|---|
-| CURRENT_PHASE_OR_WAVE | Post-release: R01, multi-company, invite-only and existing-user invites live |
-| ACTIVE_TASK | none |
-| TASK_STATUS | #114 merged and deployed; no task in progress |
-| CURRENT_BRANCH | main |
-| HEAD | main `7c8a2a9` (#114) |
-| MAIN_HEAD_LAST_VERIFIED | `7c8a2a9` 2026-10-28: main CI success; Railway `jihad` + `maos-web` SUCCESS on 7c8a2a9; /api/health + /ready 200; POST /api/auth/invites/accept-existing 401 unauthenticated; logs 0 errors |
-| PR_URL | open: #109 (F-6, paused), #110 (UI/UX audit docs) |
-| PR_STATUS | #109 and #110 open, not merged |
-| CI_STATUS | main green on 7c8a2a9 |
-| COMPLETED_ATOMIC_STEP | #114 released and verified in production |
-| EXACT_NEXT_ACTION | Await owner direction for the next task. Do not start new work without approval |
-| TESTS_PENDING | none |
-| BLOCKERS | none |
-| OWNER_GATE_PENDING | (1) credential rotation after the 2026-10-21 Railway disclosure (unverified); (2) D2 off-site backup copy (not configured); (3) #109 and #110 merge decisions; (4) D5 repo visibility / main branch protection; (5) open UI issue: existing-user invite sign-in tab (see log); (6) T45 webhook secret; (7) T46 real-data gate |
-| LAST_UPDATED | 2026-10-28 |
+| MAIN_HEAD_LAST_VERIFIED | `de2ee1b` 2026-11-02 (#131): main CI success; Railway `jihad` + `maos-web` SUCCESS; readiness 200 |
+| RELEASED_SINCE_CAPSULE | #115–#119, #121–#132 (see `MAOS_PROGRESS.md` and GitHub) |
+| OWNER_GATE_PENDING | collected as O1–O8 in `MAOS_PROGRESS.md` |
+| LAST_UPDATED | 2026-11-02 |
 
 Standing safety: REAL_CLIENT_DATA_ALLOWED = NO (changes only at gate G-DATA).
 
