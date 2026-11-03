@@ -1,11 +1,11 @@
 /**
- * Rate resolution and cost (MAOS-T73, ADR-018) - pure functions.
+ * Rate resolution and cost (MAOS-T73, ADR-018; F-6: one module, finance/labour-cost.ts).
  * Run: node --test test/rate-resolution.test.mjs
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { costCents, pickRate, scopeKeyFor } from '../src/modules/rates/rate-resolution.ts';
+import { costCents, pickRate, scopeKeyFor } from '../src/modules/finance/labour-cost.ts';
 
 const day = (s) => new Date(`${s}T00:00:00.000Z`);
 const rate = (scope, key, rateCents, validFrom) => ({ scope, scopeKey: key, rateCents, currency: 'EUR', validFrom: day(validFrom) });
