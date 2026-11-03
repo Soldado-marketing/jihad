@@ -139,6 +139,9 @@ jobs:
       # security-gate-contractor-scope proves a CONTRACTOR sees only assigned work.
       # security-gate-member-management proves role changes drop the old role's
       # permissions, removal ends one company only, and Owners are never changed.
+      # security-gate-role-transitions (E03) proves what each role change and grant
+      # revocation takes away and keeps, per company, on old and refreshed tokens,
+      # that refused changes write nothing, and that the last Owner is protected.
       # security-gate-client-deliveries proves a client reviews only its own deliveries,
       # sees the company name only, and change requests reach the assigned employee.
       # security-gate-client-complaints proves a problem report reaches management only,
@@ -186,6 +189,7 @@ jobs:
             test/security-gate-contractor-scope.test.mjs \
             test/security-gate-explicit-grants.test.mjs \
             test/security-gate-member-management.test.mjs \
+            test/security-gate-role-transitions.test.mjs \
             test/security-gate-client-deliveries.test.mjs \
             test/security-gate-client-portal-v2.test.mjs \
             test/security-gate-client-complaints.test.mjs \
