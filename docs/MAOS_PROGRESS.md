@@ -294,17 +294,25 @@ Also confirmed: size limit checked before content; empty files refused; double e
 
 **Decisions closed by this release:** O9, O11–O19, O21, O26–O28, O32 and the #109/#110 part of O7.
 
+## 2026-11-03 — O1 acceptance walk-through of `e301574` (isolated stack, fictional data)
+
+- Full stack built locally from `main` (PostgreSQL 18 + MinIO + API with scheduler + `next dev`), two fictional companies, OWNER/MANAGER/EMPLOYEE/CLIENT accounts, browser at 1024 px and 375 px. **24 workflows PASS** (login, dashboard numbers, sidebar groups, Team & Access tabs, grants, member History, audit log, versions + comparison, delivery with review-by + reminder job, company switching with a different role, invoice list on a phone, client portal incl. requests entry, delivery review and revision, work request to management, invoice detail, isolation matrix 17/17 across clients and companies, employee and manager scope). Record: `docs/MAOS_O1_ACCEPTANCE_2026-11-03.md`.
+- **Finding fixed:** `/client/requests` carried the problem-report wording → PR #148 (web only, 349/349), awaiting one release approval (O33).
+- **Production blocker (exact):** this session has no authorized production session and production test accounts need approval (O2); signed-in production verification therefore stays NOT VERIFIED. Rows D02, D03, D04, E01, E02, F01, F02, M02, J07 are DONE with isolated acceptance; A01 PARTIAL.
+- Stack removed afterwards (containers, env files, launch config); nothing committed from it.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
 |---|---|---|
-| O1 | Run the V2 production checklist as owner, or schedule a session for it | A01, A04 |
+| O1 | Production signed-in verification: walk through with the owner account, or approve fictional production test accounts (O2); the isolated acceptance of 2026-11-03 is PASS 24/24 | A01, A04 |
 | O2 | Accept isolated evidence for employee/client/manager acceptance, or create fictional production accounts | A02, A03 |
 | O3 | Off-site backup provider, account, bucket, key (paid) per `docs/ops/OFFSITE_BACKUP_SETUP.md` | B01 (D2) |
 | O4 | Rotate `RESEND_API_KEY` in the Resend dashboard and on `jihad` | B02 |
 | O5 | Approve a Drive-side sharing audit with the Drive connector | B04 |
 | O6 | Production upload limit value (`FILE_MAX_UPLOAD_BYTES` on `jihad`, ≤ 100 MiB) | C01, C02 |
 | O7 | Migration window for #120 (board lists); #109 and #110 merged 2026-11-03 | G01, G02 |
+| O33 | Release approval for PR #148 (client requests page wording; web redeploy only) | D02 |
 | O8 | E-mail notifications to real clients (D01) and AI provider/cost (L) when those phases start | D01, L |
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
