@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
+import { reviewByLine, reviewByToIso } from '@/lib/deliveries';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { type FileVersionListItem } from './file-version-list';
 
@@ -9,6 +10,7 @@ type Round = {
   id: string;
   status: string;
   createdAt: string;
+  dueAt: string | null;
   fileVersion: { id: string; versionNumber: number } | null;
   decisions: { decision: string; note: string | null; createdAt: string; from: 'client' | 'company' }[];
 };
@@ -36,6 +38,7 @@ export function ClientDeliveryPanel({
 }) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
   const [message, setMessage] = useState('');
+  const [reviewBy, setReviewBy] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -60,9 +63,15 @@ export function ClientDeliveryPanel({
     try {
       await apiFetch('/deliveries', {
         method: 'POST',
-        body: JSON.stringify({ fileAssetId, fileVersionId: latest.id, ...(message.trim() ? { message: message.trim() } : {}) }),
+        body: JSON.stringify({
+          fileAssetId,
+          fileVersionId: latest.id,
+          ...(message.trim() ? { message: message.trim() } : {}),
+          ...(reviewByToIso(reviewBy) ? { reviewBy: reviewByToIso(reviewBy) } : {}),
+        }),
       });
       setMessage('');
+      setReviewBy('');
       setDone(needsRevision ? 'Revision sent. The client has been notified.' : 'Sent to the client for review. The client has been notified.');
       load();
       onChanged?.();
@@ -91,7 +100,10 @@ export function ClientDeliveryPanel({
       )}
 
       {inReview ? (
-        <p className="mt-4 text-sm text-slate-600">Version {current?.fileVersion?.versionNumber} is with the client for review.</p>
+        <p className="mt-4 text-sm text-slate-600">
+          Version {current?.fileVersion?.versionNumber} is with the client for review.
+          {current?.dueAt ? ` ${reviewByLine(current.dueAt, current.status)?.text ?? ''}` : ''}
+        </p>
       ) : current?.status === 'APPROVED' ? (
         <p className="mt-4 text-sm text-green-700">The client approved version {current.fileVersion?.versionNumber}.</p>
       ) : (
@@ -100,6 +112,12 @@ export function ClientDeliveryPanel({
             <span className="mb-1 block font-medium text-ink">{needsRevision ? 'Reply to the client' : 'Message to the client (optional)'}</span>
             <textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={2000} rows={3}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink">Ask the client to answer by (optional)</span>
+            <input type="datetime-local" value={reviewBy} onChange={(e) => setReviewBy(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink md:w-auto" />
+            <span className="mt-1 block text-xs text-slate-500">The client sees this date and is reminded once, 24 hours before it.</span>
           </label>
           <button type="button" onClick={() => void send()} disabled={busy || !latest || (needsRevision && !hasNewVersion)}
             className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
@@ -117,7 +135,10 @@ export function ClientDeliveryPanel({
         <ol className="mt-5 space-y-3 border-t border-line pt-4 text-sm">
           {rounds.map((r) => (
             <li key={r.id}>
-              <p className="font-medium text-ink">Version {r.fileVersion?.versionNumber ?? '—'} · sent {new Date(r.createdAt).toLocaleString()}</p>
+              <p className="font-medium text-ink">
+                Version {r.fileVersion?.versionNumber ?? '—'} · sent {new Date(r.createdAt).toLocaleString()}
+                {r.dueAt ? ` · ${reviewByLine(r.dueAt, r.status)?.text ?? ''}` : ''}
+              </p>
               {r.decisions.map((d, i) => (
                 <p key={i} className="mt-1 text-slate-600">
                   {DECISION_TEXT[d.decision] ?? d.decision} · {new Date(d.createdAt).toLocaleString()}

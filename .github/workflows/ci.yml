@@ -214,7 +214,8 @@ jobs:
             test/security-gate-sessions.test.mjs \
             test/invites.test.mjs \
             test/scheduler.test.mjs \
-            test/deadline-reminders.test.mjs
+            test/deadline-reminders.test.mjs \
+            test/client-review-reminders.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are

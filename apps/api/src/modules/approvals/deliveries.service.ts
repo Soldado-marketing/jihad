@@ -10,6 +10,7 @@ import {
 import { ApprovalStatus, FileVersionStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
+import { appointmentWhen } from '../appointments/appointment-format';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { FileVersionsService } from '../file-versions/file-versions.service';
 import { deliveryKind, safeClientFilename } from '../file-versions/client-file-privacy';
@@ -108,6 +109,13 @@ export class DeliveriesService {
       throw new ConflictException({ code: 'NEW_VERSION_REQUIRED', reason: 'Upload a new version with the changes first.' });
     }
 
+    // An optional review-by time: the client sees it and is reminded once 24 h
+    // before (ClientReviewRemindersJob). It has to lie ahead of now.
+    const reviewBy = dto.reviewBy ? new Date(dto.reviewBy) : null;
+    if (reviewBy && (Number.isNaN(reviewBy.getTime()) || reviewBy.getTime() <= Date.now())) {
+      throw new BadRequestException({ code: 'REVIEW_BY_IN_PAST', reason: 'Choose a review date that lies ahead.' });
+    }
+
     // Never send what the client could not open: the client copy is checked
     // first (identifying metadata removed, or a reason to fix the file).
     const release = await this.fileVersions.clientReleaseCheck(tenantId, asset.id, version.id);
@@ -133,9 +141,9 @@ export class DeliveriesService {
         data: {
           tenantId, title: asset.name, status: ApprovalStatus.REQUESTED,
           clientVisible: true, clientScopeKey, requestedByUserId: actor.userId,
-          fileAssetId: asset.id, fileVersionId: version.id,
+          fileAssetId: asset.id, fileVersionId: version.id, dueAt: reviewBy,
         },
-        select: { id: true, status: true },
+        select: { id: true, status: true, dueAt: true },
       });
     });
 
@@ -146,14 +154,15 @@ export class DeliveriesService {
       actorUserId: actor.userId,
       dedupeKey: `delivery.submitted:${delivery.id}`,
       title: previous ? 'Revised delivery ready for your review' : 'New delivery ready for your review',
-      body: asset.name,
+      body: `${asset.name}${reviewBy ? ` · please review by ${appointmentWhen(reviewBy)}` : ''}`.slice(0, 240),
       resourceType: 'delivery',
       resourceId: delivery.id,
     });
     await this.record(actor, previous ? 'delivery.resubmitted' : 'delivery.submitted', delivery.id, {
       fileAssetId: asset.id, versionNumber: version.versionNumber, replacedDeliveryId: previous?.id ?? null,
+      reviewBy: delivery.dueAt?.toISOString() ?? null,
     });
-    return { id: delivery.id, status: delivery.status, versionNumber: version.versionNumber, resubmission: !!previous };
+    return { id: delivery.id, status: delivery.status, versionNumber: version.versionNumber, resubmission: !!previous, reviewBy: delivery.dueAt };
   }
 
   /** Staff view of a file's delivery rounds, newest first. */
@@ -164,7 +173,7 @@ export class DeliveriesService {
       where: { tenantId, fileAssetId, clientVisible: true },
       orderBy: { createdAt: 'desc' },
       select: {
-        id: true, status: true, createdAt: true, requestedByUserId: true,
+        id: true, status: true, createdAt: true, dueAt: true, requestedByUserId: true,
         fileVersion: { select: { id: true, versionNumber: true } },
         decisions: { orderBy: { createdAt: 'asc' }, select: { decision: true, note: true, createdAt: true, decidedByUserId: true } },
       },
@@ -191,7 +200,7 @@ export class DeliveriesService {
       },
       orderBy: { updatedAt: 'desc' },
       select: {
-        id: true, title: true, status: true, createdAt: true, updatedAt: true,
+        id: true, title: true, status: true, createdAt: true, updatedAt: true, dueAt: true,
         fileVersion: { select: { versionNumber: true, originalName: true } },
         fileAsset: { select: { project: { select: { id: true, name: true } }, task: { select: { project: { select: { id: true, name: true } } } } } },
       },
@@ -200,6 +209,7 @@ export class DeliveriesService {
       kind: deliveryKind(extensionOf(r.fileVersion?.originalName ?? r.title)),
       id: r.id, title: r.title, status: r.status, createdAt: r.createdAt, updatedAt: r.updatedAt,
       versionNumber: r.fileVersion?.versionNumber ?? null,
+      reviewBy: r.dueAt,
       project: r.fileAsset?.project ?? r.fileAsset?.task?.project ?? null,
     }));
   }
@@ -211,7 +221,7 @@ export class DeliveriesService {
     const delivery = await this.prisma.approvalRequest.findFirst({
       where: { id, tenantId, clientVisible: true, status: { in: SHOWN_TO_CLIENT }, ...(scope === null ? {} : { clientScopeKey: scope }) },
       select: {
-        id: true, title: true, status: true, createdAt: true, fileAssetId: true, fileVersionId: true, clientScopeKey: true,
+        id: true, title: true, status: true, createdAt: true, dueAt: true, fileAssetId: true, fileVersionId: true, clientScopeKey: true,
         fileVersion: { select: { versionNumber: true, originalName: true, sizeBytes: true } },
         fileAsset: { select: { mimeType: true, project: { select: { id: true, name: true } }, task: { select: { project: { select: { id: true, name: true } } } } } },
       },
@@ -249,6 +259,7 @@ export class DeliveriesService {
 
     return {
       id: delivery.id, title: delivery.title, status: delivery.status, createdAt: delivery.createdAt,
+      reviewBy: delivery.dueAt,
       company,
       project: delivery.fileAsset?.project ?? delivery.fileAsset?.task?.project ?? null,
       file: {

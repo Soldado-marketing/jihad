@@ -6,13 +6,14 @@ import { PageHeader } from '@/components/ui/page-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
-import { DELIVERY_STATUS_LABEL, threadLine } from '@/lib/deliveries';
+import { DELIVERY_STATUS_LABEL, reviewByLine, threadLine } from '@/lib/deliveries';
 import { KIND_LABEL } from '@/lib/client-portal';
 
 type Detail = {
   id: string;
   title: string;
   status: string;
+  reviewBy: string | null;
   company: string;
   project: { id: string; name: string } | null;
   file: { fileAssetId: string; fileVersionId: string | null; versionNumber: number | null; name: string; sizeBytes: number | null; kind?: 'image' | 'pdf' | 'video' | 'link' | 'document' };
@@ -106,6 +107,10 @@ export default function ClientDeliveryPage({ params }: { params: Promise<{ id: s
           </p>
           <StatusBadge status={d.status} label={DELIVERY_STATUS_LABEL[d.status]} />
         </div>
+        {(() => {
+          const due = reviewByLine(d.reviewBy, d.status);
+          return due ? <p className={`text-sm ${due.urgent ? 'font-medium text-amber-700' : 'text-slate-600'}`}>{due.text}</p> : null;
+        })()}
 
         {preview && kind === 'image' && <img src={preview.url} alt={d.title} className="max-h-[70vh] w-full rounded-lg border border-line object-contain" />}
         {preview && kind === 'video' && <video src={preview.url} controls playsInline className="max-h-[70vh] w-full rounded-lg border border-line bg-black" />}
