@@ -89,6 +89,7 @@ jobs:
             test/security-mvp.test.mjs \
             test/runtime-hardening.test.mjs \
             test/no-store-cache.test.mjs \
+            test/file-formats-matrix.test.mjs \
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
