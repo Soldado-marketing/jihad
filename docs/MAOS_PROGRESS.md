@@ -236,6 +236,17 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Totals are recomputed by the panel generator from the real rows: 57 → 67. The old summary rows `I01–I04` and `L01–L07` were never counted (not real task ids); L01–L10 are ten real rows. The panel now also shows the pipeline (developed → CI passed → merged → deployed → production verified), each counted from the rows and GitHub, never from status words.
 - Panel wording corrected: the Artifact is a snapshot that Claude regenerates and republishes at each task boundary; it does not update by itself.
 
+## 2026-11-03 — Unfinished details verified (owner directive §4), K06 research, G05 analysis
+
+- **D02:** gap confirmed — `/client/requests` existed only by URL on `feat/client-work-requests` (no client menu entry, no overview link). Fixed on the same branch (`2cd29ea`, PR #136): fifth client section "Requests" + "Request new work" link on the overview; portal test expects five sections; web 292/292 on the branch.
+- **D03:** suite extended (`d5a7453`, PR #145, 8/8 on a disposable PG18): duplicates (second run adds nothing), wrong tenant (company B reminds only its own client; same scope key in two companies), approved and changes-requested rounds skipped, and now a **cancelled** round (replaced by a resubmission, still carrying its review-by time) is never reminded while the new round is, once.
+- **D04:** no new code. Previously delivered versions stay behind `FileVersionsService.assertClientMayRead` (client scope key compared first, then visibility, then approved/under-review): evidence `security-gate-client-deliveries` "client Y and another company never see it" (content → 403) and `security-gate-client-isolation`. Comparison UI is staff-only (#144).
+- **E01/E02:** overlap is a real content conflict (`git merge-tree origin/feat/team-access origin/feat/member-audit-history` → CONFLICT in `apps/web/app/(workspace)/dashboard/admin/company-access/page.tsx`). Resolution recorded on E02: the second PR to merge moves the import and the `<MemberHistory>` hook into `src/components/team/company-access-panel.tsx`; to be done before release.
+- **J01** stays gated (O24, TenantSettings ADR + migration); **D05** stays gated (schema: multi-file delivery).
+- **K06:** `docs/finance/MAOS_DATEV_EXPORT_SPEC_K06.md` — EXTF Buchungsstapel verified from public DATEV documentation (header 31 fields, 125 booking columns, 5 mandatory fields, Windows-1252, decimal comma, TTMM dates, S/H rule, account-length errors REW10152/53); MAOS gap table (no accounts, no VAT, no journal, no company DATEV master data); five-step implementation plan after K01/K04; decisions O29 (file vs API), O30 (SKR, account length, debtors).
+- **G05:** `docs/MAOS_PLATFORM_GAPS_G05.md` — what MAOS already covers, 26 gaps vs Trello/ClickUp/Notion with Blueprint placement, size and gate; two items do-not-build (§28/§43.4); minimum replacement set and order; decision O31 to add the proposed rows.
+- Local note: the code worktree's E02 branch was briefly hard-reset to the D02 head while switching branches (the D02 branch is checked out in another worktree); restored from `origin/feat/member-audit-history` (`c7815e9`). No remote branch or PR was harmed.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -268,3 +279,6 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O26 | Release approval for draft PR #144 (D04 version comparison; web redeploy) | D04 |
 | O27 | Release approval for draft PR #145 (D03 client review deadlines + reminder job; API + web redeploy) | D03 |
 | O28 | Release approval for draft PR #146 (E02 member access history; API + web redeploy) | E02 |
+| O29 | K06 route: EXTF Buchungsstapel file first (recommended) vs. DATEV Buchungsdatenservice API (new external integration, certification) | K06 |
+| O30 | Per company: SKR03 or SKR04, Sachkontenlänge, debtor accounts per customer from the start (ask the tax adviser) | K06, K01 |
+| O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
