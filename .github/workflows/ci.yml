@@ -170,6 +170,9 @@ jobs:
       # with it was a race that cascaded into 17 failures. They seed their own
       # tenants and do not need an empty database, so they share the second run.
       # The step shell is bash -e: a failure in the first run fails the step.
+      # The tenant/client/role isolation suites (security-gate-*, company-access-
+      # isolation, client scope) run in the separate `isolation-gate` job below
+      # (B09), so a leak fails a check with that name.
       - name: Integration tests
         working-directory: apps/api
         env:
@@ -177,25 +180,8 @@ jobs:
         run: |
           node --test test/integration-api.test.mjs
           node --test \
-            test/security-gate-authz.test.mjs \
-            test/company-access-isolation.test.mjs \
             test/control-center.test.mjs \
-            test/security-gate-client-isolation.test.mjs \
-            test/invoice-default-recipients.test.mjs \
-            test/visibility-scope.test.mjs \
             test/finance-payment-rules.test.mjs \
-            test/security-gate-foreign-ids.test.mjs \
-            test/security-gate-foreign-ids-content.test.mjs \
-            test/security-gate-foreign-ids-crm-finance.test.mjs \
-            test/security-gate-contractor-scope.test.mjs \
-            test/security-gate-explicit-grants.test.mjs \
-            test/security-gate-member-management.test.mjs \
-            test/security-gate-role-transitions.test.mjs \
-            test/security-gate-client-deliveries.test.mjs \
-            test/security-gate-client-portal-v2.test.mjs \
-            test/security-gate-client-complaints.test.mjs \
-            test/security-gate-client-work-requests.test.mjs \
-            test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
             test/project-enrichment.test.mjs \
@@ -218,9 +204,7 @@ jobs:
             test/activity-timeline.test.mjs \
             test/task-lists.test.mjs \
             test/login-history.test.mjs \
-            test/security-gate-session-revocation.test.mjs \
             test/throttle-per-client.test.mjs \
-            test/security-gate-sessions.test.mjs \
             test/invites.test.mjs \
             test/scheduler.test.mjs \
             test/deadline-reminders.test.mjs \
@@ -239,6 +223,94 @@ jobs:
       # runner. Blocking, like the backup and runner suites in npm test.
       - name: Operator script tests
         run: node --test scripts/test/*.test.mjs
+
+  # B09: the tenant-isolation regression suite as a named, blocking gate.
+  # Each suite boots the real app over HTTP against the PostgreSQL service and
+  # proves one group of invariants listed in docs/security/TENANT_ISOLATION_INVARIANTS.md
+  # (the file names map to its sections). A leak between companies, clients or
+  # roles fails this check by name. The suites seed their own tenants and do
+  # not need an empty database, so they share one run.
+  isolation-gate:
+    name: Isolation gate - tenant, client and role boundaries
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16-alpine
+        env:
+          POSTGRES_USER: maos
+          POSTGRES_PASSWORD: maos_password
+          POSTGRES_DB: maos_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maos -d maos_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://maos:maos_password@localhost:5432/maos_db?schema=public
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-0123456789abcdef0123456789abcdef
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Apply migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+
+      - name: Build
+        working-directory: apps/api
+        run: npm run build
+
+      # Unit-level invariants that need no database: a deleted file leaves no
+      # object behind, and a client copy carries no identifying metadata.
+      - name: Isolation unit suites
+        working-directory: apps/api
+        run: node --test test/security-gate-file-deletion.test.mjs test/client-file-privacy.test.mjs
+
+      - name: Isolation integration suites
+        working-directory: apps/api
+        env:
+          MAOS_INTEGRATION: '1'
+        run: |
+          node --test \
+            test/security-gate-authz.test.mjs \
+            test/company-access-isolation.test.mjs \
+            test/security-gate-client-isolation.test.mjs \
+            test/invoice-default-recipients.test.mjs \
+            test/visibility-scope.test.mjs \
+            test/security-gate-foreign-ids.test.mjs \
+            test/security-gate-foreign-ids-content.test.mjs \
+            test/security-gate-foreign-ids-crm-finance.test.mjs \
+            test/security-gate-contractor-scope.test.mjs \
+            test/security-gate-explicit-grants.test.mjs \
+            test/security-gate-member-management.test.mjs \
+            test/security-gate-role-transitions.test.mjs \
+            test/security-gate-client-deliveries.test.mjs \
+            test/security-gate-client-portal-v2.test.mjs \
+            test/security-gate-client-complaints.test.mjs \
+            test/security-gate-client-work-requests.test.mjs \
+            test/client-onboarding-scope.test.mjs \
+            test/client-scope-inheritance.test.mjs \
+            test/security-gate-session-revocation.test.mjs \
+            test/security-gate-sessions.test.mjs
 
   web:
     name: Web - typecheck and build
