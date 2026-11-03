@@ -67,21 +67,22 @@ before(async () => {
   ops = app.get(require(join(apiRoot, 'dist/modules/scheduler/ops-alerts.service.js')).OpsAlertsService);
 
   co.a = await prisma.tenant.create({ data: { name: `Ops A ${RUN}`, slug: `${RUN}-a`, status: 'ACTIVE' } });
+  process.env.MAOS_OPS_TENANT_SLUG = co.a.slug; // the platform's own company for this suite; other suites' companies are never addressed
   co.b = await prisma.tenant.create({ data: { name: `Ops B ${RUN}`, slug: `${RUN}-b`, status: 'ACTIVE' } });
   co.s = await prisma.tenant.create({ data: { name: `Ops S ${RUN}`, slug: `${RUN}-s`, status: 'SUSPENDED' } });
   p.owner = await member(co.a, 'OWNER', 'owner'); p.manager = await member(co.a, 'MANAGER', 'manager'); p.client = await member(co.a, 'CLIENT', 'client');
   p.ownerB = await member(co.b, 'OWNER', 'ownerb'); p.ownerS = await member(co.s, 'OWNER', 'owners');
   p.ownerToken = await login(p.owner, co.a); p.managerToken = await login(p.manager, co.a);
 });
-after(async () => { if (app) await app.close(); });
+after(async () => { delete process.env.MAOS_OPS_TENANT_SLUG; if (app) await app.close(); });
 
 describe('ops watchdog', { skip }, () => {
-  it('a failed job becomes one notice per owner of every active company, never a manager or client', async () => {
+  it('a failed job becomes one notice per owner of the ops company, never another company, a manager or a client', async () => {
     const failedAt = new Date().toISOString();
     const n = await watchdog.run(prisma, new Date(), [status('deadline-reminders', { lastOutcome: 'failed', lastFinishedAt: failedAt })]);
-    assert.equal(n, 2, 'owner A and owner B');
+    assert.equal(n, 1, 'owner of the ops company only');
     assert.equal(await noticesFor(p.owner.id, 'Scheduled job failed'), 1);
-    assert.equal(await noticesFor(p.ownerB.id, 'Scheduled job failed'), 1);
+    assert.equal(await noticesFor(p.ownerB.id, 'Scheduled job failed'), 0, 'another company never hears about the platform');
     assert.equal(await noticesFor(p.ownerS.id, 'Scheduled job failed'), 0, 'suspended company gets nothing');
     assert.equal(await noticesFor(p.manager.id, 'Scheduled job failed'), 0);
     assert.equal(await noticesFor(p.client.id, 'Scheduled job failed'), 0);
@@ -94,8 +95,9 @@ describe('ops watchdog', { skip }, () => {
     const stale = new Date(Date.now() - 3 * HOUR).toISOString();
     const now = new Date();
     const n = await watchdog.run(prisma, now, [status('appointment-reminders', { lastFinishedAt: stale })]);
-    assert.equal(n, 2);
+    assert.equal(n, 1);
     assert.equal(await noticesFor(p.owner.id, 'Scheduled job is silent'), 1);
+    assert.equal(await noticesFor(p.ownerB.id, 'Scheduled job is silent'), 0);
     assert.equal(await watchdog.run(prisma, now, [status('appointment-reminders', { lastFinishedAt: stale })]), 0);
     const healthy = await watchdog.run(prisma, now, [status('invite-expiry', {})]);
     assert.equal(healthy, 0, 'a healthy job raises nothing');
@@ -113,7 +115,8 @@ describe('storage capacity', { skip }, () => {
     try {
       storage.countObjects = async () => ({ objects: 10, bytes: 6 * 1024 ** 3, truncated: false });
       const day = new Date();
-      assert.equal(await capacity.run(prisma, day), 2);
+      assert.equal(await capacity.run(prisma, day), 1);
+      assert.equal(await noticesFor(p.ownerB.id, 'Storage is above its limit'), 0);
       assert.equal(await noticesFor(p.owner.id, 'Storage is above its limit'), 1);
       assert.equal(await capacity.run(prisma, day), 0, 'same day, no second notice');
       assert.equal(ops.lastStorageCheck.exceeded, true);
@@ -134,6 +137,7 @@ describe('GET /health/ops', { skip }, () => {
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.ok(Array.isArray(res.body.jobs) && res.body.jobs.some((j) => j.name === 'ops-watchdog'));
     assert.equal(typeof res.body.schedulerEnabled, 'boolean');
+    assert.equal(res.body.opsCompanyConfigured, true);
     assert.equal(res.body.storage.exceeded, false);
     assert.ok(Array.isArray(res.body.watchdog.findings));
     const text = JSON.stringify(res.body);

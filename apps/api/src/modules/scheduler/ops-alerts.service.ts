@@ -21,10 +21,13 @@ export interface WatchdogFinding {
 
 /**
  * B06 — operational alerts. Platform conditions (a scheduled job failing or
- * going silent, storage above its limit) are told to every OWNER of every
- * active company as an in-app notice, through the single notification writer
- * (INTERNAL audience, so a CLIENT can never receive one). The dedupe key makes
- * each condition a single notice; the state here feeds `GET /health/ops`.
+ * going silent, storage above its limit) are told to the OWNERs of the
+ * platform's own company as in-app notices, through the single notification
+ * writer (INTERNAL audience, so a CLIENT can never receive one). The ops
+ * company is `MAOS_OPS_TENANT_SLUG` when set, otherwise the oldest ACTIVE
+ * company — never every company: another agency's owners must not learn
+ * about this platform's storage or jobs. The dedupe key makes each condition
+ * a single notice; the state here feeds `GET /health/ops`.
  */
 @Injectable()
 export class OpsAlertsService {
@@ -37,21 +40,27 @@ export class OpsAlertsService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  /** One notice per owner per dedupe key, in every ACTIVE company. Returns notices created. */
+  /** The company whose owners receive operational notices, or null when none exists. */
+  async opsTenantId(env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
+    const slug = env.MAOS_OPS_TENANT_SLUG?.trim();
+    const tenant = slug
+      ? await this.prisma.tenant.findFirst({ where: { slug, status: 'ACTIVE' }, select: { id: true } })
+      : await this.prisma.tenant.findFirst({ where: { status: 'ACTIVE' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
+    return tenant?.id ?? null;
+  }
+
+  /** One notice per owner of the ops company per dedupe key. Returns notices created. */
   async notifyOwners(dedupeKey: string, title: string, body: string): Promise<number> {
-    const tenants = await this.prisma.tenant.findMany({ where: { status: 'ACTIVE' }, select: { id: true } });
-    let created = 0;
-    for (const t of tenants) {
-      created += await this.notifications.notify({
-        tenantId: t.id,
-        recipientRoles: [MembershipRole.OWNER],
-        audience: 'INTERNAL',
-        dedupeKey,
-        title,
-        body: body.slice(0, 240),
-        resourceType: 'ops',
-      });
-    }
-    return created;
+    const tenantId = await this.opsTenantId();
+    if (!tenantId) return 0;
+    return this.notifications.notify({
+      tenantId,
+      recipientRoles: [MembershipRole.OWNER],
+      audience: 'INTERNAL',
+      dedupeKey,
+      title,
+      body: body.slice(0, 240),
+      resourceType: 'ops',
+    });
   }
 }

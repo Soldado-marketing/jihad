@@ -25,6 +25,7 @@ export class OpsController {
   status() {
     return {
       schedulerEnabled: schedulerEnabled(),
+      opsCompanyConfigured: Boolean(process.env.MAOS_OPS_TENANT_SLUG?.trim()),
       activeTimers: this.scheduler.activeTimers,
       jobs: this.scheduler.status(),
       storage: this.ops.lastStorageCheck,
