@@ -127,28 +127,57 @@ export default function InvoicesPage() {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {!loading && invoices.length === 0 && !error && <p className="text-center text-sm text-muted py-8">No invoices yet.</p>}
       {invoices.length > 0 && (
-        <table className="w-full rounded-xl border border-line overflow-hidden bg-white">
-          <thead className="bg-slate-50 text-xs font-semibold text-muted uppercase">
-            <tr>{['Number','Project','Total','Due','Status'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+        <>
+          {/* Under md (F01, 375 px): one card per invoice, no horizontal scrolling. */}
+          <ul className="grid gap-3 md:hidden" aria-label="Invoices">
             {invoices.map(i => (
-              <tr key={i.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 text-sm font-medium">
-                  {/* The detail page is where the PDF, delivery and payments live,
-                      so the number has to be the way in. */}
-                  <Link href={`/finance/invoices/${i.id}`} className="text-brand hover:underline">
+              <li key={i.id} className="rounded-xl border border-line bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <Link href={`/finance/invoices/${i.id}`} className="min-w-0 break-words text-sm font-medium text-brand hover:underline">
                     {i.invoiceNumber}
                   </Link>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted">{i.project?.name || '—'}</td>
-                <td className="px-4 py-3 text-sm text-ink">{fmt(i.totalCents, i.currency)}</td>
-                <td className="px-4 py-3 text-sm text-muted">{i.dueAt ? new Date(i.dueAt).toLocaleDateString() : '—'}</td>
-                <td className="px-4 py-3"><span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[i.status] ?? 'bg-slate-100 text-slate-600'}`}>{i.status}</span></td>
-              </tr>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[i.status] ?? 'bg-slate-100 text-slate-600'}`}>{i.status}</span>
+                </div>
+                <p className="mt-1 truncate text-xs text-muted">{i.project?.name || 'No project'}</p>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs uppercase text-muted">Total</dt>
+                    <dd className="font-medium text-ink tabular-nums">{fmt(i.totalCents, i.currency)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs uppercase text-muted">Due</dt>
+                    <dd className="text-ink">{i.dueAt ? new Date(i.dueAt).toLocaleDateString() : '—'}</dd>
+                  </div>
+                </dl>
+              </li>
             ))}
-          </tbody>
-        </table>
+          </ul>
+          {/* From md up: the table as before. */}
+          <div className="hidden md:block">
+            <table className="w-full rounded-xl border border-line overflow-hidden bg-white" aria-label="Invoices">
+              <thead className="bg-slate-50 text-xs font-semibold text-muted uppercase">
+                <tr>{['Number','Project','Total','Due','Status'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {invoices.map(i => (
+                  <tr key={i.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {/* The detail page is where the PDF, delivery and payments live,
+                          so the number has to be the way in. */}
+                      <Link href={`/finance/invoices/${i.id}`} className="text-brand hover:underline">
+                        {i.invoiceNumber}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted">{i.project?.name || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-ink">{fmt(i.totalCents, i.currency)}</td>
+                    <td className="px-4 py-3 text-sm text-muted">{i.dueAt ? new Date(i.dueAt).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3"><span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[i.status] ?? 'bg-slate-100 text-slate-600'}`}>{i.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
