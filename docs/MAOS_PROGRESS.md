@@ -258,7 +258,7 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - **Excluded:** #120 (board lists, migration A) — needs a migration window (O7). Stays BLOCKED.
 - Evidence on the train head `aba3f60`: web typecheck + `next build` clean, web **348/348**; API build clean, unit **572 pass** (10 todo); on a disposable PostgreSQL 18 (`maos-train-pg`, removed): `integration-api` exit 0, then the 47-file CI batch **487/487**. GitHub CI on #147 running at this checkpoint.
 - Release procedure once the owner approves (one message for #147): fresh production backup with sha256 + `pg_restore --list` + isolated rehearsal → `gh pr merge --merge --match-head-commit` on the exact head → Railway deploy of `jihad` and `maos-web` verified → readiness 200 → unauthenticated/forged-token smoke (expect 401 on API routes, 200 on the new pages `/team/members`, `/client/requests`, `/files/[id]`) → PASS/FAIL recorded here, production columns updated, panel republished. No migration in the train.
-- A CI-monitor switch for #147 was refused by the tool policy; CI is checked by hand before the approval request.
+- GitHub CI on #147 head `aba3f60`: SUCCESS on all four checks (API: unit 467/467, integration-api 39/39, integration batch 487/487, full suite 572 pass/10 todo, operator scripts 16/16; web; dependency audit; graphify); merge state CLEAN. Checklist posted on the PR. A CI-monitor switch was refused by the tool policy, so CI was read from the run log by hand.
 
 ### Outstanding owner decisions (collected)
 
