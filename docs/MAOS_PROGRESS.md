@@ -247,6 +247,10 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - **G05:** `docs/MAOS_PLATFORM_GAPS_G05.md` — what MAOS already covers, 26 gaps vs Trello/ClickUp/Notion with Blueprint placement, size and gate; two items do-not-build (§28/§43.4); minimum replacement set and order; decision O31 to add the proposed rows.
 - Local note: the code worktree's E02 branch was briefly hard-reset to the D02 head while switching branches (the D02 branch is checked out in another worktree); restored from `origin/feat/member-audit-history` (`c7815e9`). No remote branch or PR was harmed.
 
+## 2026-11-03 — G06 finance alignment note
+
+- `docs/finance/MAOS_FINANCE_ROADMAP_ALIGNMENT_G06.md`: the Phase 8 finance spec is the operational layer, K01–K10 the accounting layer underneath (journal, accounts, VAT, documents, banking read-only, DATEV); five alignment rules; schema gates named. Panel: docs/research/tooling rows now appear as DONE (docs/tooling) and never count as production verified.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |

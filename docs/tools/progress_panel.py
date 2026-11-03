@@ -34,6 +34,8 @@ def bucket(status: str) -> str:
     if u.startswith("DONE"):
         if "NOT_STARTED" in u or "NOT VERIFIED" in u:
             return "unverified"
+        if re.search(r"\b(DOCS|ANALYSIS|RESEARCH|TOOLING|ONGOING)\b", u):
+            return "docs"
         return "done"
     if u.startswith("PARTIAL"):
         return "partial"
@@ -42,10 +44,10 @@ def bucket(status: str) -> str:
     return "todo"
 
 LABEL = {
-    "done": "DONE", "unverified": "NOT VERIFIED", "awaiting": "AWAITING APPROVAL", "active": "IN PROGRESS",
+    "done": "DONE", "docs": "DONE (DOCS/TOOLING)", "unverified": "NOT VERIFIED", "awaiting": "AWAITING APPROVAL", "active": "IN PROGRESS",
     "blocked": "BLOCKED (owner)", "partial": "PARTIAL", "ready": "READY", "todo": "TODO", "na": "N/A",
 }
-ORDER = ["done", "unverified", "awaiting", "active", "blocked", "partial", "ready", "todo", "na"]
+ORDER = ["done", "docs", "unverified", "awaiting", "active", "blocked", "partial", "ready", "todo", "na"]
 
 def parse_tasks(text: str):
     depts, cur = [], None
@@ -119,7 +121,7 @@ def main():
     total = len(all_tasks)
     counts = {b: sum(1 for t in all_tasks if t["bucket"] == b) for b in ORDER}
     verified = counts["done"]
-    delivered = verified + counts["unverified"] + counts["awaiting"]
+    delivered = verified + counts["docs"] + counts["unverified"] + counts["awaiting"]
 
     def stage(t) -> str:
         """How far one row has travelled: none → developed → ci → merged → deployed → verified."""
@@ -223,7 +225,7 @@ header .sub {{ color:var(--muted); font-size:11.5px; margin-top:2px }}
 .total .big small {{ font-size:12px; color:var(--muted); font-weight:500; margin-inline-start:6px }}
 .bar {{ display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--line); margin-top:8px }}
 .bar i {{ display:block; height:100% }}
-.s-done {{ background:var(--ok) }} .s-unverified {{ background:color-mix(in srgb,var(--ok) 45%,var(--bg)) }} .s-awaiting {{ background:var(--warn) }}
+.s-done {{ background:var(--ok) }} .s-docs {{ background:color-mix(in srgb,var(--ok) 70%,var(--bg)) }} .s-unverified {{ background:color-mix(in srgb,var(--ok) 45%,var(--bg)) }} .s-awaiting {{ background:var(--warn) }}
 .s-active {{ background:var(--info) }} .s-blocked {{ background:var(--crit) }} .s-partial {{ background:color-mix(in srgb,var(--info) 45%,var(--bg)) }}
 .s-ready, .s-todo, .s-na {{ background:transparent }}
 .legend {{ display:flex; flex-wrap:wrap; gap:4px; margin-top:8px }}
@@ -232,7 +234,7 @@ header .sub {{ color:var(--muted); font-size:11.5px; margin-top:2px }}
 .stages .stage + .stage::before {{ content:"›"; margin-inline-end:6px; color:var(--line) }}
 .chip {{ display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); white-space:nowrap }}
 .chip b {{ font-weight:700; color:var(--fg) }}
-.chip.done {{ color:var(--ok); border-color:var(--ok) }} .chip.unverified {{ color:var(--ok); border-style:dashed }}
+.chip.done {{ color:var(--ok); border-color:var(--ok) }} .chip.docs {{ color:var(--ok); border-style:dotted }} .chip.unverified {{ color:var(--ok); border-style:dashed }}
 .chip.awaiting {{ color:var(--warn); border-color:var(--warn) }} .chip.active {{ color:var(--info); border-color:var(--info) }}
 .chip.blocked {{ color:var(--crit); border-color:var(--crit) }} .chip.partial {{ color:var(--info); border-style:dashed }}
 .now {{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:grid; gap:8px }}
@@ -285,7 +287,7 @@ footer {{ color:var(--muted); font-size:11px; margin-top:14px; line-height:1.5 }
 <section class="summary">
   <div class="total">
     <div class="big">{pct}%<small>verified in production · {verified} of {total} tasks</small></div>
-    <div class="big" style="font-size:15px;margin-top:4px">{pct_delivered}%<small>delivered (verified + not verified + awaiting merge) · {delivered} of {total}</small></div>
+    <div class="big" style="font-size:15px;margin-top:4px">{pct_delivered}%<small>delivered (verified + docs/tooling + not verified + awaiting merge) · {delivered} of {total}</small></div>
     <div class="bar">{"".join(f'<i class="s-{b}" style="width:{100*counts[b]/total:.1f}%"></i>' for b in ORDER if counts[b])}</div>
     <div class="legend">{legend}</div>
     <div class="stages" aria-label="Pipeline">{"".join(f'<span class="stage"><b>{stage_counts[k]}</b> {label}</span>' for k, label in STAGES)}</div>
@@ -303,7 +305,7 @@ footer {{ color:var(--muted); font-size:11px; margin-top:14px; line-height:1.5 }
 {"".join(dept_block(d) for d in depts)}
 <h2>Owner decisions open ({len(decisions)})</h2>
 <ul class="decisions">{decisions_html}</ul>
-<footer>Status words come from the task list verbatim (shown under each task). "Verified" counts only rows marked DONE and verified in production; the pipeline line counts rows that reached at least that stage (a PR open, every CI job green, merged, deployed, verified); draft PRs are never shown as deployed. This page is a snapshot: Claude regenerates and republishes it at each task boundary from the planning files and GitHub; it does not update by itself. Checkpoint last updated {html.escape(resume.get("LAST_UPDATED", "—"))}.</footer>
+<footer>Status words come from the task list verbatim (shown under each task). "Verified" counts only rows marked DONE and verified in production; docs, research and tooling rows are shown as DONE (docs/tooling) and never count as verified; the pipeline line counts rows that reached at least that stage (a PR open, every CI job green, merged, deployed, verified); draft PRs are never shown as deployed. This page is a snapshot: Claude regenerates and republishes it at each task boundary from the planning files and GitHub; it does not update by itself. Checkpoint last updated {html.escape(resume.get("LAST_UPDATED", "—"))}.</footer>
 <script>
 (function () {{
   var KEY = 'maos-panel-open';
