@@ -219,6 +219,15 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Evidence (disposable `postgres:18` `maos-d03-pg`, fictional companies, removed afterwards): new API suite 7/7 (refused past date, stored and shown date without staff identity, no-date delivery unchanged, job registered, reminder reaches exactly the two client members of scope X and company B's own client, nothing to staff/client Y/owner B, second run adds nothing, nothing after a change request); with scheduler, client deliveries, client portal v2, notification writers, deadline reminders 50/50; API unit 506 pass (10 todo); web 298/298; API build, web typecheck and build clean. `scheduler.test.mjs` now lists four jobs; CI batch gained the suite.
 - Not yet seen in a live browser; release approval is O27.
 
+## 2026-11-03 — E02 access history per member (draft PR #146)
+
+- Finding: membership events are recorded under two different ids — `role.assigned` / `scope.assigned` / `role.changed` / `user.suspended` / `user.reactivated` with the **user id**, `membership.grant_updated` / `membership.removed` with the **membership id** — so the existing audit list (filter by resource type, actor, outcome) could not show one member's history. Left as recorded (history must stay readable); the new route joins both.
+- API (branch `feat/member-audit-history` from `origin/main` `de2ee1b`, commit `c7815e9`): `GET /audit-events/member/:userId` on the audit log controller, OWNER only through the same sensitive `AUDIT_EVENT` read permission; resolves the membership (404 outside the company), reads both ids restricted to the eight access actions, newest first, up to 100, returns action/outcome/time/actor and the already-redacted details — never session, device or resource ids. No schema, no write, no permission matrix change.
+- Web: `src/lib/member-history.ts` wording ("Employee → Manager", "Sees all tasks: on", "Was Contractor", "Joined as Employee"), `src/components/team/member-history.tsx` (loads on open), access-action labels in `src/lib/activity.ts`, rendered under every member on the company-access page (also removed members and owners). CLIENT never sees it: the route refuses, and no client page imports it (tested).
+- Blueprint §30: enrichment of Team & Access (§7/§25 existing `AuditEvent`), read-only, OWNER-only, tenant-scoped; Phase 3 E row in order.
+- Evidence (disposable `postgres:18` `maos-e02-pg`, fictional data, removed afterwards): `audit-log.test.mjs` 6/6 with the two new cases (manager/employee/contractor/client → 403, unknown and foreign user → 404; events under both ids joined newest first with details, same-id event of another company excluded, no ids beyond the actor); web `test/member-history.test.mjs` 6/6; web 297/297; API unit 506 pass; typecheck and builds clean. Not yet seen in a live browser. Release approval O28.
+- Phase 3 is now fully delivered or gated: D05 needs a schema change (multi-file delivery), D01 waits on O8, E05 on O23, J01 on O24. Next READY rows by phase order are docs-only: K06 (DATEV export: spec verification first) and G05 (gap analysis vs Trello/ClickUp/Notion).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -250,3 +259,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O25 | D04 client side: extend the client read rule so a client may re-open versions previously delivered to its scope (comparison of rounds), or keep the portal on the current version only | D04 |
 | O26 | Release approval for draft PR #144 (D04 version comparison; web redeploy) | D04 |
 | O27 | Release approval for draft PR #145 (D03 client review deadlines + reminder job; API + web redeploy) | D03 |
+| O28 | Release approval for draft PR #146 (E02 member access history; API + web redeploy) | E02 |
