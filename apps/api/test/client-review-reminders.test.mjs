@@ -237,4 +237,25 @@ describe('Review deadline: the reminder', { skip }, () => {
     assert.equal(await ourReminders(), before);
     assert.equal((await reminders(rec.soonId)).length, 0);
   });
+
+  it('a round replaced by a resubmission (cancelled) is never reminded; the new round is, once', async () => {
+    const v2 = await prisma.fileVersion.create({
+      data: { tenantId: co.a.id, fileAssetId: rec.soon.asset.id, versionNumber: 2, originalName: 'soon-v2.pdf', sizeBytes: 120, storageKey: `tenants/${co.a.id}/files/${rec.soon.asset.id}/v2/soon.pdf` },
+    });
+    objects.set(v2.storageKey, pdfBytes());
+    const again = await submit(p.employeeToken, { asset: rec.soon.asset, version: v2 }, { reviewBy: at(20 * HOUR), message: 'Logo enlarged' });
+    assert.equal(again.status, 201, JSON.stringify(again.body));
+    assert.equal(again.body.resubmission, true);
+    const old = await prisma.approvalRequest.findUnique({ where: { id: rec.soonId }, select: { status: true, dueAt: true } });
+    assert.equal(old.status, 'CANCELED');
+    assert.ok(old.dueAt, 'the cancelled round still carries its review-by time');
+
+    const before = await ourReminders();
+    await run();
+    assert.equal((await ourReminders()) - before, 2, 'client X and client X2 for the new round only');
+    assert.equal((await reminders(rec.soonId)).length, 0, 'cancelled round: nothing');
+    assert.deepEqual((await reminders(again.body.id)).map((n) => n.recipientUserId).sort(), [p.clientX.id, p.clientX2.id].sort());
+    await run();
+    assert.equal((await ourReminders()) - before, 2, 'second run adds nothing');
+  });
 });
