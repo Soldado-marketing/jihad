@@ -1,46 +1,29 @@
 'use client';
 
+import Link from 'next/link';
 import { use, useEffect, useState } from 'react';
 import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
-import { ClientInvoiceDetail, type ClientInvoiceDetailData } from '@/components/finance/client-invoice-detail';
-import { formatCents } from '@/lib/money';
 import { PageHeader } from '@/components/ui/page-header';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
+import { type ClientInvoice, countedPayment, INVOICE_STATUS_LABEL, money, remainingCents } from '@/lib/client-portal';
 
-type RawInvoice = {
-  id: string;
-  invoiceNumber: string;
-  status: string;
-  currency: string;
-  totalCents: number;
-  paidCents: number;
-};
-
-function toDetailData(r: RawInvoice): ClientInvoiceDetailData {
-  // Integer cents formatted without floats, in the invoice's own currency
-  // rather than a hardcoded euro sign.
-  const fmt = (cents: number) => formatCents(cents, r.currency);
-  return {
-    number: r.invoiceNumber,
-    status: r.status as ClientInvoiceDetailData['status'],
-    total: fmt(r.totalCents),
-    paid: fmt(r.paidCents),
-    outstanding: fmt(Math.max(0, r.totalCents - r.paidCents)),
-  };
-}
+type Payment = { id: string; amountCents: number; receivedAt: string | null; status: string };
+type Detail = ClientInvoice & { payments?: Payment[] };
 
 type Props = { params: Promise<{ id: string }> };
 
+/** One invoice: totals, every confirmed (partial) payment, the open balance and the PDF. */
 export default function ClientInvoiceDetailPage({ params }: Props) {
   const { id } = use(params);
-  const [invoice, setInvoice] = useState<ClientInvoiceDetailData | null>(null);
+  const [invoice, setInvoice] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<RawInvoice>(`/client/invoices/${id}`)
-      .then((data) => setInvoice(toDetailData(data)))
+    apiFetch<Detail>(`/client/invoices/${id}`)
+      .then(setInvoice)
       .catch(() => setInvoice(null))
       .finally(() => setLoading(false));
   }, [id]);
@@ -60,38 +43,49 @@ export default function ClientInvoiceDetailPage({ params }: Props) {
     }
   }
 
+  if (loading) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (!invoice) return <p className="text-sm text-red-600">Invoice not found.</p>;
+  const payments = (invoice.payments ?? []).filter((p) => countedPayment(p.status));
+
   return (
     <div className="grid gap-6">
-      <PageHeader
-        eyebrow="Client finance view"
-        title="Invoice detail"
-        description="Invoice summary for your account. Internal cost and margin data are not shown."
-      />
+      <Link href="/client/invoices" className="text-sm text-brand hover:underline">← Invoices</Link>
+      <PageHeader eyebrow="Invoice" title={`Invoice ${invoice.invoiceNumber}`} description={invoice.dueAt ? `Due ${new Date(invoice.dueAt).toLocaleDateString()}` : 'Invoice details and PDF.'} />
+      <section className="grid gap-3 rounded-xl border border-line bg-white p-5 sm:grid-cols-4">
+        <Figure label="Total" value={money(invoice.totalCents, invoice.currency)} />
+        <Figure label="Paid" value={money(invoice.paidCents, invoice.currency)} />
+        <Figure label="Open" value={money(remainingCents(invoice), invoice.currency)} strong />
+        <div className="flex items-center sm:justify-end"><StatusBadge status={invoice.status} label={INVOICE_STATUS_LABEL[invoice.status]} /></div>
+      </section>
+      <section aria-labelledby="payments-title" className="rounded-xl border border-line bg-white p-5">
+        <h2 id="payments-title" className="font-semibold text-ink">Payments received</h2>
+        {payments.length === 0 && <p className="mt-2 text-sm text-slate-600">No payment has been confirmed for this invoice yet.</p>}
+        <ul className="mt-2 divide-y divide-line text-sm">
+          {payments.map((p) => (
+            <li key={p.id} className="flex justify-between gap-3 py-2">
+              <span>{p.receivedAt ? new Date(p.receivedAt).toLocaleDateString() : 'Date not set'}</span>
+              <span className="font-medium text-ink">{money(p.amountCents, invoice.currency)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-muted">Payments appear here once our team has confirmed them.</p>
+      </section>
+      <div>
+        <button type="button" onClick={() => void downloadPdf()} disabled={downloading} className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          {downloading ? 'Preparing…' : 'Download PDF'}
+        </button>
+        {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
+      </div>
       <ClientSafeNotice />
-      {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-      {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
-      ) : invoice ? (
-        <>
-          <ClientInvoiceDetail invoice={invoice} />
-          <div>
-            <button
-              type="button"
-              onClick={downloadPdf}
-              disabled={downloading}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {downloading ? 'Preparing…' : 'Download PDF'}
-            </button>
-          </div>
-        </>
-      ) : (
-        <p className="text-sm text-red-500">Invoice not found or not accessible.</p>
-      )}
+    </div>
+  );
+}
+
+function Figure({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs text-muted">{label}</p>
+      <p className={`mt-1 text-lg ${strong ? 'font-semibold text-ink' : 'text-slate-700'}`}>{value}</p>
     </div>
   );
 }

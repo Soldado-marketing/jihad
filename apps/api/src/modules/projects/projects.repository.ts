@@ -61,6 +61,11 @@ export class ProjectsRepository {
     return this.prisma.project.update({ where: { id, tenantId }, data, select: { id: true } });
   }
 
+  /** Tasks carry their project's client scope (ADR-017); re-tag them when the project's customer changes. */
+  retagTasks(tenantId: string, projectId: string, clientScopeKey: string | null) {
+    return this.prisma.task.updateMany({ where: { tenantId, projectId }, data: { clientScopeKey } });
+  }
+
   delete(tenantId: string, id: string) {
     // Only the id: a deleted row must not carry budgetCents back to any caller.
     return this.prisma.project.delete({ where: { id, tenantId }, select: { id: true } });

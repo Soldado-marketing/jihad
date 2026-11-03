@@ -186,3 +186,48 @@ describe('audit log', { skip }, () => {
     assert.equal((await log('owner', '?before=nonsense')).status, 400);
   });
 });
+
+describe('member access history (E02)', { skip }, () => {
+  const history = (who, userId) => as(who, request(server).get(`/api/audit-events/member/${userId}`));
+  let membershipId = '';
+
+  before(async () => {
+    if (skip) return;
+    const m = await prisma.tenantMembership.findUnique({ where: { tenantId_userId: { tenantId, userId: people.employee.id } }, select: { id: true } });
+    membershipId = m.id;
+    const foreign = await prisma.tenant.findFirst({ where: { slug: `other-${RUN}` }, select: { id: true } });
+    const rows = [
+      // Recorded under the user id (admin-users.service) …
+      { tenantId, action: 'role.changed', resourceType: 'TenantMembership', resourceId: people.employee.id, outcome: 'SUCCESS', actorId: people.owner.id,
+        redactedPayload: { previousRole: 'EMPLOYEE', newRole: 'MANAGER', permissionsCleared: 1 }, createdAt: new Date('2026-10-03T10:00:00Z') },
+      { tenantId, action: 'user.suspended', resourceType: 'User', resourceId: people.employee.id, outcome: 'SUCCESS', actorId: people.owner.id, createdAt: new Date('2026-10-03T11:00:00Z') },
+      // … and under the membership id (auth.service grants and removal).
+      { tenantId, action: 'membership.grant_updated', resourceType: 'TenantMembership', resourceId: membershipId, outcome: 'SUCCESS', actorId: people.owner.id,
+        redactedPayload: { grant: 'all-tasks', enabled: true }, createdAt: new Date('2026-10-03T12:00:00Z') },
+      // Not part of the access history: another resource about the same person, and a same-id event in another company.
+      { tenantId, action: 'task.updated', resourceType: 'task', resourceId: people.employee.id, outcome: 'SUCCESS', actorId: people.manager.id, createdAt: new Date('2026-10-03T13:00:00Z') },
+      { tenantId: foreign.id, action: 'role.changed', resourceType: 'TenantMembership', resourceId: people.employee.id, outcome: 'SUCCESS', createdAt: new Date('2026-10-03T14:00:00Z') },
+    ];
+    for (const data of rows) await prisma.auditEvent.create({ data });
+  });
+
+  it('is OWNER-only and unknown members are not found', async () => {
+    for (const who of ['manager', 'employee', 'contractor', 'client']) {
+      assert.equal((await history(who, people.employee.id)).status, 403, who);
+    }
+    assert.equal((await history('owner', 'nobody-here')).status, 404);
+    assert.equal((await history('owner', people.foreign.id)).status, 404, 'a member of another company is not found here');
+  });
+
+  it('joins the events recorded under the user id and the membership id, newest first, this company only', async () => {
+    const res = await history('owner', people.employee.id);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body.items.map((e) => e.action), ['membership.grant_updated', 'user.suspended', 'role.changed']);
+    assert.deepEqual(res.body.items[0].details, { grant: 'all-tasks', enabled: true });
+    assert.deepEqual(res.body.items[2].details, { previousRole: 'EMPLOYEE', newRole: 'MANAGER', permissionsCleared: 1 });
+    assert.ok(res.body.items.every((e) => e.actor?.id === people.owner.id && e.actor.displayName === 'owner'));
+    const body = JSON.stringify(res.body);
+    assert.ok(!/sessionId|deviceId|resourceId|membershipId/.test(body), 'no ids beyond the actor');
+    assert.equal(res.body.limit, 100);
+  });
+});

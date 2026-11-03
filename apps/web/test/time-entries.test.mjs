@@ -81,6 +81,7 @@ describe('time & costs UI', () => {
 
   it('is in the navigation and sidebar, never for clients', () => {
     assert.match(read('src/navigation/navigation.ts'), /id: 'time',[\s\S]*?allowedRoles: \['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'\],[\s\S]*?clientSafe: false/);
-    assert.match(read('src/components/shell/sidebar.tsx'), /'tasks', 'time', 'customers'/);
+    // The sidebar shows only ids listed in its groups (M02: Projects & Delivery).
+    assert.match(read('src/components/shell/sidebar.tsx'), /ids: \[[^\]]*'time'/);
   });
 });

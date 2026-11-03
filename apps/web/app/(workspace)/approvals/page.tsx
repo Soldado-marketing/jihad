@@ -25,6 +25,8 @@ export default function ApprovalsPage() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [decideError, setDecideError] = useState('');
+  // Only the OWNER and members made approvers decide; others see the queue read-only.
+  const [canDecide, setCanDecide] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -37,7 +39,27 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     void load();
+    apiFetch<{ canDecide: boolean }>('/approvals/me')
+      .then((me) => setCanDecide(me.canDecide))
+      .catch(() => setCanDecide(false));
   }, [load]);
+
+  // A link such as /approvals?open=<id> (Control Center) opens the decision
+  // for that request once, if it is waiting in this company's list. A request
+  // that is already decided shows under Decided; an unknown id changes nothing.
+  const [openId, setOpenId] = useState(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('open'));
+  useEffect(() => {
+    if (!items || !openId) return;
+    const match = items.find((a) => a.id === openId);
+    if (match && splitQueue([match]).waiting.length) {
+      setTab('waiting');
+      setSelected(match);
+    } else if (match) {
+      setTab('decided');
+    }
+    setOpenId(null);
+  }, [items, openId]);
 
   async function decide(decision: Decision) {
     if (!selected) return;
@@ -109,7 +131,12 @@ export default function ApprovalsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <StatusBadge status={a.status} />
-                {tab === 'waiting' && (
+                {a.clientVisible && a.fileAsset && (
+                  <Link href={`/files/${a.fileAsset.id}`} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-slate-50">
+                    With client · open file
+                  </Link>
+                )}
+                {tab === 'waiting' && canDecide && !a.clientVisible && (
                   <button
                     type="button"
                     onClick={() => {
@@ -128,8 +155,12 @@ export default function ApprovalsPage() {
         </ul>
       )}
 
+      {!canDecide && items !== null && (
+        <p className="text-xs text-muted">You can follow these requests. Decisions are made by the company owner or an approver they choose.</p>
+      )}
+
       <DetailPanel
-        open={selected !== null}
+        open={selected !== null && canDecide}
         onClose={() => setSelected(null)}
         title={selected?.title ?? 'Decision'}
         footer={

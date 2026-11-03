@@ -13,13 +13,15 @@
 
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, FileVersionStatus, MembershipRole } from '@prisma/client';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
+import { prepareForClient, safeClientFilename } from './client-file-privacy';
 import { AuditService } from '../audit/audit.service';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
@@ -34,8 +36,23 @@ import {
   UnsafeObjectKeyError,
   assertKeyBelongsToTenant,
   buildObjectKey,
+  extensionOf,
   sanitizeOriginalName,
 } from '../storage/object-key';
+import { MAX_UPLOAD_BYTES_HARD_LIMIT } from '../storage/storage.config';
+
+/** Reads a stored object into memory for the client copy; uploads are capped, so this is bounded. */
+async function readAll(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    const b = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += b.length;
+    if (total > MAX_UPLOAD_BYTES_HARD_LIMIT) throw new ConflictException({ code: 'FILE_TOO_LARGE_FOR_CLIENT_COPY' });
+    chunks.push(b);
+  }
+  return Buffer.concat(chunks);
+}
 import { ResourceScopeService } from '../permissions/resource-scope.service';
 import { StorageService } from '../storage/storage.service';
 import {
@@ -316,6 +333,34 @@ export class FileVersionsService {
     const object = await this.storage.getObjectStream(version.storageKey);
     const contentType = version.fileAsset.mimeType ?? object.contentType;
     const disposition = resolveDisposition(contentType, requestedDisposition);
+
+    // A client gets a prepared copy (client-file-privacy.ts) under a neutral
+    // name; the stored original is never changed.
+    if (actor.role === MembershipRole.CLIENT) {
+      const extension = extensionOf(version.originalName ?? version.fileAsset.name);
+      const copy = prepareForClient(await readAll(object.stream), extension);
+      if (copy.action === 'block') {
+        await this.recordAudit(actor, 'file.version.download', fileAssetId, {
+          outcome: AuditOutcome.BLOCKED,
+          permissionResult: AuditPermissionResult.DENIED,
+          payload: { fileVersionId: versionId, reason: 'not_cleared_for_client' },
+        });
+        throw new ConflictException({ code: 'FILE_NOT_CLEARED_FOR_CLIENT', reason: copy.reason });
+      }
+      await this.recordAudit(actor, 'file.version.download', fileAssetId, {
+        outcome: AuditOutcome.SUCCESS,
+        permissionResult: AuditPermissionResult.ALLOWED,
+        payload: { disposition, fileVersionId: versionId, versionNumber: version.versionNumber, metadataRemoved: copy.removed },
+      });
+      return {
+        contentLength: copy.buffer.length,
+        contentType,
+        disposition,
+        filename: contentDispositionFilename(safeClientFilename(version.fileAsset.name, version.versionNumber, extension)),
+        stream: Readable.from([copy.buffer]),
+      };
+    }
+
     const filename = contentDispositionFilename(
       version.originalName ?? version.fileAsset.name,
     );
@@ -333,6 +378,20 @@ export class FileVersionsService {
       filename,
       stream: object.stream,
     };
+  }
+
+  /**
+   * Whether this version may be sent to a client as it is prepared for them
+   * (client-file-privacy.ts). Staff check this before a delivery, so a file
+   * the client could not open is never sent for review.
+   */
+  async clientReleaseCheck(tenantId: string, fileAssetId: string, versionId: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const version = await this.repo.getVersionWithKey(tenantId, fileAssetId, versionId);
+    if (!version?.storageKey) throw new NotFoundException('File version not found');
+    assertKeyBelongsToTenant(version.storageKey, this.storage.getKeyPrefix(), tenantId);
+    const object = await this.storage.getObjectStream(version.storageKey);
+    const copy = prepareForClient(await readAll(object.stream), extensionOf(version.originalName ?? version.fileAsset.name));
+    return copy.action === 'serve' ? { ok: true } : { ok: false, reason: copy.reason };
   }
 
   /**
@@ -377,7 +436,8 @@ export class FileVersionsService {
       });
     }
 
-    const approved = await this.repo.hasApprovedApproval(actor.tenantId, fileAssetId, versionId);
+    const approved = await this.repo.hasApprovedApproval(actor.tenantId, fileAssetId, versionId)
+      || await this.repo.isUnderClientReview(actor.tenantId, versionId, scope);
     if (!approved) {
       await this.recordAudit(actor, 'file.version.download', fileAssetId, {
         outcome: AuditOutcome.BLOCKED,

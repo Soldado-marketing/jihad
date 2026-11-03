@@ -1,21 +1,23 @@
-import { ClientSafeNotice } from './client-safe-notice';
+import Link from 'next/link';
 import { ClientDashboardSummary } from '@/components/dashboard/client-dashboard-summary';
 
 export function ClientDashboard() {
   return (
     <div className="space-y-6">
       <section aria-labelledby="client-dashboard-title">
-        <p className="text-sm font-semibold uppercase tracking-wide text-accent">
-          Portal foundation
-        </p>
-        <h2 id="client-dashboard-title" className="mt-2 text-3xl font-semibold text-ink">
+        <h2 id="client-dashboard-title" className="text-3xl font-semibold text-ink">
           Welcome
         </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          View approved project, task, and invoice information prepared for your account.
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          Review the work we deliver, follow your invoices and see your next shooting, all in one place.
+        </p>
+        <p className="mt-3 text-sm text-slate-600">
+          Something wrong? <Link href="/client/problems?new=1" className="font-medium text-brand hover:underline">Report a problem</Link> and our management will answer you.
+        </p>
+        <p className="mt-1 text-sm text-slate-600">
+          Need something new? <Link href="/client/requests" className="font-medium text-brand hover:underline">Request new work</Link> and we will plan it with you.
         </p>
       </section>
-      <ClientSafeNotice />
       <ClientDashboardSummary />
     </div>
   );

@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 import { describeInvoiceSend, type InvoiceSendResponse } from '@/lib/invoice-send-result';
 import { createIdempotencyKeys } from '@/lib/idempotency';
+import { getStoredUser } from '@/lib/auth';
+import { useMyGrants } from '@/lib/my-grants';
 
 type Line = {
   id: string;
@@ -58,6 +60,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [recipients, setRecipients] = useState('');
   const [payment, setPayment] = useState({ amount: '', method: 'BANK_TRANSFER' });
   const paymentKeys = useRef(createIdempotencyKeys());
+  // OWNER does everything; a manager only what the OWNER granted. The API checks too.
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => setRole(getStoredUser()?.role ?? null), []);
+  const grants = useMyGrants(role !== null && role !== 'OWNER');
+  const canEdit = role === 'OWNER' || grants['invoices-edit'] === true;
+  const canRecord = role === 'OWNER' || grants['payments-record'] === true;
 
   const load = useCallback(
     () =>
@@ -181,30 +189,32 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         {(invoice.lines ?? []).length === 0 ? (
           <p className="mt-2 text-sm text-muted">This invoice has no line items, so its total is zero.</p>
         ) : (
-          <table className="mt-3 w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="pb-2">Description</th>
-                <th className="pb-2 text-right">Qty</th>
-                <th className="pb-2 text-right">Unit</th>
-                <th className="pb-2 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {(invoice.lines ?? []).map((line) => (
-                <tr key={line.id}>
-                  <td className="py-2">{line.description}</td>
-                  <td className="py-2 text-right tabular-nums">{line.quantity}</td>
-                  <td className="py-2 text-right tabular-nums">
-                    {formatCents(line.unitAmountCents, invoice.currency)}
-                  </td>
-                  <td className="py-2 text-right tabular-nums">
-                    {formatCents(line.totalAmountCents, invoice.currency)}
-                  </td>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[28rem] text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="pb-2">Description</th>
+                  <th className="pb-2 text-right">Qty</th>
+                  <th className="pb-2 text-right">Unit</th>
+                  <th className="pb-2 text-right">Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {(invoice.lines ?? []).map((line) => (
+                  <tr key={line.id}>
+                    <td className="py-2">{line.description}</td>
+                    <td className="py-2 text-right tabular-nums">{line.quantity}</td>
+                    <td className="py-2 text-right tabular-nums">
+                      {formatCents(line.unitAmountCents, invoice.currency)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {formatCents(line.totalAmountCents, invoice.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -224,6 +234,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           >
             {busy === 'pdf' ? 'Preparing…' : 'Download PDF'}
           </button>
+          {canEdit && (<>
           <input
             value={recipients}
             onChange={(e) => setRecipients(e.target.value)}
@@ -239,6 +250,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           >
             {busy === 'send' ? 'Sending…' : invoice.issuedAt ? 'Re-send invoice' : 'Send invoice'}
           </button>
+          </>)}
         </div>
       </section>
 
@@ -248,6 +260,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           Outstanding: {formatCents(outstanding, invoice.currency)}
         </p>
 
+        {canRecord && (
         <form onSubmit={recordPayment} className="mt-4 flex flex-wrap items-center gap-3">
           <input
             value={payment.amount}
@@ -277,6 +290,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             {busy === 'payment' ? 'Recording…' : 'Record payment'}
           </button>
         </form>
+        )}
 
         {(invoice.payments ?? []).length > 0 && (
           <ul className="mt-4 divide-y divide-line border-t border-line">

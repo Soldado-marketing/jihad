@@ -30,7 +30,7 @@ describe('notification bell', () => {
     assert.match(read('src/components/shell/topbar.tsx'), /<NotificationBell \/>/);
     const bell = read('src/components/notifications/notification-bell.tsx');
     const paths = [...bell.matchAll(/apiFetch(?:<[^>]*>)?\(\s*[`'"]([^`'"]+)/g)].map((m) => m[1]);
-    assert.deepEqual([...new Set(paths)].sort(), ['/notifications', '/notifications/${id}/read', '/notifications/unread-count']);
+    assert.deepEqual([...new Set(paths)].sort(), ['/notifications', '/notifications/${id}/read', '/notifications/read-all', '/notifications/unread-count']);
     assert.match(bell, /aria-label=/);
   });
 });

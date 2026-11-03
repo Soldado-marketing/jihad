@@ -88,6 +88,8 @@ jobs:
           node --test \
             test/security-mvp.test.mjs \
             test/runtime-hardening.test.mjs \
+            test/no-store-cache.test.mjs \
+            test/file-formats-matrix.test.mjs \
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
@@ -107,7 +109,8 @@ jobs:
             test/migrate-deploy-one-script.test.mjs \
             test/csv-transfer.test.mjs \
             test/rate-resolution.test.mjs \
-            test/labour-profitability.test.mjs
+            test/labour-profitability.test.mjs \
+            test/client-file-privacy.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
       # service above and drives it over HTTP. Green (398/398), so it blocks.
@@ -134,6 +137,15 @@ jobs:
       # voice notes and internal notes; -crm-finance to leads, opportunities,
       # meetings, follow-ups, invoices and payments.
       # security-gate-contractor-scope proves a CONTRACTOR sees only assigned work.
+      # security-gate-member-management proves role changes drop the old role's
+      # permissions, removal ends one company only, and Owners are never changed.
+      # security-gate-role-transitions (E03) proves what each role change and grant
+      # revocation takes away and keeps, per company, on old and refreshed tokens,
+      # that refused changes write nothing, and that the last Owner is protected.
+      # security-gate-client-deliveries proves a client reviews only its own deliveries,
+      # sees the company name only, and change requests reach the assigned employee.
+      # security-gate-client-complaints proves a problem report reaches management only,
+      # internal notes never reach the client, and a project invoice inherits its customer.
       # client-onboarding-scope proves an approved client gets its client scope.
       # crm-update-validation proves CRM updates and reports validate their bodies.
       # notification-writers proves events reach only their audience (T47).
@@ -167,6 +179,7 @@ jobs:
           node --test \
             test/security-gate-authz.test.mjs \
             test/company-access-isolation.test.mjs \
+            test/control-center.test.mjs \
             test/security-gate-client-isolation.test.mjs \
             test/invoice-default-recipients.test.mjs \
             test/visibility-scope.test.mjs \
@@ -175,6 +188,13 @@ jobs:
             test/security-gate-foreign-ids-content.test.mjs \
             test/security-gate-foreign-ids-crm-finance.test.mjs \
             test/security-gate-contractor-scope.test.mjs \
+            test/security-gate-explicit-grants.test.mjs \
+            test/security-gate-member-management.test.mjs \
+            test/security-gate-role-transitions.test.mjs \
+            test/security-gate-client-deliveries.test.mjs \
+            test/security-gate-client-portal-v2.test.mjs \
+            test/security-gate-client-complaints.test.mjs \
+            test/security-gate-client-work-requests.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
@@ -203,7 +223,8 @@ jobs:
             test/security-gate-sessions.test.mjs \
             test/invites.test.mjs \
             test/scheduler.test.mjs \
-            test/deadline-reminders.test.mjs
+            test/deadline-reminders.test.mjs \
+            test/client-review-reminders.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
@@ -212,6 +233,12 @@ jobs:
       - name: Full suite
         working-directory: apps/api
         run: npm test
+
+      # Operator scripts outside apps/ (a change there redeploys nothing):
+      # private Railway tunnel for the read-only check and the migration
+      # runner. Blocking, like the backup and runner suites in npm test.
+      - name: Operator script tests
+        run: node --test scripts/test/*.test.mjs
 
   web:
     name: Web - typecheck and build

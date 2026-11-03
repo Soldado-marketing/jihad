@@ -220,7 +220,7 @@ export class InvoicesRepository {
         data: { paidCents, status: status as InvoiceStatus },
         select: {
           id: true, invoiceNumber: true, status: true, currency: true,
-          totalCents: true, paidCents: true, projectId: true, clientScopeKey: true,
+          totalCents: true, paidCents: true, projectId: true, clientScopeKey: true, clientVisible: true,
         },
       });
     });

@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { NoStoreMiddleware } from './common/http/no-store.middleware';
 import { RequestIdMiddleware } from './common/http/request-id.middleware';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -13,6 +14,8 @@ import { CrmModule } from './modules/crm/crm.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { DashboardsModule } from './modules/dashboards/dashboards.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { ComplaintsModule } from './modules/complaints/complaints.module';
 import { FileVersionsModule } from './modules/file-versions/file-versions.module';
 import { FilesModule } from './modules/files/files.module';
 import { FinanceModule } from './modules/finance/finance.module';
@@ -75,6 +78,8 @@ import { MailModule } from './modules/mail/mail.module';
     FilesModule,
     FileVersionsModule,
     ApprovalsModule,
+    AppointmentsModule,
+    ComplaintsModule,
     ChatModule,
     CalendarModule,
     MyWorkModule,
@@ -104,11 +109,13 @@ import { MailModule } from './modules/mail/mail.module';
 })
 export class AppModule implements NestModule {
   // Phase 2: attach a correlation id to every request/response.
+  // J07: every response is `Cache-Control: no-store` unless a handler sets
+  // its own policy (file streams, PDFs and CSV exports send `private, no-store`).
   configure(consumer: MiddlewareConsumer): void {
     // '*path' is the path-to-regexp v8 form Nest 11 expects. The old '*'
     // still works only via LegacyRouteConverter, which logs a warning on
     // every boot and is slated for removal. Coverage is identical: every
     // route still gets a correlation id.
-    consumer.apply(RequestIdMiddleware).forRoutes('*path');
+    consumer.apply(RequestIdMiddleware, NoStoreMiddleware).forRoutes('*path');
   }
 }

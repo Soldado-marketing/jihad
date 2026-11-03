@@ -3,6 +3,9 @@
  * scheduler (D8). Reminders go through the single notification writer, so they
  * reach only ACTIVE members of the right tenant, never CLIENTs, and only once.
  *
+ * Runs in the parallel CI batch on a shared database: every assertion is scoped
+ * to this suite's tenants and users (F03), never to the job's global count.
+ *
  * Prerequisites (otherwise the whole suite skips rather than failing):
  *   npm run build; migrated PostgreSQL; DATABASE_URL + JWT_SECRET; MAOS_INTEGRATION=1.
  */
@@ -39,10 +42,23 @@ const u = {};
 
 const at = (ms) => new Date(Date.now() + ms);
 const remindersFor = (userId, resourceId) => prisma.notification.count({ where: { recipientUserId: userId, resourceId } });
+/** Every notification in this suite's own tenants; other suites' tenants never count here (F03). */
+const inOurTenants = () => prisma.notification.count({ where: { tenantId: { in: [t.a.id, t.s.id] } } });
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * The job runs once per database at a time (advisory lock). In the parallel CI
+ * batch another API instance may hold it for a moment, so a skipped round is
+ * retried, never failed. The returned count covers every tenant in the shared
+ * database, so assertions below count our tenants' notifications instead.
+ */
 const run = async () => {
-  const r = await scheduler.runNow('deadline-reminders');
-  assert.equal(r.outcome, 'succeeded', JSON.stringify(r));
-  return r.affected;
+  for (let attempt = 0; ; attempt += 1) {
+    const r = await scheduler.runNow('deadline-reminders');
+    if (r.outcome === 'succeeded') return r.affected;
+    assert.ok(r.outcome === 'skipped_locked' || r.outcome === 'skipped_running', JSON.stringify(r));
+    assert.ok(attempt < 40, `job still locked after ${attempt} attempts: ${JSON.stringify(r)}`);
+    await sleep(250);
+  }
 };
 
 before(async () => {
@@ -96,7 +112,12 @@ describe('deadline reminders (MAOS-T142)', { skip }, () => {
       assert.equal(await prisma.notification.count({ where: { resourceId: other.id } }), 0, other.title);
     }
 
-    assert.equal(await run(), 0, 'a second run sends nothing new');
+    // A second run sends nothing new to our tenants. (The job's own count is not
+    // asserted: it spans every tenant in the database, and sibling suites in the
+    // CI batch create due-soon tasks and approvals of their own at the same time.)
+    const before = await inOurTenants();
+    await run();
+    assert.equal(await inOurTenants(), before, 'a second run sends nothing new');
     assert.equal(await remindersFor(u.employee, due.id), 1);
 
     // A moved deadline is a new occasion for a reminder.
@@ -129,8 +150,27 @@ describe('deadline reminders (MAOS-T142)', { skip }, () => {
     assert.equal(await remindersFor(u.manager, open.id), 0, 'the requester waits; it is not their decision');
     for (const who of ['employee', 'client', 'suspended']) assert.equal(await remindersFor(u[who], open.id), 0, who);
     assert.equal(await prisma.notification.count({ where: { resourceId: decided.id } }), 0);
+    const before = await inOurTenants();
     await run();
     assert.equal(await remindersFor(u.owner, open.id), 1, 'once');
+    assert.equal(await inOurTenants(), before, 'nothing new in our tenants');
+  });
+
+  it("counts only our tenants: another company's due-soon work raises the job count, not ours", async () => {
+    // What the parallel CI batch does by accident, done on purpose: a sibling
+    // suite's company has an assigned task due soon while this suite runs.
+    const other = await prisma.tenant.create({ data: { name: `O ${RUN}`, slug: `o-${RUN}`, status: 'ACTIVE' } });
+    const user = await prisma.user.create({ data: { email: `other-${RUN}@example.test`, displayName: 'other', status: 'APPROVED' } });
+    await prisma.tenantMembership.create({
+      data: { tenantId: other.id, userId: user.id, role: 'EMPLOYEE', status: 'ACTIVE', visibilityScope: 'TENANT_WIDE' },
+    });
+    const theirs = await prisma.task.create({ data: { tenantId: other.id, title: 'theirs', status: 'TODO', assignedToUserId: user.id, dueAt: at(2 * HOUR) } });
+
+    const before = await inOurTenants();
+    const affected = await run();
+    assert.ok(affected >= 1, `the job counts the other company's reminder (${affected})`);
+    assert.equal(await remindersFor(user.id, theirs.id), 1);
+    assert.equal(await inOurTenants(), before, 'nothing new in our tenants');
   });
 
   it('an explicitly named suspended member no longer receives any notification', async () => {

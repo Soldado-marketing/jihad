@@ -4,35 +4,16 @@ export type ClientNavigationItem = {
   href: string;
 };
 
+/**
+ * The client portal (owner decision 2026-11-02, Client Portal V2): an
+ * overview of what waits for the client, and four areas: their work, their
+ * invoices, their shooting appointments and their requests for new work (D02).
+ * Updates live in the bell.
+ */
 export const clientNavigation: ClientNavigationItem[] = [
-  {
-    id: 'client-dashboard',
-    label: 'Home',
-    href: '/client',
-  },
-  {
-    id: 'client-projects',
-    label: 'Projects',
-    href: '/client/projects',
-  },
-  {
-    id: 'client-tasks',
-    label: 'Tasks',
-    href: '/client/tasks',
-  },
-  {
-    id: 'client-files',
-    label: 'Files',
-    href: '/client/files',
-  },
-  {
-    id: 'client-invoices',
-    label: 'Invoices',
-    href: '/client/invoices',
-  },
-  {
-    id: 'client-payments',
-    label: 'Payments',
-    href: '/client/payments',
-  },
+  { id: 'client-dashboard', label: 'Overview', href: '/client' },
+  { id: 'client-work', label: 'My Work', href: '/client/deliveries' },
+  { id: 'client-invoices', label: 'Invoices', href: '/client/invoices' },
+  { id: 'client-appointments', label: 'Appointments', href: '/client/appointments' },
+  { id: 'client-requests', label: 'Requests', href: '/client/requests' },
 ];

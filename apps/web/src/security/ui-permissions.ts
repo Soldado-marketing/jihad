@@ -9,12 +9,15 @@ export type UiAccessResult = {
 export function canViewNavigationItem(
   role: WorkspaceRole,
   item: NavigationItem,
+  grants: Record<string, boolean> = {},
 ): UiAccessResult {
   if (item.sprint2Status === 'deferred') {
     return { allowed: false, reason: 'placeholder_only' };
   }
 
-  if (!item.allowedRoles.includes(role)) {
+  // A CLIENT never gets workspace items, whatever a grant says.
+  const granted = role !== 'CLIENT' && Boolean(item.grants?.some((g) => grants[g]));
+  if (!item.allowedRoles.includes(role) && !granted) {
     return { allowed: false, reason: 'role_not_allowed' };
   }
 
@@ -24,8 +27,9 @@ export function canViewNavigationItem(
 export function filterNavigationItems(
   role: WorkspaceRole,
   items: NavigationItem[],
+  grants: Record<string, boolean> = {},
 ): NavigationItem[] {
-  return items.filter((item) => canViewNavigationItem(role, item).allowed);
+  return items.filter((item) => canViewNavigationItem(role, item, grants).allowed);
 }
 
 export function resolveRouteAccess(

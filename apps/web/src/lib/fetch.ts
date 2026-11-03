@@ -18,8 +18,19 @@ import {
 } from './auth';
 import { apiBase } from './api';
 
-export const SESSION_EXPIRED_MESSAGE = 'Session expired. Please sign in again.';
-export const FORBIDDEN_MESSAGE = 'You do not have permission to view this page.';
+import { apiErrorMessage, NETWORK_MESSAGE, SESSION_EXPIRED_MESSAGE } from './api-errors';
+
+// Every message a page shows after a failed request comes from api-errors (MAOS F02).
+export { FORBIDDEN_MESSAGE, NETWORK_MESSAGE, SESSION_EXPIRED_MESSAGE } from './api-errors';
+
+/** The JSON error body, or undefined when there is none. */
+async function readErrorBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return undefined;
+  }
+}
 
 // Endpoints that must never trigger an automatic refresh (avoid recursion).
 const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/bootstrap'];
@@ -68,13 +79,18 @@ export async function apiFetch<T = unknown>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const runRequest = (token: string | null): Promise<Response> => {
+  const runRequest = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options?.headers as Record<string, string>),
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    return fetch(`${apiBase()}${path}`, { ...options, headers });
+    try {
+      return await fetch(`${apiBase()}${path}`, { ...options, headers });
+    } catch {
+      // The browser's "Failed to fetch" means the server was never reached.
+      throw new Error(NETWORK_MESSAGE);
+    }
   };
 
   let res = await runRequest(getAccessToken());
@@ -98,18 +114,7 @@ export async function apiFetch<T = unknown>(
       throw new Error(SESSION_EXPIRED_MESSAGE);
     }
 
-    if (res.status === 403) {
-      throw new Error(FORBIDDEN_MESSAGE);
-    }
-
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      message = body.message ?? message;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
+    throw new Error(apiErrorMessage(res.status, await readErrorBody(res)));
   }
 
   if (res.status === 204) return undefined as T;
@@ -157,7 +162,7 @@ export function apiUpload<T = unknown>(
       }
 
       xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
-      xhr.onerror = () => reject(new Error('Network error during upload.'));
+      xhr.onerror = () => reject(new Error(NETWORK_MESSAGE));
       xhr.onabort = () => reject(new Error('Upload cancelled.'));
       xhr.send(formData);
     });
@@ -172,16 +177,13 @@ export function apiUpload<T = unknown>(
   };
 
   const failure = (status: number, body: string): Error => {
-    if (status === 403) return new Error(FORBIDDEN_MESSAGE);
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(body) as { reason?: string; message?: string | string[] };
-      const message = parsed.reason ?? parsed.message;
-      if (Array.isArray(message)) return new Error(message.join(', '));
-      if (message) return new Error(message);
+      parsed = JSON.parse(body);
     } catch {
-      // fall through to the status-only message
+      parsed = undefined;
     }
-    return new Error(`Upload failed (HTTP ${status}).`);
+    return new Error(apiErrorMessage(status, parsed));
   };
 
   return (async () => {
@@ -221,10 +223,15 @@ export interface BinaryResponse {
  * server sends one.
  */
 export async function apiBlob(path: string, fallbackName = 'download'): Promise<BinaryResponse> {
-  const run = (token: string | null): Promise<Response> =>
-    fetch(`${apiBase()}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+  const run = async (token: string | null): Promise<Response> => {
+    try {
+      return await fetch(`${apiBase()}${path}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      throw new Error(NETWORK_MESSAGE);
+    }
+  };
 
   let res = await run(getAccessToken());
 
@@ -243,16 +250,7 @@ export async function apiBlob(path: string, fallbackName = 'download'): Promise<
       }
       throw new Error(SESSION_EXPIRED_MESSAGE);
     }
-    if (res.status === 403) throw new Error(FORBIDDEN_MESSAGE);
-
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { reason?: string; message?: string };
-      message = body.reason ?? body.message ?? message;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
+    throw new Error(apiErrorMessage(res.status, await readErrorBody(res)));
   }
 
   const disposition = res.headers.get('content-disposition') ?? '';

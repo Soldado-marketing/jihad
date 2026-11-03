@@ -29,11 +29,29 @@
 # The URL is never printed and never passed as an argument; tool output is
 # filtered so a URL a tool might print is redacted.
 #
+# Connection modes (MAOS_DB_CONNECTION):
+#   direct   (default) connect to the host in the Keychain URL, as before.
+#   private  the production database has no public TCP proxy (MAOS-R01). After
+#            every local guard has passed, Railway's private SSH tunnel is
+#            opened with the helpers the nightly backup uses
+#            (scripts/lib/private-tunnel.sh): the Keychain URL's host and port
+#            are replaced in memory by the tunnel, sslmode=require; a listener
+#            this run did not start is never used; the tunnel is closed on
+#            success, refusal, failure and termination.
+#
 # Environment:
 #   MAOS_MIGRATE_KEYCHAIN_SERVICE  default maos-backup-database-url
 #   MAOS_MIGRATE_KEYCHAIN_ACCOUNT  default maos
 #   MAOS_SECURITY_BIN              default /usr/bin/security
 #   MAOS_PRISMA_BIN                default apps/api/node_modules/.bin/prisma
+#   MAOS_DB_CONNECTION             direct (default) or private
+#   MAOS_DB_TUNNEL_PORT            private: local port, default 15433 (the
+#                                  nightly backup uses 15432)
+#   MAOS_DB_TUNNEL_READY_SECONDS   private: readiness limit, default 60
+#   MAOS_DB_TUNNEL_HOST            private: default 127.0.0.1 (prisma runs here)
+#   MAOS_RAILWAY_BIN               default $HOME/.npm-global/bin/railway
+#   MAOS_RAILWAY_DIR               default the repository root
+#   MAOS_LSOF_BIN                  default /usr/sbin/lsof
 #
 # Exit codes:
 #   0  check passed / migration applied and verified
@@ -44,6 +62,9 @@
 #   6  migration state refused (failed, missing locally, or pending set differs)
 #   7  prisma migrate deploy failed
 #   8  post-apply status is not up to date
+#   9  private tunnel could not be opened, or a listener stayed open after it
+#      was closed (an APPLY OK line above it still means the migration applied)
+#   129/130/143  stopped by a signal (the tunnel is closed first)
 
 set -uo pipefail
 
@@ -61,6 +82,32 @@ SECURITY_BIN="${MAOS_SECURITY_BIN:-/usr/bin/security}"
 PRISMA_BIN="${MAOS_PRISMA_BIN:-$API/node_modules/.bin/prisma}"
 KEYCHAIN_SERVICE="${MAOS_MIGRATE_KEYCHAIN_SERVICE:-maos-backup-database-url}"
 KEYCHAIN_ACCOUNT="${MAOS_MIGRATE_KEYCHAIN_ACCOUNT:-maos}"
+CONNECTION="${MAOS_DB_CONNECTION:-direct}"
+
+case "$CONNECTION" in
+  direct|private) ;;
+  *) echo "usage: MAOS_DB_CONNECTION must be direct or private" >&2; exit 2 ;;
+esac
+
+if [ "$CONNECTION" = private ]; then
+  TUNNEL_PORT="${MAOS_DB_TUNNEL_PORT:-15433}"
+  TUNNEL_READY_SECONDS="${MAOS_DB_TUNNEL_READY_SECONDS:-60}"
+  TUNNEL_HOST="${MAOS_DB_TUNNEL_HOST:-127.0.0.1}"
+  RAILWAY_BIN="${MAOS_RAILWAY_BIN:-$HOME/.npm-global/bin/railway}"
+  RAILWAY_DIR="${MAOS_RAILWAY_DIR:-$REPO}"
+  LSOF_BIN="${MAOS_LSOF_BIN:-/usr/sbin/lsof}"
+  TUNNEL_RECORD=""
+  TUNNEL_CLIENT="prisma"
+  log() { echo "tunnel: $*" >&2; }
+  # shellcheck source=lib/private-tunnel.sh
+  . "$REPO/scripts/lib/private-tunnel.sh"
+  tunnel_check_settings || { echo "REFUSED: $TUNNEL_ERROR" >&2; exit 9; }
+  # Closed on every exit; a signal exits through the EXIT trap.
+  trap close_tunnel EXIT
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+fi
 
 refuse() { echo "REFUSED: $2" >&2; exit "$1"; }
 redact() { sed -E -e 's#postgres(ql)?://[^[:space:]"'\'']*#<redacted-url>#g' -e '/^Datasource /d'; }
@@ -86,11 +133,32 @@ case "$DATABASE_URL" in
   postgres://*|postgresql://*) ;;
   *) DATABASE_URL=""; refuse 3 "Keychain item $KEYCHAIN_SERVICE is not a PostgreSQL URL" ;;
 esac
-export DATABASE_URL
 echo "credential: keychain"
 
 [ -x "$PRISMA_BIN" ] || refuse 4 "prisma CLI not found; run npm ci in apps/api"
 cd "$API" || refuse 4 "cannot enter apps/api"
+
+# --- private tunnel (after every local guard) -------------------------------
+if [ "$CONNECTION" = private ]; then
+  if ! PRIVATE_URL="$(tunnel_url "$DATABASE_URL")"; then
+    DATABASE_URL=""
+    refuse 3 "Keychain item $KEYCHAIN_SERVICE is not a usable PostgreSQL URL (user, host and database required)"
+  fi
+  DATABASE_URL="$PRIVATE_URL"
+  PRIVATE_URL=""
+  open_tunnel || refuse 9 "$TUNNEL_ERROR"
+  echo "connection: private tunnel on 127.0.0.1:$TUNNEL_PORT"
+fi
+export DATABASE_URL
+
+# A listener left open after closing makes the run fail (9) even when the
+# migration step itself succeeded; the message says which.
+finish_tunnel() {
+  [ "$CONNECTION" = private ] || return 0
+  close_tunnel
+  [ "$TUNNEL_LEAK" = 1 ] && refuse 9 "port $TUNNEL_PORT is still listening after the tunnel was closed"
+  return 0
+}
 
 # --- migration state -------------------------------------------------------
 # `migrate status` exits non-zero while migrations are pending, so its exit
@@ -107,6 +175,7 @@ echo "pending: ${PENDING:-<none>}"
 
 if [ "$MODE" = check ]; then
   echo "CHECK OK: only $NAME is pending and its sha256 matches; nothing was written"
+  finish_tunnel
   exit 0
 fi
 
@@ -118,3 +187,4 @@ echo "applying $NAME"
 ST="$(status)"
 echo "$ST" | grep -q 'Database schema is up to date' || { echo "$ST" | tail -15 >&2; refuse 8 "status after apply is not up to date"; }
 echo "APPLY OK: $NAME applied; database schema is up to date"
+finish_tunnel

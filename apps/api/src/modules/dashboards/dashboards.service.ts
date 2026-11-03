@@ -15,11 +15,13 @@ export class DashboardsService {
    * Internal roles get tenant-wide counts. A CONTRACTOR gets counts of their
    * assigned projects, tasks and files only, and 0 for areas outside their
    * work (CRM, notes, approvals, voice notes, invoices); the response shape
-   * stays the same so the dashboard renders unchanged.
+   * stays the same so the dashboard renders unchanged. An EMPLOYEE keeps the
+   * company-wide counts except tasks, which count only the tasks they can see.
    */
   async getWorkspaceSummary(tenantId: string, actorId: string) {
     const scope = await this.resourceScope.resolveWorkScope(tenantId, actorId);
     if (!scope) return this.repo.getWorkspaceSummary(tenantId);
+    if (scope.tasksOnly) return this.repo.getWorkspaceSummary(tenantId, this.resourceScope.taskWhere(scope));
     return this.repo.getAssignedWorkSummary(tenantId, {
       project: this.resourceScope.projectWhere(scope),
       task: this.resourceScope.taskWhere(scope),

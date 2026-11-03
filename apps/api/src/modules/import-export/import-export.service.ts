@@ -446,7 +446,7 @@ export class ImportExportService {
         projectId = projectByNumber.get(v.projectNumber);
         if (!projectId) err(line, 'projectNumber', 'UNKNOWN_PROJECT', 'No project with this number in this workspace.');
         // A CONTRACTOR may only add tasks to projects they are a member of (T35).
-        else if (scope && !scope.memberProjectIds.includes(projectId)) {
+        else if (scope && !scope.tasksOnly && !scope.memberProjectIds.includes(projectId)) {
           err(line, 'projectNumber', 'PROJECT_NOT_ASSIGNED', 'You may not add tasks to this project.');
         }
       }

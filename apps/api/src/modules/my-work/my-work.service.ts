@@ -47,7 +47,7 @@ export class MyWorkService {
     }
     const [readApprovals, decideApprovals, readFollowUps] = await Promise.all([
       can(PermissionAction.READ, PermissionResource.APPROVAL),
-      can(PermissionAction.CREATE, PermissionResource.APPROVAL),
+      this.permissions.mayDecideApprovals(caller.tenantId, caller.sub),
       can(PermissionAction.READ, PermissionResource.FOLLOW_UP),
     ]);
 

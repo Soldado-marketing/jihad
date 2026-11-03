@@ -3,7 +3,7 @@ import { Prisma, TimeEntryStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { ResourceScopeService, WorkScope } from '../permissions/resource-scope.service';
-import { costCents } from '../rates/rate-resolution';
+import { costCents } from '../finance/labour-cost';
 import { RatesService } from '../rates/rates.service';
 import { CreateTimeEntryDto } from './dto/create-time-entry.dto';
 import { UpdateTimeEntryDto } from './dto/update-time-entry.dto';
@@ -208,7 +208,7 @@ export class TimeEntriesService {
       }
     }
     const scope: WorkScope = await this.resourceScope.resolveWorkScope(c.tenantId, c.userId);
-    if (scope && !scope.memberProjectIds.includes(projectId) && task?.assignedToUserId !== c.userId) {
+    if (scope && !scope.tasksOnly && !scope.memberProjectIds.includes(projectId) && task?.assignedToUserId !== c.userId) {
       throw new ForbiddenException({ code: 'FORBIDDEN', reason: 'project_not_assigned' });
     }
     return { customerId: project!.customerId };

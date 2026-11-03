@@ -73,6 +73,12 @@ export const ALLOWED_FILE_TYPES: Readonly<Record<string, FileTypeRule>> = Object
     signatures: ['504b0304', '504b0506', '504b0708'],
     inlineSafe: false,
   },
+  // Client deliveries (owner decision 2026-11-02): videos and shared links.
+  // MP4/MOV carry 'ftyp' (or an old QuickTime atom) at byte 4.
+  '.mp4': { contentType: 'video/mp4', signatures: ['66747970'], signatureOffset: 4, inlineSafe: true },
+  '.mov': { contentType: 'video/quicktime', signatures: ['66747970', '6d6f6f76', '77696465', '6d646174', '66726565'], signatureOffset: 4, inlineSafe: true },
+  // A link (e.g. Google Drive) stored as a standard Internet-shortcut file.
+  '.url': { contentType: 'text/plain', signatures: [], inlineSafe: false },
 });
 
 /** Extensions accepted by the upload endpoint. */

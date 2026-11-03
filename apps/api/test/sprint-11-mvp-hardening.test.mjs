@@ -132,6 +132,9 @@ describe('Sprint 11 MVP API hardening regression', () => {
     // portal counts pass a prebuilt `visible` filter that contains tenantId.
     const reviewedExceptions = {
       'src/modules/dashboards/dashboards.repository.ts': ['project.count', 'task.count', 'invoice.count'],
+      // Owner Control Center: lists the caller's own OWNER memberships by userId
+      // (one row per company); every data query after it is tenant-scoped.
+      'src/modules/dashboards/control-center.repository.ts': ['tenantMembership.findMany'],
     };
     assert.ok(repositoryFiles.length >= 20, 'repository discovery found too few files');
     for (const repositoryPath of repositoryFiles) {

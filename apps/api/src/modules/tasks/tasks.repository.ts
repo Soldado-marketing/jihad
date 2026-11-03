@@ -92,7 +92,7 @@ export class TasksRepository {
     });
   }
 
-  create(tenantId: string, _actorId: string, dto: CreateTaskDto) {
+  create(tenantId: string, _actorId: string, dto: CreateTaskDto, clientScopeKey: string | null) {
     return this.prisma.task.create({
       data: {
         tenantId,
@@ -100,6 +100,7 @@ export class TasksRepository {
         description: dto.description,
         status: dto.status,
         projectId: dto.projectId,
+        clientScopeKey,
         assignedToUserId: dto.assignedToUserId,
         priority: dto.priority ?? 'MEDIUM',
         dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
@@ -118,10 +119,11 @@ export class TasksRepository {
    * Update a task and return the full task with all relations.
    * The caller no longer needs to reload the full task list after a single save.
    */
-  update(tenantId: string, id: string, dto: UpdateTaskDto, clearList = false) {
+  update(tenantId: string, id: string, dto: UpdateTaskDto, clientScopeKey?: string | null, clearList = false) {
     return this.prisma.task.update({
       where: { id, tenantId },
       data: {
+        ...(clientScopeKey !== undefined && { clientScopeKey }),
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status !== undefined && { status: dto.status }),

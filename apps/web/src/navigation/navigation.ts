@@ -7,6 +7,8 @@ export type NavigationItem = {
   allowedRoles: WorkspaceRole[];
   sprint2Status: 'active' | 'placeholder' | 'deferred';
   clientSafe: boolean;
+  /** Also shown to a role outside allowedRoles that holds one of these explicit grants. */
+  grants?: string[];
 };
 
 /**
@@ -19,6 +21,15 @@ export const workspaceNavigation: NavigationItem[] = [
     label: 'Dashboard',
     href: '/dashboard',
     allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE', 'CONTRACTOR'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
+    // Owner Control Center: every company the user owns, read-only overview.
+    id: 'control-center',
+    label: 'All my companies',
+    href: '/control-center',
+    allowedRoles: ['OWNER'],
     sprint2Status: 'active',
     clientSafe: false,
   },
@@ -40,25 +51,10 @@ export const workspaceNavigation: NavigationItem[] = [
   },
   // ── Admin (Owner only) ───────────────────────────────────────────────────
   {
-    id: 'company-access',
-    label: 'Company Access',
-    href: '/dashboard/admin/company-access',
-    allowedRoles: ['OWNER'],
-    sprint2Status: 'active',
-    clientSafe: false,
-  },
-  {
-    id: 'admin-users',
-    label: 'User Requests',
-    href: '/dashboard/admin/users/requests',
-    allowedRoles: ['OWNER'],
-    sprint2Status: 'active',
-    clientSafe: false,
-  },
-  {
-    id: 'admin-invites',
-    label: 'Invitations',
-    href: '/dashboard/admin/invites',
+    // Team & Access (E01): members and grants, invitations and user requests under one route.
+    id: 'team',
+    label: 'Team & Access',
+    href: '/team',
     allowedRoles: ['OWNER'],
     sprint2Status: 'active',
     clientSafe: false,
@@ -174,6 +170,16 @@ export const workspaceNavigation: NavigationItem[] = [
     clientSafe: false,
   },
   {
+    // Managers with an invoice grant from the OWNER (the OWNER uses Finance).
+    id: 'invoices',
+    label: 'Invoices',
+    href: '/finance/invoices',
+    allowedRoles: [],
+    grants: ['invoices-read', 'invoices-edit', 'payments-record'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
     id: 'reports',
     label: 'Reports',
     href: '/reports',
@@ -186,6 +192,22 @@ export const workspaceNavigation: NavigationItem[] = [
     label: 'Files',
     href: '/files',
     allowedRoles: ['OWNER', 'MANAGER', 'EMPLOYEE'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
+    id: 'complaints',
+    label: 'Problem reports',
+    href: '/complaints',
+    allowedRoles: ['OWNER', 'MANAGER'],
+    sprint2Status: 'active',
+    clientSafe: false,
+  },
+  {
+    id: 'requests',
+    label: 'Work requests',
+    href: '/requests',
+    allowedRoles: ['OWNER', 'MANAGER'],
     sprint2Status: 'active',
     clientSafe: false,
   },

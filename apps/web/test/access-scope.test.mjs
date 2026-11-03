@@ -12,7 +12,7 @@ import { clientScopeKeyPayload, effectiveAccessLabel } from '../src/security/acc
 
 const webRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (p) => readFileSync(join(webRoot, p), 'utf8');
-const approvals = read('app/(workspace)/dashboard/admin/users/requests/page.tsx');
+const approvals = read('src/components/team/registration-requests-panel.tsx');
 const settings = read('app/(workspace)/settings/page.tsx');
 
 describe('effective access', () => {

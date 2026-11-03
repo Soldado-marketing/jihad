@@ -53,12 +53,13 @@ export class InvitesService {
 
     const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true, status: true } });
     if (existing) {
-      // Existing accounts may be invited into ANOTHER company, not re-granted
-      // a different role within the same company via invite.
-      const alreadyMember = await this.prisma.tenantMembership.findUnique({
+      // Existing accounts may be invited into ANOTHER company, or back into
+      // this one after removal, not re-granted a different role via invite.
+      const membership = await this.prisma.tenantMembership.findUnique({
         where: { tenantId_userId: { tenantId, userId: existing.id } },
-        select: { id: true },
+        select: { status: true },
       });
+      const alreadyMember = !!membership && membership.status !== 'REMOVED';
       if (alreadyMember || !['APPROVED', 'ACTIVE'].includes(existing.status)) {
         throw new ConflictException({
           code: 'INVITE_EMAIL_IN_USE',
@@ -175,11 +176,13 @@ export class InvitesService {
         });
         if (claimed.count !== 1) throw new BadRequestException(INVALID);
 
+        // A member removed from this company may come back by a new invite;
+        // anyone else already in it may not.
         const existingMembership = await tx.tenantMembership.findUnique({
           where: { tenantId_userId: { tenantId: invite.tenantId, userId: actorId } },
-          select: { id: true },
+          select: { id: true, status: true },
         });
-        if (existingMembership) throw new BadRequestException(INVALID);
+        if (existingMembership && existingMembership.status !== 'REMOVED') throw new BadRequestException(INVALID);
 
         // CLIENT scope is owner-selected, tenant-bound, and revalidated at
         // acceptance. No permission is copied from the original company.
@@ -194,13 +197,17 @@ export class InvitesService {
           if (!customer) throw new BadRequestException(INVALID);
           clientScopeKey = customer.clientScopeKey;
         }
-        await tx.tenantMembership.create({
-          data: {
-            tenantId: invite.tenantId, userId: actorId, role: invite.role,
-            status: 'ACTIVE', visibilityScope: effectiveVisibilityScope(invite.role),
-            clientScopeKey,
-          },
-        });
+        const membershipData = {
+          role: invite.role, status: 'ACTIVE' as const,
+          visibilityScope: effectiveVisibilityScope(invite.role), clientScopeKey,
+        };
+        if (existingMembership) {
+          // Starts clean: no permission from before the removal comes back.
+          await tx.membershipPermission.deleteMany({ where: { membershipId: existingMembership.id } });
+          await tx.tenantMembership.update({ where: { id: existingMembership.id }, data: membershipData });
+        } else {
+          await tx.tenantMembership.create({ data: { tenantId: invite.tenantId, userId: actorId, ...membershipData } });
+        }
         await tx.invite.update({ where: { id: invite.id }, data: { acceptedByUserId: actorId } });
       });
     } catch (err: unknown) {

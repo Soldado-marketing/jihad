@@ -60,13 +60,21 @@ describe('Sprint 4 client portal frontend boundary baseline', () => {
     }
   });
 
+  it('lets a client sign out from the portal with the shared account menu', () => {
+    const topbar = readWeb('src/components/client-portal/client-topbar.tsx');
+
+    assert.match(topbar, /import \{ UserMenu \} from '@\/components\/shell\/user-menu'/);
+    assert.match(topbar, /<UserMenu role="CLIENT" \/>/);
+  });
+
   it('keeps client navigation separate from internal workspace navigation', () => {
     const clientNavigation = readWeb('src/navigation/client-navigation.ts');
     const workspaceNavigation = readWeb('src/navigation/navigation.ts');
 
     assert.match(clientNavigation, /\/client/);
-    assert.match(clientNavigation, /\/client\/projects/);
-    assert.match(clientNavigation, /\/client\/tasks/);
+    // Client Portal V2: projects are a filter inside My Work (deliveries).
+    assert.match(clientNavigation, /\/client\/deliveries/);
+    assert.doesNotMatch(clientNavigation, /\/client\/tasks/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client'/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client\/projects'/);
     assert.doesNotMatch(workspaceNavigation, /href: '\/client\/tasks'/);

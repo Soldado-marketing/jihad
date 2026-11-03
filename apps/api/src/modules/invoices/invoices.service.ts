@@ -8,8 +8,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+  ServiceUnavailableException, ConflictException } from '@nestjs/common';
 import { InvoiceStatus, MembershipRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ClientScopeService } from '../memberships/client-scope.service';
@@ -78,14 +77,37 @@ export class InvoicesService {
 
   async create(tenantId: string, actorId: string, dto: CreateInvoiceDto) {
     await assertProjectInTenant(this.prisma, tenantId, dto.projectId);
+    const clientScopeKey = await this.scopeForNewInvoice(tenantId, dto);
     try {
-      return await this.repo.create(tenantId, actorId, dto);
+      return await this.repo.create(tenantId, actorId, { ...dto, clientScopeKey });
     } catch (error) {
       if (error instanceof InvoiceAmountError) {
         throw new BadRequestException({ code: 'INVALID_INVOICE_AMOUNT', reason: error.message });
       }
       throw error;
     }
+  }
+
+  /**
+   * Which customer a NEW invoice belongs to (owner decision 2026-11-02). An
+   * invoice raised on a customer's project inherits that project's
+   * clientScopeKey, so the customer can see it in the portal. A request that
+   * names a different customer than the project is ambiguous and refused; an
+   * invoice without a project, or on an internal project, keeps whatever the
+   * request said (possibly nothing, so no client sees it). Existing invoices
+   * are never re-assigned by this code.
+   */
+  private async scopeForNewInvoice(tenantId: string, dto: CreateInvoiceDto): Promise<string | undefined> {
+    if (!dto.projectId) return dto.clientScopeKey;
+    const project = await this.prisma.project.findFirst({ where: { id: dto.projectId, tenantId }, select: { clientScopeKey: true } });
+    const fromProject = project?.clientScopeKey ?? null;
+    if (dto.clientScopeKey && fromProject && dto.clientScopeKey !== fromProject) {
+      throw new ConflictException({
+        code: 'INVOICE_SCOPE_MISMATCH',
+        reason: "The customer on the invoice does not match the project's customer. Use the project's customer or leave it empty.",
+      });
+    }
+    return dto.clientScopeKey ?? fromProject ?? undefined;
   }
 
   async get(tenantId: string, id: string) {
@@ -240,6 +262,7 @@ export class InvoicesService {
       resourceType: 'invoice',
       resourceId: id,
     });
+    await this.notifyClient(tenantId, actor.actorId, invoice, `invoice.sent.client:${id}`, 'New invoice', `Invoice ${invoice.invoiceNumber} is ready in your portal.`);
 
     return {
       invoice: updated,
@@ -279,6 +302,14 @@ export class InvoicesService {
     const updated = await this.repo.recalculatePaid(tenantId, invoiceId);
     if (!updated) return null;
 
+    // Once per new paid total, so a replayed payment does not notify twice.
+    // No amount in the text: the invoice page shows the figures.
+    if (updated.clientVisible && updated.paidCents > 0 && updated.status !== InvoiceStatus.DRAFT && updated.status !== InvoiceStatus.VOID) {
+      await this.notifyClient(tenantId, actor.actorId, updated, `invoice.payment.client:${updated.id}:${updated.paidCents}`,
+        updated.status === InvoiceStatus.PAID ? 'Invoice paid in full' : 'Payment received',
+        `We have received a payment for invoice ${updated.invoiceNumber}.`);
+    }
+
     if (updated.status === InvoiceStatus.PAID) {
       const { created } = await this.repo.postRevenueOnce({
         actorId: actor.actorId,
@@ -299,6 +330,41 @@ export class InvoicesService {
     }
 
     return updated;
+  }
+
+  /**
+   * A portal notice for the invoice's own client (its scope's CLIENT
+   * members, never anyone else). Failure-safe: it never changes the result.
+   */
+  private async notifyClient(
+    tenantId: string,
+    actorId: string,
+    invoice: { id: string; clientScopeKey: string | null },
+    dedupeKey: string,
+    title: string,
+    body: string,
+  ) {
+    if (!invoice.clientScopeKey) return;
+    try {
+      const members = await this.prisma.tenantMembership.findMany({
+        where: { tenantId, role: MembershipRole.CLIENT, status: 'ACTIVE', clientScopeKey: invoice.clientScopeKey },
+        select: { userId: true },
+      });
+      if (members.length === 0) return;
+      await this.notifications.notify({
+        tenantId,
+        recipientUserIds: members.map((m) => m.userId),
+        audience: 'DIRECT',
+        actorUserId: actorId,
+        dedupeKey,
+        title,
+        body,
+        resourceType: 'invoice',
+        resourceId: invoice.id,
+      });
+    } catch (err) {
+      this.logger.warn(`Client invoice notice failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
   }
 
   /**

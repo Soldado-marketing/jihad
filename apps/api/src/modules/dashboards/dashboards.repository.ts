@@ -6,10 +6,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getWorkspaceSummary(tenantId: string) {
+  async getWorkspaceSummary(tenantId: string, taskScope: Prisma.TaskWhereInput = {}) {
     const [projects, tasks, leads, opps, meetings, followUps, notes, files, approvals, voiceNotes, invoices] = await Promise.all([
       this.prisma.project.count({ where: { tenantId } }),
-      this.prisma.task.count({ where: { tenantId } }),
+      this.prisma.task.count({ where: { tenantId, AND: [taskScope] } }),
       this.prisma.lead.count({ where: { tenantId } }),
       this.prisma.opportunity.count({ where: { tenantId } }),
       this.prisma.meeting.count({ where: { tenantId } }),

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMyGrants } from '@/lib/my-grants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
@@ -35,7 +36,7 @@ export function CompactNav({ role }: { role: WorkspaceRole }) {
   const titleId = useId();
   const panelId = useId();
 
-  const groups = visibleNavGroups(role);
+  const groups = visibleNavGroups(role, useMyGrants(role !== 'OWNER' && role !== 'CLIENT'));
   const items = groups.flatMap((group) => group.items);
   const quick = QUICK_NAV_IDS.flatMap((id) => items.filter((item) => item.id === id));
 
