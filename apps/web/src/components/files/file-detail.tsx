@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { ClientDeliveryPanel } from './client-delivery-panel';
 import { FileUploader } from './file-uploader';
+import { FileVersionCompare } from './file-version-compare';
 import { FileVersionList, type FileVersionListItem } from './file-version-list';
 import { FileVisibilityBadge, type FileVisibility } from './file-visibility-badge';
 import { SignedUrlNotice } from './signed-url-notice';
@@ -121,6 +122,7 @@ export function FileDetail({
       <ClientDeliveryPanel fileAssetId={id} versions={versions} onChanged={onChanged} />
       <FileUploader fileAssetId={id} onUploaded={onChanged} />
       <SignedUrlNotice />
+      <FileVersionCompare versions={versions} fileAssetId={id} />
       <FileVersionList versions={versions} fileAssetId={id} />
     </div>
   );
