@@ -7,6 +7,7 @@ export type Delivery = {
   status: string;
   updatedAt: string;
   versionNumber: number | null;
+  reviewBy?: string | null;
   kind?: 'image' | 'pdf' | 'video' | 'link' | 'document';
   project: { id: string; name: string } | null;
 };

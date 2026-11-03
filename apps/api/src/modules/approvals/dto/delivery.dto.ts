@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 /** Staff sends one file version to the client for review, or resubmits after changes. */
 export class SubmitDeliveryDto {
@@ -15,6 +15,14 @@ export class SubmitDeliveryDto {
   @IsString()
   @MaxLength(2000)
   message?: string;
+
+  /**
+   * When the client should have answered (ISO 8601, must lie in the future).
+   * Stored on the delivery; the client sees it and is reminded once 24 h before.
+   */
+  @IsOptional()
+  @IsDateString()
+  reviewBy?: string;
 }
 
 /** The client's answer to a delivery under review. */
