@@ -301,6 +301,11 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - **Production blocker (exact):** this session has no authorized production session and production test accounts need approval (O2); signed-in production verification therefore stays NOT VERIFIED. Rows D02, D03, D04, E01, E02, F01, F02, M02, J07 are DONE with isolated acceptance; A01 PARTIAL.
 - Stack removed afterwards (containers, env files, launch config); nothing committed from it.
 
+## 2026-11-03 — #148 released (owner approval O33)
+
+- CI on head `c756497` SUCCESS (API, web, audit); no Prisma change. Merged `ff21ca6` (GitHub answered a 504 on the first call; the merge had gone through). Railway: `maos-web` SUCCESS on `ff21ca6`, `jihad` SKIPPED (web-only change, as expected). Readiness 200; `/`, `/client/requests`, `/team/members` served 200; the production payload of `/client/requests` carries the new wording ("Need something new from us", "What do you need?") and no longer the problem-report text.
+- D02: wording finding closed. Signed-in production verification of the page stays NOT VERIFIED (O1/O2).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -312,7 +317,6 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O5 | Approve a Drive-side sharing audit with the Drive connector | B04 |
 | O6 | Production upload limit value (`FILE_MAX_UPLOAD_BYTES` on `jihad`, ≤ 100 MiB) | C01, C02 |
 | O7 | Migration window for #120 (board lists); #109 and #110 merged 2026-11-03 | G01, G02 |
-| O33 | Release approval for PR #148 (client requests page wording; web redeploy only) | D02 |
 | O8 | E-mail notifications to real clients (D01) and AI provider/cost (L) when those phases start | D01, L |
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
