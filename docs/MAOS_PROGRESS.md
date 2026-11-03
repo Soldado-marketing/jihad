@@ -306,6 +306,13 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - CI on head `c756497` SUCCESS (API, web, audit); no Prisma change. Merged `ff21ca6` (GitHub answered a 504 on the first call; the merge had gone through). Railway: `maos-web` SUCCESS on `ff21ca6`, `jihad` SKIPPED (web-only change, as expected). Readiness 200; `/`, `/client/requests`, `/team/members` served 200; the compiled route chunk served by production for `/client/requests` contains the new wording ("Need something new from us", "What do you need?") and not the problem-report text (the page is client-rendered, so the HTML itself carries no copy).
 - D02: wording finding closed. Signed-in production verification of the page stays NOT VERIFIED (O1/O2).
 
+## 2026-11-03 — #120 (board lists, migration A) prepared for a window
+
+- Branch `feat/board-lists` merged with `main` after the release (`d3ca32a`); three conflicts resolved keeping both behaviours; test fixture aligned with the #126 employee scope (no production rule change). API unit 572, web 372/372, local integration batch green apart from the bootstrap suite that CI runs alone.
+- Migration `20261029202156_task_lists` exercised on a restored copy of today's production backup (isolated container): apply → no drift → documented rollback SQL → re-apply; task checksum identical at all four points; `TaskList` and `Task.listId` present after apply, absent after rollback. Production untouched. Plan for the window and the rollback (application revert + SQL) recorded in `docs/migrations/PROJECT_BOARD_LISTS_GATE.md`.
+- Waiting on O7: owner migration window. Then: fresh backup → `scripts/migrate-deploy-one.sh` through the private tunnel → merge #120 → Railway deploy → smoke.
+- Also today: ADR-019 (TenantSettings, J01 → O24) and ADR-020 (multi-file delivery, D05 → O34) proposed; A04 evidence state recorded.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
