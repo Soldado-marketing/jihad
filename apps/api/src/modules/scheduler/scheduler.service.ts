@@ -36,7 +36,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
     @Inject(SCHEDULED_JOBS) private readonly jobs: ScheduledJob[],
   ) {
     for (const job of jobs) {
-      this.statuses.set(job.name, { name: job.name, runs: 0, failures: 0, lastOutcome: null, lastFinishedAt: null });
+      this.statuses.set(job.name, { name: job.name, everyMs: job.everyMs, runs: 0, failures: 0, lastOutcome: null, lastFinishedAt: null });
     }
   }
 

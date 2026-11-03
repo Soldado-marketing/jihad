@@ -13,6 +13,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -151,6 +152,34 @@ export class StorageService {
   }
 
   /** True when the object exists. Used by health and integrity checks. */
+  /**
+   * Read-only inventory under the configured prefix: object count and total
+   * bytes (B06 storage capacity alert). Pages through the bucket up to
+   * `maxPages` × 1000 keys; `truncated` says whether the cap was reached.
+   */
+  async countObjects(maxPages = 200): Promise<{ objects: number; bytes: number; truncated: boolean }> {
+    const config = this.getConfig();
+    let objects = 0;
+    let bytes = 0;
+    let token: string | undefined;
+    for (let page = 0; page < maxPages; page += 1) {
+      const out = await this.getClient().send(
+        new ListObjectsV2Command({
+          Bucket: config.bucket,
+          ...(config.keyPrefix ? { Prefix: config.keyPrefix } : {}),
+          ...(token ? { ContinuationToken: token } : {}),
+        }),
+      );
+      for (const item of out.Contents ?? []) {
+        objects += 1;
+        bytes += item.Size ?? 0;
+      }
+      if (!out.IsTruncated || !out.NextContinuationToken) return { objects, bytes, truncated: false };
+      token = out.NextContinuationToken;
+    }
+    return { objects, bytes, truncated: true };
+  }
+
   async objectExists(key: string): Promise<boolean> {
     assertSafeObjectKey(key);
     const config = this.getConfig();
