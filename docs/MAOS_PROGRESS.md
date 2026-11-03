@@ -369,6 +369,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - **A08 drills, isolated, fictional data only:** (1) `git revert --no-commit -m 1 3baaad7` applies cleanly (32 files) — finding: a revert of a release that carried a migration deletes the applied migration's folder, which makes `prisma migrate status` report it missing and `migrate-deploy-one.sh` refuse later migrations; the runbook keeps the folder by default. (2) Rollback SQL of `20261029202156_task_lists` on a disposable PostgreSQL 16 seeded by the `task-lists` suite (5 tasks, 13 lists, 3 cards in lists): 16 → 15 → 16 migrations, `TaskList`/`Task.listId` gone and back, task checksum `5:99656205…` identical at all three points, `prisma migrate diff` no difference. (3) Railway redeploy of a previous deployment: not rehearsed — production action, needs an owner window or the staging decision (O52).
 - Disposable containers removed; no production access in any of this.
 
+## 2026-11-04 — O50 release, part 1: #151 and #152 on main
+
+- Pre-checks: all three PRs CLEAN and green on their exact heads; no migration in any diff; production health/ready 200 before the window. Known-good deployments recorded: API `78010e75`, web `e3729f52` (both `3baaad7`).
+- Fresh backup `maos-20261103T212359Z.dump` through the private tunnel, sha256 written, isolated restore rehearsal PASS (16 migrations).
+- **#151 (B08)** merged → main `39837d1`; Railway API `be2ed7ff` and web `41fd1502` SUCCESS; smoke: `/api/health` 200, `/api/health/ready` 200, web root 200, `/auth/login` 200. Not checked: authenticated flows (no fictional production accounts exist since the O1/O2 cleanup) → authenticated smoke stays NOT VERIFIED.
+- **#152 (B09)** retargeted to main (GitHub does not retarget while the base branch exists), checks green, merged → main `f0b6d62`; redeploy of the unchanged application in progress.
+- **#150 (B06)**: `origin/main` merged into `feat/ops-alerts` without conflicts (`1a46841`); CI including the new `isolation-gate` and `Secret scan` jobs running before the final merge.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
