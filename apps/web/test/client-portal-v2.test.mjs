@@ -17,9 +17,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
 describe('client portal v2', () => {
-  it('has four sections: Overview, My Work, Invoices, Appointments', () => {
+  it('has five sections: Overview, My Work, Invoices, Appointments, Requests', () => {
     const hrefs = [...read('src/navigation/client-navigation.ts').matchAll(/href: '([^']+)'/g)].map((m) => m[1]);
-    assert.deepEqual(hrefs, ['/client', '/client/deliveries', '/client/invoices', '/client/appointments']);
+    assert.deepEqual(hrefs, ['/client', '/client/deliveries', '/client/invoices', '/client/appointments', '/client/requests']);
+  });
+
+  it('reaches "Request new work" from the client menu and the overview (D02 entry point)', () => {
+    assert.match(read('src/navigation/client-navigation.ts'), /id: 'client-requests', label: 'Requests', href: '\/client\/requests'/);
+    assert.match(read('src/components/client-portal/client-dashboard.tsx'), /<Link href="\/client\/requests"[^>]*>Request new work<\/Link>/);
   });
 
   it('opens each client notice inside the client area, never an internal page', () => {

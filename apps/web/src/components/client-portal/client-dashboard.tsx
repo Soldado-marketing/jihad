@@ -14,6 +14,9 @@ export function ClientDashboard() {
         <p className="mt-3 text-sm text-slate-600">
           Something wrong? <Link href="/client/problems?new=1" className="font-medium text-brand hover:underline">Report a problem</Link> and our management will answer you.
         </p>
+        <p className="mt-1 text-sm text-slate-600">
+          Need something new? <Link href="/client/requests" className="font-medium text-brand hover:underline">Request new work</Link> and we will plan it with you.
+        </p>
       </section>
       <ClientDashboardSummary />
     </div>

@@ -5,7 +5,7 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
-import { ComplaintsService, ComplaintStatus } from './complaints.service';
+import { ComplaintsService, ComplaintStatus, WorkRequestsService } from './complaints.service';
 import { ClientReplyDto, OpenComplaintDto, StaffReplyDto } from './dto/complaint.dto';
 
 const actorOf = (user: JwtPayload) => ({ tenantId: user.tenantId, userId: user.sub, role: user.role });
@@ -15,7 +15,7 @@ const STATUSES: ComplaintStatus[] = ['OPEN', 'ANSWERED', 'RESOLVED'];
 @Controller('complaints')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class ComplaintsController {
-  constructor(private readonly svc: ComplaintsService) {}
+  constructor(protected readonly svc: ComplaintsService) {}
 
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CHAT_CHANNEL })
@@ -55,7 +55,7 @@ export class ComplaintsController {
 @Controller('client/problems')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class ClientComplaintsController {
-  constructor(private readonly svc: ComplaintsService) {}
+  constructor(protected readonly svc: ComplaintsService) {}
 
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CHAT_CHANNEL, scope: 'client-portal' })
@@ -79,5 +79,23 @@ export class ClientComplaintsController {
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CHAT_CHANNEL, scope: 'client-portal' })
   reply(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: ClientReplyDto) {
     return this.svc.clientReply(actorOf(user), id, dto);
+  }
+}
+
+/** Management reads, answers and closes client requests for new work (D02); OWNER and MANAGER only. */
+@Controller('requests')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+export class WorkRequestsController extends ComplaintsController {
+  constructor(svc: WorkRequestsService) {
+    super(svc);
+  }
+}
+
+/** The client's own requests for new work, scoped by their membership. */
+@Controller('client/requests')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+export class ClientWorkRequestsController extends ClientComplaintsController {
+  constructor(svc: WorkRequestsService) {
+    super(svc);
   }
 }

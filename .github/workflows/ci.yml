@@ -189,6 +189,7 @@ jobs:
             test/security-gate-client-deliveries.test.mjs \
             test/security-gate-client-portal-v2.test.mjs \
             test/security-gate-client-complaints.test.mjs \
+            test/security-gate-client-work-requests.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
