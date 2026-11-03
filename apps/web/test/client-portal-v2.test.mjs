@@ -22,6 +22,14 @@ describe('client portal v2', () => {
     assert.deepEqual(hrefs, ['/client', '/client/deliveries', '/client/invoices', '/client/appointments', '/client/requests']);
   });
 
+  it('describes requesting work, not reporting a problem (O1 finding 2026-11-03)', () => {
+    const page = read('app/(client)/client/requests/page.tsx');
+    assert.match(page, /eyebrow="Requests" title="Request new work"/);
+    assert.match(page, /Need something new from us\? Describe the work/);
+    assert.doesNotMatch(page, /Something went wrong|What happened\?|What is it about\?/);
+    assert.match(page, /What do you need\?/);
+  });
+
   it('reaches "Request new work" from the client menu and the overview (D02 entry point)', () => {
     assert.match(read('src/navigation/client-navigation.ts'), /id: 'client-requests', label: 'Requests', href: '\/client\/requests'/);
     assert.match(read('src/components/client-portal/client-dashboard.tsx'), /<Link href="\/client\/requests"[^>]*>Request new work<\/Link>/);

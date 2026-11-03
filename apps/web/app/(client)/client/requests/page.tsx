@@ -61,8 +61,8 @@ function RequestsPage() {
   return (
     <div className="grid gap-6">
       <Link href="/client" className="text-sm text-brand hover:underline">← Home</Link>
-      <PageHeader eyebrow="Help" title="Request new work"
-        description="Something went wrong, or you are not happy with how things went? Tell our management directly. This is separate from asking for changes to a delivery."
+      <PageHeader eyebrow="Requests" title="Request new work"
+        description="Need something new from us? Describe the work and our management plans it with you. This is separate from asking for changes to a delivery and from reporting a problem."
         actions={!open && (
           <button type="button" onClick={() => setOpen(true)} className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white">Request new work</button>
         )} />
@@ -71,7 +71,7 @@ function RequestsPage() {
         <form onSubmit={(e) => void submit(e)} aria-labelledby="request-title" className="grid gap-4 rounded-xl border border-line bg-white p-5">
           <h2 id="request-title" className="font-semibold text-ink">Request new work</h2>
           <label className="block text-sm">
-            <span className="mb-1 block text-slate-700">What is it about?</span>
+            <span className="mb-1 block text-slate-700">What do you need?</span>
             <input name="subject" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} required minLength={3} maxLength={140}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" placeholder="A short title" />
           </label>
@@ -86,7 +86,7 @@ function RequestsPage() {
             </label>
           )}
           <label className="block text-sm">
-            <span className="mb-1 block text-slate-700">What happened?</span>
+            <span className="mb-1 block text-slate-700">Describe the work</span>
             <textarea name="body" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} required minLength={5} maxLength={4000} rows={5}
               className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink" placeholder="Describe the work you need. Our management reads this and plans it with you." />
           </label>
