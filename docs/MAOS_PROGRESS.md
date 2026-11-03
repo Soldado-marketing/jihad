@@ -303,7 +303,7 @@ Also confirmed: size limit checked before content; empty files refused; double e
 
 ## 2026-11-03 — #148 released (owner approval O33)
 
-- CI on head `c756497` SUCCESS (API, web, audit); no Prisma change. Merged `ff21ca6` (GitHub answered a 504 on the first call; the merge had gone through). Railway: `maos-web` SUCCESS on `ff21ca6`, `jihad` SKIPPED (web-only change, as expected). Readiness 200; `/`, `/client/requests`, `/team/members` served 200; the production payload of `/client/requests` carries the new wording ("Need something new from us", "What do you need?") and no longer the problem-report text.
+- CI on head `c756497` SUCCESS (API, web, audit); no Prisma change. Merged `ff21ca6` (GitHub answered a 504 on the first call; the merge had gone through). Railway: `maos-web` SUCCESS on `ff21ca6`, `jihad` SKIPPED (web-only change, as expected). Readiness 200; `/`, `/client/requests`, `/team/members` served 200; the compiled route chunk served by production for `/client/requests` contains the new wording ("Need something new from us", "What do you need?") and not the problem-report text (the page is client-rendered, so the HTML itself carries no copy).
 - D02: wording finding closed. Signed-in production verification of the page stays NOT VERIFIED (O1/O2).
 
 ### Outstanding owner decisions (collected)
