@@ -81,7 +81,8 @@ describe('Phase 2 — request correlation', () => {
     // '*path' is the path-to-regexp v8 form Nest 11 requires; the bare '*'
     // only survives via LegacyRouteConverter and warns on every boot. Either
     // spelling registers the middleware on every route.
-    assert.match(src, /consumer\.apply\(RequestIdMiddleware\)\.forRoutes\('\*path'\)/);
+    // J07 added NoStoreMiddleware to the same apply(); the request id stays first.
+    assert.match(src, /consumer\.apply\(RequestIdMiddleware(, NoStoreMiddleware)?\)\.forRoutes\('\*path'\)/);
   });
 });
 

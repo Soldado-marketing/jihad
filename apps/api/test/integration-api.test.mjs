@@ -104,6 +104,27 @@ describe('health', { skip }, () => {
   });
 });
 
+// ── Caching (J07) ─────────────────────────────────────────────────────────────
+
+describe('no-store by default (J07)', { skip }, () => {
+  it('liveness answers Cache-Control: no-store', async () => {
+    const res = await request(server).get('/api/health');
+    assert.equal(res.headers['cache-control'], 'no-store');
+  });
+
+  it('a refused request answers Cache-Control: no-store', async () => {
+    const res = await request(server).get('/api/files');
+    assert.equal(res.status, 401);
+    assert.equal(res.headers['cache-control'], 'no-store');
+  });
+
+  it('an unknown route answers Cache-Control: no-store', async () => {
+    const res = await request(server).get('/api/does-not-exist');
+    assert.equal(res.status, 404);
+    assert.equal(res.headers['cache-control'], 'no-store');
+  });
+});
+
 // ── Authentication boundary ───────────────────────────────────────────────────
 
 describe('unauthenticated access', { skip }, () => {
@@ -370,5 +391,13 @@ describe('invoicing', { skip }, () => {
     const res = await auth(request(server).get('/api/finance/profitability'));
     assert.equal(res.status, 200);
     assert.ok(Array.isArray(res.body.projects));
+  });
+});
+
+describe('no-store on authenticated responses (J07)', { skip }, () => {
+  it('an authenticated list answers Cache-Control: no-store', async () => {
+    const res = await request(server).get('/api/auth/companies').set('Authorization', `Bearer ${ownerToken}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['cache-control'], 'no-store');
   });
 });
