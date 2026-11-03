@@ -355,6 +355,13 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - B06 (#150, `40e0f11`): the first full batch exposed a design flaw — operational notices were broadcast to the owners of every active company (another agency would have learned about this platform's jobs and storage); fixed: notices go to the OWNERs of the platform's own company (`MAOS_OPS_TENANT_SLUG`, else the oldest active company). Full batch on a disposable DB: 1497 pass, only the bootstrap suite (which CI runs alone) differs. GitHub CI: web green, API running at checkpoint.
 - B08 (`fix/dependency-advisories`, own worktree `b08-deps`): `npm audit` showed a **critical** advisory in the web app's Next.js 15.5.27 (unauthenticated RCE in image optimisation, GHSA-2464-fhr4-w9xw) and highs in postcss/browserslist and, for the API, multer/body-parser (via `@nestjs/platform-express`) and deepmerge-ts (via prisma's CLI config). Fixed without major upgrades: `next` 15.5.29, `postcss` 8.5.32, npm `overrides` for browserslist, multer 2.5.0, body-parser, deepmerge-ts 8. Production-dependency audit now 0/0/0/0 in both apps. CI gains a blocking audit (high, production deps) and a gitleaks secret scan. Builds and full test suites running at checkpoint; release needs one approval (API + web redeploy, no migration) — to be batched with #150 (O50).
 
+## 2026-11-04 — B06 and B08 ready for release; B09 isolation gate tested
+
+- **B06** #150 (`40e0f11`): CI green (API, web, audit); evidence comment posted. READY FOR RELEASE under O50.
+- **B08** #151 (`086d6d3`): all five CI jobs green including the new blocking production-dependency audit and the gitleaks secret scan (the repository owner is a user account, so the action needs no licence; pinned to a commit). The Sprint 2 baseline test asserted one exact Next version and was changed to "at least 15.5.29 on the 15.5 line". READY FOR RELEASE under O50 (API + web redeploy, no migration).
+- **B09** #152 (`6053085`, stacked on #151): new CI job `isolation-gate` runs the 20 tenant/client/role/session isolation suites and two storage-privacy unit suites on their own PostgreSQL; the suites left the API batch so nothing runs twice. Finding: `client-scope-inheritance.test.mjs` (merged 2026-11-02 with the client-portal fixes) was never listed in CI and had not run there until now — it passes. Local run on a disposable database: 266/266 integration, 33/33 unit, 0 skipped. `docs/security/TENANT_ISOLATION_INVARIANTS.md` written. TESTED; CI on the PR runs the job itself.
+- **A09** split: the merge gate half exists (three blocking jobs); whether GitHub *requires* them before merge is a branch-protection setting only the owner can change (O51). The Playwright e2e smoke remains to build.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -390,3 +397,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O48 | Social-platform integrations only after platform app reviews | Q06 |
 | O49 | Transcription provider, cost and data handling | R02 |
 | O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) | B06, B08 |
+| O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
