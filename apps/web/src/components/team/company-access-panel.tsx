@@ -6,6 +6,7 @@ import { getStoredUser } from '@/lib/auth';
 import { INVITE_ROLES, type InviteRole } from '@/lib/invites';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { MemberHistory } from '@/components/team/member-history';
 
 type CustomerOption = { id: string; name: string };
 const roleLabel = (role: string) => INVITE_ROLES.find((r) => r.value === role)?.label ?? (role === 'OWNER' ? 'Owner' : role);
@@ -221,6 +222,7 @@ export default function CompanyAccessPage() {
                   </section>
                 </div>
               )}
+              <MemberHistory userId={member.userId} />
             </li>
           );
         })}

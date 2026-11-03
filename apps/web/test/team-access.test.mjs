@@ -35,9 +35,9 @@ describe('one Team & Access entry in the navigation', () => {
     }
   });
 
-  it('has a sidebar slot in the Workspace group and a glyph', () => {
+  it('has a sidebar slot in the Company & Team group and a glyph', () => {
     const sidebar = read('src/components/shell/sidebar.tsx');
-    assert.match(sidebar, /ids: \['dashboard', 'control-center', 'my-work', 'calendar', 'team'\]/);
+    assert.match(sidebar, /ids: \['team', 'company-access', 'admin-users', 'admin-invites', 'audit'\]/);
     assert.match(sidebar, /team: 'TM'/);
     assert.doesNotMatch(sidebar, /admin-users|admin-invites|company-access/, 'no stale ids or special cases');
   });
