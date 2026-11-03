@@ -362,6 +362,13 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - **B09** #152 (`6053085`, stacked on #151): new CI job `isolation-gate` runs the 20 tenant/client/role/session isolation suites and two storage-privacy unit suites on their own PostgreSQL; the suites left the API batch so nothing runs twice. Finding: `client-scope-inheritance.test.mjs` (merged 2026-11-02 with the client-portal fixes) was never listed in CI and had not run there until now — it passes. Local run on a disposable database: 266/266 integration, 33/33 unit, 0 skipped. `docs/security/TENANT_ISOLATION_INVARIANTS.md` written. TESTED; CI on the PR runs the job itself.
 - **A09** split: the merge gate half exists (three blocking jobs); whether GitHub *requires* them before merge is a branch-protection setting only the owner can change (O51). The Playwright e2e smoke remains to build.
 
+## 2026-11-04 — B09 ready for release; B10/A08 runbooks and drills (PR #153)
+
+- **B09** #152: CI green on all five jobs, the new `Isolation gate - tenant, client and role boundaries` included → READY FOR RELEASE (CI-only; lands with the O50 batch after #151).
+- **B10/A08** PR #153 (`docs/ops-runbooks`, docs only): `docs/ops/INCIDENTS.md` (R1 API down, R2 database down, R3 bad deploy, R4 jobs silent, R5 storage, R6 backup Mac lost, R7 credential leak with the rotation table proven 2026-10-31, R8 suspected isolation leak) and `docs/ops/RELEASE_ROLLBACK.md` (pre-release checks, plain release, migration window, application rollback, database rollback, restore from backup, RPO 24 h / RTO target 1 h, drill record).
+- **A08 drills, isolated, fictional data only:** (1) `git revert --no-commit -m 1 3baaad7` applies cleanly (32 files) — finding: a revert of a release that carried a migration deletes the applied migration's folder, which makes `prisma migrate status` report it missing and `migrate-deploy-one.sh` refuse later migrations; the runbook keeps the folder by default. (2) Rollback SQL of `20261029202156_task_lists` on a disposable PostgreSQL 16 seeded by the `task-lists` suite (5 tasks, 13 lists, 3 cards in lists): 16 → 15 → 16 migrations, `TaskList`/`Task.listId` gone and back, task checksum `5:99656205…` identical at all three points, `prisma migrate diff` no difference. (3) Railway redeploy of a previous deployment: not rehearsed — production action, needs an owner window or the staging decision (O52).
+- Disposable containers removed; no production access in any of this.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -398,3 +405,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O49 | Transcription provider, cost and data handling | R02 |
 | O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) | B06, B08 |
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
+| O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
