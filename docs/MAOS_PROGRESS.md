@@ -210,6 +210,15 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - J01 verification (no code): `Tenant` holds only `name`, `slug`, `status`; no tenants controller, no settings endpoint; `/settings` is read-only display. Everything the row names (branding, sender name, locale/currency/timezone, defaults, cost rules) has no storage, so the settings page needs the `TenantSettings` model from Blueprint §22 → ADR + migration approval and the owner's priority list → O24.
 - Progress panel: pinned to the owner's claude.ai sidebar (owner message 2026-11-03); `docs/tools/fetch_prs.sh` now writes the PR state file the generator reads. CI on #133–#143: all three jobs SUCCESS.
 
+## 2026-11-03 — D03 client review deadlines and reminders (draft PR #145)
+
+- Decision at start: the review-by date lives in the existing `ApprovalRequest.dueAt` column (never written by the delivery flow until now), so the column variant needed no migration and the project-deadline guess was not used.
+- API (branch `feat/client-review-reminders` from `origin/main` `de2ee1b`, commit `38ac54b`): `SubmitDeliveryDto.reviewBy` (optional ISO 8601; past or junk → `400 REVIEW_BY_IN_PAST`, nothing created); the service stores it, returns it to staff rounds and to the client list/detail as `reviewBy`, and names the date in the delivery notice. New `ClientReviewRemindersJob` (`client-review-reminders`, every 30 min, lock key 4): deliveries `REQUESTED` + client-visible + `dueAt` in (now, now+24 h] → one notification per client member of that delivery's own scope through the single notification writer; dedupe key `delivery.review_reminder:<id>:<dueAt>`. Nothing to staff, to another scope or to another company; text = delivery title + time only.
+- Web: `reviewByLine()` / `reviewByToIso()` in `src/lib/deliveries.ts`; the client list and detail show the date (amber inside the last 24 h and after it, calm once answered); staff set it with a `datetime-local` picker in the client review panel and see it on the rounds.
+- Blueprint §30: no schema, no new endpoint, no permission change; tenant isolation and client scope verified with two companies sharing a scope key; Phase 3 D row in order.
+- Evidence (disposable `postgres:18` `maos-d03-pg`, fictional companies, removed afterwards): new API suite 7/7 (refused past date, stored and shown date without staff identity, no-date delivery unchanged, job registered, reminder reaches exactly the two client members of scope X and company B's own client, nothing to staff/client Y/owner B, second run adds nothing, nothing after a change request); with scheduler, client deliveries, client portal v2, notification writers, deadline reminders 50/50; API unit 506 pass (10 todo); web 298/298; API build, web typecheck and build clean. `scheduler.test.mjs` now lists four jobs; CI batch gained the suite.
+- Not yet seen in a live browser; release approval is O27.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -240,3 +249,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O24 | J01: approve a `TenantSettings` ADR + migration task and name which company settings matter first (branding, sender name, locale/currency/timezone, defaults, cost rules) | J01 |
 | O25 | D04 client side: extend the client read rule so a client may re-open versions previously delivered to its scope (comparison of rounds), or keep the portal on the current version only | D04 |
 | O26 | Release approval for draft PR #144 (D04 version comparison; web redeploy) | D04 |
+| O27 | Release approval for draft PR #145 (D03 client review deadlines + reminder job; API + web redeploy) | D03 |
