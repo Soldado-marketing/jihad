@@ -280,16 +280,38 @@ jobs:
         run: npm test
 
   audit:
-    name: Dependency audit (informational)
+    name: Dependency audit (blocking on high in production dependencies)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # Reporting only. `npm audit fix --force` is forbidden in this project:
-      # it silently performs major-version upgrades.
-      - name: Audit API dependencies
+      # B08: production dependencies must carry no high or critical advisory.
+      # `npm audit fix --force` stays forbidden (silent major upgrades); fixes
+      # are reviewed bumps in a PR. Dev-only advisories are reported, not blocking.
+      - name: Audit API production dependencies (blocking)
         working-directory: apps/api
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit web production dependencies (blocking)
+        working-directory: apps/web
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit development dependencies (informational)
         continue-on-error: true
-        run: npm audit --audit-level=high
+        run: |
+          (cd apps/api && npm audit --audit-level=high) || true
+          (cd apps/web && npm audit --audit-level=high) || true
+
+  secrets:
+    name: Secret scan (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # B08: a committed credential fails the build. The scan reads the git
+      # history of the push/PR; no secret is ever printed (gitleaks redacts).
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_SUMMARY: "false"

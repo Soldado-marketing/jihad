@@ -26,7 +26,11 @@ describe('Sprint 2 workspace shell and navigation baseline', () => {
     assert.equal(existsWeb('tailwind.config.ts'), true);
 
     const packageJson = readWeb('package.json');
-    assert.match(packageJson, /"next": "15\.5\.27"/);
+    // Next 15.5.29 or later on the 15.5 line (B08: 15.5.27 carried GHSA-2464-fhr4-w9xw).
+    const next = JSON.parse(packageJson).dependencies.next.replace(/^\^/, '');
+    const [major, minor, patch] = next.split('.').map(Number);
+    assert.equal(`${major}.${minor}`, '15.5', `next ${next} must stay on the 15.5 line`);
+    assert.ok(patch >= 29, `next ${next} must be at least 15.5.29`);
     assert.match(packageJson, /"react": "19\.2\.0"/);
     assert.match(packageJson, /"typescript"/);
   });
