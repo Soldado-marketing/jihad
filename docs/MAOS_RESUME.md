@@ -5,10 +5,10 @@ Read this first in every new session (also on `كمل MAOS`), then `docs/MAOS_MA
 | Field | Value |
 |---|---|
 | LAST_COMPLETED_TASK | Roadmap v2: full development tree (154 rows, phases 0–10, decisions O36–O49) in `docs/MAOS_MASTER_DEVELOPMENT_TREE.md`. Before: O1/O2 53/53, G01/#120, #148, release 2026-11-03 |
-| CURRENT_TASK_ID | A09 (browser e2e smoke on the isolated stack as a CI job) next. Open PRs: #150 B06, #151 B08, #152 B09 (all READY FOR RELEASE, gate O50); #153 B10/A08 docs (TESTED; acceptance O52) |
+| CURRENT_TASK_ID | A09 (browser e2e smoke in CI) next. Production = main `e2bb560` (B06, B08, B09 released under O50, 2026-11-04). Open PR: #153 B10/A08 docs (acceptance O52) |
 | EXACT_STEP_REACHED | B06 starting: design from scheduler.service.ts + notifications writer; no schema change |
 | CURRENT_BRANCH | `feat/ops-alerts` (PR #150) in the code worktree; `docs/master-plan` (PR #149) for these files |
-| WORKTREE | code: `~/Developer/MAOS/claude/.claude/worktrees/team-access-e01-2e2441` (`feat/ops-alerts`); `…/b08-deps` (`fix/dependency-advisories`, node_modules + dist); `…/b09-isolation` (`feat/isolation-gate`); `…/b10-runbooks` (`docs/ops-runbooks`). Docs: previous session scratchpad `plan-wt` on `docs/master-plan`. Main checkout belongs to another session — do not touch |
+| WORKTREE | code: `~/Developer/MAOS/claude/.claude/worktrees/team-access-e01-2e2441` (now on `feat/ops-alerts` = main `e2bb560`; branch for A09 from here); `…/b08-deps`, `…/b09-isolation` (merged, may be removed), `…/b10-runbooks` (`docs/ops-runbooks`, PR #153). Docs: `plan-wt` on `docs/master-plan`. Main checkout belongs to another session — do not touch |
 | LAST_RELEVANT_COMMIT | main `e301574` (release train); train head `aba3f60` |
 | LAST_RELEVANT_PR | #150 open (B06, CI running); #149 open (docs); #148, #147, #120, #133, #109, #110, #134–#146 MERGED |
 | FILES_CHANGED (this branch) | `docs/MAOS_MASTER_TASK_LIST.md` (section I removed, L01–L10, K06/G05/D02/D03/D04/E02 notes), `docs/MAOS_PROGRESS.md` (scope correction, verification entry, O29–O31), `docs/MAOS_RESUME.md`, `docs/finance/MAOS_DATEV_EXPORT_SPEC_K06.md` (new), `docs/MAOS_PLATFORM_GAPS_G05.md` (new), `docs/tools/progress_panel.py` (pipeline stages, snapshot wording), `docs/tools/fetch_prs.sh` |
@@ -16,8 +16,8 @@ Read this first in every new session (also on `كمل MAOS`), then `docs/MAOS_MA
 | TESTS_PENDING | GitHub CI on #150 `4ae3ee6`; local integration batch (running) |
 | PRODUCTION | `jihad` + `maos-web` SUCCESS on `3baaad7` (16 migrations); readiness 200; fictional O2 data removed (1 tenant / 4 users / 5 tasks / 1 invoice as before); backups `maos-20261103T140958Z`, `…T155001Z` verified |
 | KNOWN_BLOCKERS | all remaining rows need an owner decision (O3–O6, O8, O20, O22–O25, O29–O31, O34, O35); no safe code task is left ungated |
-| EXACT_NEXT_ACTION | 1) A09: Playwright e2e smoke (sign-in as OWNER → dashboard → projects → files; CLIENT → client shell) against the isolated stack (API + web + Postgres + MinIO in CI), as a CI job; branch from main; keep it under 5 min. 2) Then C05/C06/F04 (Phase 2 ungated rows). 3) When the owner answers O50: merge order #151 → #152 → #150 (or as approved), redeploy, readiness, smoke, record DEPLOYED/VERIFIED. 4) Panel at each boundary |
+| EXACT_NEXT_ACTION | 1) A09: Playwright e2e smoke (OWNER sign-in → dashboard → projects → files; CLIENT → client shell) on the isolated stack as a CI job, branch from main `e2bb560`, under 5 min. 2) C05/C06/F04. 3) Owner gates pending: O51 branch protection, O52 tabletop + redeploy drill, O36 production walkthrough. 4) Panel at each boundary |
 | PROGRESS_PANEL | Artifact https://claude.ai/artifact/YQKvn1ZehmcspeJFtjemmP (owner's side panel). Pinned to the owner's claude.ai sidebar on 2026-11-03. Regenerate after every task boundary: `sh docs/tools/fetch_prs.sh > prs.json` (n/state/draft/merged/ci in the shape the generator reads), then `python3 docs/tools/progress_panel.py --docs docs --prs prs.json --out panel.html` and publish `panel.html` to that URL. The planning files stay the source of truth; the panel never edits them |
 | STANDING_RULES | one task at a time; fictional data only; `REAL_CLIENT_DATA_ALLOWED = no`; merges/deploys/migrations/secrets/paid services/DNS are owner actions (one owner message per merge); never print secrets; never use the owner's computer or remote desktop without separate authorization |
 | ACTIVE_PHASE | Phase 1 — security, backups, monitoring, release stability (engineering open: B06, B08, B09, B10, A08, A09; owner: B01–B04, B07) |
-| LAST_UPDATED | 2026-11-04 03:05Z |
+| LAST_UPDATED | 2026-11-04 21:55Z |

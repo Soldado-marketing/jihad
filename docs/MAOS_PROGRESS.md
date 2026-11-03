@@ -377,6 +377,15 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - **#152 (B09)** retargeted to main (GitHub does not retarget while the base branch exists), checks green, merged → main `f0b6d62`; redeploy of the unchanged application in progress.
 - **#150 (B06)**: `origin/main` merged into `feat/ops-alerts` without conflicts (`1a46841`); CI including the new `isolation-gate` and `Secret scan` jobs running before the final merge.
 
+## 2026-11-04 — O50 release, part 2: #150 on main; release complete
+
+- **#152 (B09)**: Railway skipped both services (CI/docs only, `468c1aa8` / `7f885139` SKIPPED) — expected; production stayed on the #151 build.
+- **#150 (B06)**: `origin/main` merged into the branch (`1a46841`), CI green on all five jobs including the isolation gate, merged → main `e2bb560`. Railway API `5c664bd2` SUCCESS; web correctly skipped (no web change), stays on `41fd1502`.
+- Smoke after the API deploy: `/api/health` 200, `/api/health/ready` 200, `/api/health/ops` 401 anonymous (the new endpoint is live and guarded), web root 200, `/auth/login` 200.
+- **Not verified:** `/api/health/ops` as OWNER and the first watchdog run in production — needs an owner session or a fictional production account (O36). The watchdog runs every 15 min; a failed or silent job will notify the OWNERs of the oldest active company (`MAOS_OPS_TENANT_SLUG` not set).
+- Production now: main `e2bb560` (B06 + B08 + B09 + #120). Known-good for rollback: API `5c664bd2`, web `41fd1502`; previous API `be2ed7ff`.
+- Rows: B06 VERIFIED, B08 VERIFIED, B09 VERIFIED. O50 closed. Open PR: #153 (docs, B10/A08).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -411,6 +420,6 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O47 | Approve content items + media rights when Phase 8 starts | Q01, Q04 |
 | O48 | Social-platform integrations only after platform app reviews | Q06 |
 | O49 | Transcription provider, cost and data handling | R02 |
-| O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) — **APPROVED 2026-11-04** (owner message "Approve O50"); release in progress per docs/ops/RELEASE_ROLLBACK.md, order #151 → #152 → #150 | B06, B08 |
+| O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) — **APPROVED 2026-11-04** (owner message "Approve O50"); release in progress per docs/ops/RELEASE_ROLLBACK.md, order #151 → #152 → #150 — **DONE 2026-11-04 21:50Z** | B06, B08 |
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
