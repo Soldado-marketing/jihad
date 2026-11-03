@@ -10,13 +10,36 @@ import { ClientReplyDto, OpenComplaintDto, StaffReplyDto } from './dto/complaint
 type Actor = { tenantId: string; userId: string; role: string };
 export type ComplaintStatus = 'OPEN' | 'ANSWERED' | 'RESOLVED';
 
-/** ChatChannel.resourceType that marks a problem report; the generic chat API never lists these (chat.service.ts). */
-export const COMPLAINT_RESOURCE = 'complaint';
-const AUDIT_RESOURCE = 'Complaint';
-const OPENED = 'complaint.opened';
-const RESOLVED = 'complaint.resolved';
-const REOPENED = 'complaint.reopened';
-const STATE_ACTIONS = [OPENED, RESOLVED, REOPENED];
+/**
+ * A client conversation with management comes in two kinds that share every
+ * rule below (D02, owner directive 2026-11-02): a problem report (complaint)
+ * and a request for new work. ChatChannel.resourceType carries the kind; the
+ * generic chat API never lists either (chat.service.ts).
+ */
+export type ConversationKind = 'complaint' | 'request';
+export interface KindSpec {
+  /** ChatChannel.resourceType and Notification.resourceType. */
+  resource: ConversationKind;
+  /** AuditEvent.resourceType. */
+  audit: string;
+  /** Audit action prefix and notification dedupe prefix. */
+  prefix: ConversationKind;
+  text: { opened: string; added: string; reopened: string; answered: string; resolved: string };
+}
+export const KINDS = Object.freeze({
+  complaint: {
+    resource: 'complaint', audit: 'Complaint', prefix: 'complaint',
+    text: { opened: 'A client reported a problem', added: 'A client added to a problem report', reopened: 'A client reopened a problem report', answered: 'We answered your problem report', resolved: 'Your problem report was resolved' },
+  },
+  request: {
+    resource: 'request', audit: 'WorkRequest', prefix: 'request',
+    text: { opened: 'A client requested new work', added: 'A client added to a work request', reopened: 'A client reopened a work request', answered: 'We answered your work request', resolved: 'Your work request was closed' },
+  },
+} satisfies Record<ConversationKind, KindSpec>);
+/** ChatChannel.resourceType that marks a problem report (kept for existing imports). */
+export const COMPLAINT_RESOURCE: ConversationKind = KINDS.complaint.resource;
+/** Every resourceType the generic chat API must exclude. */
+export const CONVERSATION_RESOURCES: ConversationKind[] = Object.values(KINDS).map((k) => k.resource);
 const MANAGEMENT: string[] = [MembershipRole.OWNER, MembershipRole.MANAGER];
 
 const CHANNEL = {
@@ -52,6 +75,16 @@ export class ComplaintsService {
     private readonly audit: AuditService,
   ) {}
 
+  /** Which conversation this service instance handles; WorkRequestsService overrides it. */
+  protected readonly kind: KindSpec = KINDS.complaint;
+
+  private action(name: 'opened' | 'resolved' | 'reopened' | 'note' | 'answered'): string {
+    return `${this.kind.prefix}.${name}`;
+  }
+  private stateActions(): string[] {
+    return [this.action('opened'), this.action('resolved'), this.action('reopened')];
+  }
+
   // ── Client ─────────────────────────────────────────────────────────────────
 
   async open(actor: Actor, dto: OpenComplaintDto) {
@@ -60,22 +93,22 @@ export class ComplaintsService {
     const channel = await this.prisma.chatChannel.create({
       data: {
         tenantId: actor.tenantId, type: ChatChannelType.CLIENT, name: dto.subject.trim(),
-        resourceType: COMPLAINT_RESOURCE, resourceId: delivery?.id ?? null, clientScopeKey: scope, createdByUserId: actor.userId,
+        resourceType: this.kind.resource, resourceId: delivery?.id ?? null, clientScopeKey: scope, createdByUserId: actor.userId,
         memberships: { create: { tenantId: actor.tenantId, userId: actor.userId, role: MembershipRole.CLIENT, clientScopeKey: scope } },
         messages: { create: { tenantId: actor.tenantId, body: dto.body.trim(), createdByUserId: actor.userId, clientVisible: true, clientScopeKey: scope } },
       },
       select: CHANNEL,
     });
     // The report exists only once management can find it: the state event is strict.
-    await this.record(actor, OPENED, channel.id, { subject: channel.name, deliveryId: delivery?.id ?? null }, true);
-    await this.tellManagement(actor, channel, `complaint.opened:${channel.id}`, 'A client reported a problem');
+    await this.record(actor, this.action('opened'), channel.id, { subject: channel.name, deliveryId: delivery?.id ?? null }, true);
+    await this.tellManagement(actor, channel, `${this.kind.prefix}.opened:${channel.id}`, this.kind.text.opened);
     return this.clientView(channel, await this.statusOf([channel.id]));
   }
 
   async listForClient(actor: Actor) {
     const scope = await this.requireClient(actor);
     const rows = await this.prisma.chatChannel.findMany({
-      where: { tenantId: actor.tenantId, resourceType: COMPLAINT_RESOURCE, clientScopeKey: scope },
+      where: { tenantId: actor.tenantId, resourceType: this.kind.resource, clientScopeKey: scope },
       orderBy: { updatedAt: 'desc' },
       select: CHANNEL,
     });
@@ -99,8 +132,8 @@ export class ComplaintsService {
       select: { id: true },
     });
     await this.prisma.chatChannel.update({ where: { id: channel.id }, data: { updatedAt: new Date() } });
-    if (wasResolved) await this.record(actor, REOPENED, channel.id, { by: 'client' }, true);
-    await this.tellManagement(actor, channel, `complaint.message:${message.id}`, wasResolved ? 'A client reopened a problem report' : 'A client added to a problem report');
+    if (wasResolved) await this.record(actor, this.action('reopened'), channel.id, { by: 'client' }, true);
+    await this.tellManagement(actor, channel, `${this.kind.prefix}.message:${message.id}`, wasResolved ? this.kind.text.reopened : this.kind.text.added);
     return this.getForClient(actor, id);
   }
 
@@ -109,7 +142,7 @@ export class ComplaintsService {
   async list(actor: Actor, status?: ComplaintStatus) {
     this.requireManagement(actor);
     const rows = await this.prisma.chatChannel.findMany({
-      where: { tenantId: actor.tenantId, resourceType: COMPLAINT_RESOURCE },
+      where: { tenantId: actor.tenantId, resourceType: this.kind.resource },
       orderBy: { updatedAt: 'desc' },
       select: CHANNEL,
     });
@@ -134,8 +167,8 @@ export class ComplaintsService {
       select: { id: true },
     });
     await this.prisma.chatChannel.update({ where: { id: channel.id }, data: { updatedAt: new Date() } });
-    await this.record(actor, internal ? 'complaint.note' : 'complaint.answered', channel.id, { messageId: message.id });
-    if (!internal) await this.tellClient(actor, channel, `complaint.reply:${message.id}`, 'We answered your problem report');
+    await this.record(actor, internal ? this.action('note') : this.action('answered'), channel.id, { messageId: message.id });
+    if (!internal) await this.tellClient(actor, channel, `${this.kind.prefix}.reply:${message.id}`, this.kind.text.answered);
     return this.get(actor, id);
   }
 
@@ -143,9 +176,9 @@ export class ComplaintsService {
     this.requireManagement(actor);
     const channel = await this.find(actor.tenantId, id);
     if ((await this.statusOf([channel.id])).get(channel.id) !== 'RESOLVED') {
-      await this.record(actor, RESOLVED, channel.id, {}, true);
+      await this.record(actor, this.action('resolved'), channel.id, {}, true);
       await this.prisma.chatChannel.update({ where: { id: channel.id }, data: { updatedAt: new Date() } });
-      await this.tellClient(actor, channel, `complaint.resolved:${channel.id}:${Date.now()}`, 'Your problem report was resolved');
+      await this.tellClient(actor, channel, `${this.kind.prefix}.resolved:${channel.id}:${Date.now()}`, this.kind.text.resolved);
     }
     return this.get(actor, id);
   }
@@ -154,7 +187,7 @@ export class ComplaintsService {
     this.requireManagement(actor);
     const channel = await this.find(actor.tenantId, id);
     if ((await this.statusOf([channel.id])).get(channel.id) === 'RESOLVED') {
-      await this.record(actor, REOPENED, channel.id, { by: 'staff' }, true);
+      await this.record(actor, this.action('reopened'), channel.id, { by: 'staff' }, true);
       await this.prisma.chatChannel.update({ where: { id: channel.id }, data: { updatedAt: new Date() } });
     }
     return this.get(actor, id);
@@ -174,13 +207,13 @@ export class ComplaintsService {
   }
 
   private async find(tenantId: string, id: string): Promise<Channel> {
-    const channel = await this.prisma.chatChannel.findFirst({ where: { id, tenantId, resourceType: COMPLAINT_RESOURCE }, select: CHANNEL });
+    const channel = await this.prisma.chatChannel.findFirst({ where: { id, tenantId, resourceType: this.kind.resource }, select: CHANNEL });
     if (!channel) throw new NotFoundException('Report not found');
     return channel;
   }
 
   private async findForClient(tenantId: string, scope: string, id: string): Promise<Channel> {
-    const channel = await this.prisma.chatChannel.findFirst({ where: { id, tenantId, resourceType: COMPLAINT_RESOURCE, clientScopeKey: scope }, select: CHANNEL });
+    const channel = await this.prisma.chatChannel.findFirst({ where: { id, tenantId, resourceType: this.kind.resource, clientScopeKey: scope }, select: CHANNEL });
     if (!channel) throw new NotFoundException('Report not found');
     return channel;
   }
@@ -206,11 +239,11 @@ export class ComplaintsService {
     const state = new Map<string, ComplaintStatus>();
     if (!ids.length) return state;
     const events = await this.prisma.auditEvent.findMany({
-      where: { resourceType: AUDIT_RESOURCE, resourceId: { in: ids }, action: { in: STATE_ACTIONS } },
+      where: { resourceType: this.kind.audit, resourceId: { in: ids }, action: { in: this.stateActions() } },
       orderBy: { createdAt: 'asc' },
       select: { resourceId: true, action: true },
     });
-    for (const e of events) if (e.resourceId) state.set(e.resourceId, e.action === RESOLVED ? 'RESOLVED' : 'OPEN');
+    for (const e of events) if (e.resourceId) state.set(e.resourceId, e.action === this.action('resolved') ? 'RESOLVED' : 'OPEN');
     for (const id of ids) if (!state.has(id)) state.set(id, 'OPEN');
     return state;
   }
@@ -279,7 +312,7 @@ export class ComplaintsService {
   private async tellManagement(actor: Actor, channel: Channel, dedupeKey: string, title: string) {
     await this.notifications.notify({
       tenantId: actor.tenantId, recipientUserIds: await this.managementUserIds(actor.tenantId), audience: 'DIRECT', actorUserId: actor.userId,
-      dedupeKey, title, body: channel.name.slice(0, 240), resourceType: COMPLAINT_RESOURCE, resourceId: channel.id,
+      dedupeKey, title, body: channel.name.slice(0, 240), resourceType: this.kind.resource, resourceId: channel.id,
     });
   }
 
@@ -291,17 +324,23 @@ export class ComplaintsService {
     });
     await this.notifications.notify({
       tenantId: actor.tenantId, recipientUserIds: clients.map((c) => c.userId), audience: 'DIRECT', actorUserId: actor.userId,
-      dedupeKey, title, body: channel.name.slice(0, 240), resourceType: COMPLAINT_RESOURCE, resourceId: channel.id,
+      dedupeKey, title, body: channel.name.slice(0, 240), resourceType: this.kind.resource, resourceId: channel.id,
     });
   }
 
   private async record(actor: Actor, action: string, id: string, payload: Record<string, unknown>, strict = false) {
     const write = this.audit.createAuditEvent({
       tenantId: actor.tenantId, actorId: actor.userId, actorRole: actor.role as MembershipRole,
-      resourceType: AUDIT_RESOURCE, resourceId: id, action,
+      resourceType: this.kind.audit, resourceId: id, action,
       permissionResult: AuditPermissionResult.ALLOWED, outcome: AuditOutcome.SUCCESS, payload,
     });
     if (strict) await write;
     else await write.catch((err: unknown) => this.logger.error(`Could not record ${action}`, err));
   }
+}
+
+/** Same rules, different kind: a client's request for new work goes to management. */
+@Injectable()
+export class WorkRequestsService extends ComplaintsService {
+  protected override readonly kind: KindSpec = KINDS.request;
 }

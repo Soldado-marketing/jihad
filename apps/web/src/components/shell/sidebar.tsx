@@ -15,9 +15,6 @@ type SidebarProps = {
 };
 
 export const navGlyphs: Record<string, string> = {
-  'admin-invites': 'IN',
-  'admin-users': 'AU',
-  'company-access': 'CP',
   approvals: 'AP',
   invoices: 'IV',
   audit: 'AL',
@@ -35,25 +32,51 @@ export const navGlyphs: Record<string, string> = {
   reports: 'RE',
   settings: 'SE',
   tasks: 'TA',
+  team: 'TM',
+  requests: 'WR',
   voice: 'VO',
 };
 
+/**
+ * Sidebar groups (M02, owner plan 2026-11-02): Workspace · Company & Team ·
+ * Projects & Delivery · Customers & CRM · Finance & Banking · AI Assistant ·
+ * Reports · Settings. A group is only a heading: visibility still comes from
+ * navigation.ts (`allowedRoles`, grants) through visibleNavGroups, and an
+ * empty group is not rendered (AI Assistant has no item until phase L ships).
+ * `team` (E01) replaced the three separate admin entries; `requests` is D02.
+ */
 export const navGroups = [
   {
-    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
+    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'notifications', 'chat', 'collaboration'],
     label: 'Workspace',
   },
   {
-    ids: ['projects', 'tasks', 'time', 'customers', 'crm'],
-    label: 'Delivery',
+    ids: ['team', 'audit'],
+    label: 'Company & Team',
   },
   {
-    ids: ['collaboration', 'chat', 'notifications'],
-    label: 'Team',
+    ids: ['projects', 'tasks', 'time', 'files', 'approvals', 'voice', 'complaints', 'requests'],
+    label: 'Projects & Delivery',
   },
   {
-    ids: ['files', 'approvals', 'complaints', 'voice', 'finance', 'invoices', 'reports', 'audit', 'data', 'settings'],
-    label: 'Operations',
+    ids: ['customers', 'crm'],
+    label: 'Customers & CRM',
+  },
+  {
+    ids: ['finance', 'invoices'],
+    label: 'Finance & Banking',
+  },
+  {
+    ids: [],
+    label: 'AI Assistant',
+  },
+  {
+    ids: ['reports'],
+    label: 'Reports',
+  },
+  {
+    ids: ['data', 'settings'],
+    label: 'Settings',
   },
 ];
 
@@ -69,13 +92,7 @@ export function visibleNavGroups(role: WorkspaceRole, grants: MyGrants = {}) {
 }
 
 export function isNavItemActive(item: NavigationItem, pathname: string | null): boolean {
-  return (
-    pathname === item.href ||
-    (item.href !== '/dashboard' &&
-      item.id !== 'admin-users' &&
-      Boolean(pathname?.startsWith(`${item.href}/`))) ||
-    (item.id === 'admin-users' && Boolean(pathname?.startsWith('/dashboard/admin/users/')))
-  );
+  return pathname === item.href || (item.href !== '/dashboard' && Boolean(pathname?.startsWith(`${item.href}/`)));
 }
 
 export function Sidebar({ role }: SidebarProps) {

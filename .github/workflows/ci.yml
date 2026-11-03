@@ -88,6 +88,8 @@ jobs:
           node --test \
             test/security-mvp.test.mjs \
             test/runtime-hardening.test.mjs \
+            test/no-store-cache.test.mjs \
+            test/file-formats-matrix.test.mjs \
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
@@ -137,6 +139,9 @@ jobs:
       # security-gate-contractor-scope proves a CONTRACTOR sees only assigned work.
       # security-gate-member-management proves role changes drop the old role's
       # permissions, removal ends one company only, and Owners are never changed.
+      # security-gate-role-transitions (E03) proves what each role change and grant
+      # revocation takes away and keeps, per company, on old and refreshed tokens,
+      # that refused changes write nothing, and that the last Owner is protected.
       # security-gate-client-deliveries proves a client reviews only its own deliveries,
       # sees the company name only, and change requests reach the assigned employee.
       # security-gate-client-complaints proves a problem report reaches management only,
@@ -184,9 +189,11 @@ jobs:
             test/security-gate-contractor-scope.test.mjs \
             test/security-gate-explicit-grants.test.mjs \
             test/security-gate-member-management.test.mjs \
+            test/security-gate-role-transitions.test.mjs \
             test/security-gate-client-deliveries.test.mjs \
             test/security-gate-client-portal-v2.test.mjs \
             test/security-gate-client-complaints.test.mjs \
+            test/security-gate-client-work-requests.test.mjs \
             test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
@@ -214,7 +221,8 @@ jobs:
             test/security-gate-sessions.test.mjs \
             test/invites.test.mjs \
             test/scheduler.test.mjs \
-            test/deadline-reminders.test.mjs
+            test/deadline-reminders.test.mjs \
+            test/client-review-reminders.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are

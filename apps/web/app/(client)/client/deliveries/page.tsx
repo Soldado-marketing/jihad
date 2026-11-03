@@ -6,7 +6,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { apiFetch } from '@/lib/fetch';
-import { DELIVERY_STATUS_LABEL } from '@/lib/deliveries';
+import { DELIVERY_STATUS_LABEL, reviewByLine } from '@/lib/deliveries';
 import { type Delivery, KIND_LABEL } from '@/lib/client-portal';
 
 const GROUPS: { status: string; title: string; empty: string }[] = [
@@ -64,6 +64,10 @@ function MyWork() {
                       <span className="mt-0.5 block text-xs text-muted">
                         {KIND_LABEL[d.kind ?? 'document']}{d.project ? ` · ${d.project.name}` : ''}{d.versionNumber ? ` · Version ${d.versionNumber}` : ''} · {new Date(d.updatedAt).toLocaleDateString()}
                       </span>
+                      {(() => {
+                        const due = reviewByLine(d.reviewBy, d.status);
+                        return due ? <span className={`mt-0.5 block text-xs ${due.urgent ? 'font-medium text-amber-700' : 'text-muted'}`}>{due.text}</span> : null;
+                      })()}
                     </span>
                     <StatusBadge status={d.status} label={DELIVERY_STATUS_LABEL[d.status]} />
                   </Link>
