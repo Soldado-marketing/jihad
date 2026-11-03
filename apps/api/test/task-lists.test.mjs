@@ -98,6 +98,8 @@ before(async () => {
   ids.WEB = await project('Website');
   ids.HIDDEN = await project('Not the contractor\'s');
   await prisma.projectMember.create({ data: { tenantId: t, projectId: ids.VIDEO, userId: users.contractor.id } });
+  // Since #126 an EMPLOYEE works only on assigned tasks and member projects: the employee moving cards below is a member of the video project.
+  await prisma.projectMember.create({ data: { tenantId: t, projectId: ids.VIDEO, userId: users.employee.id } });
 
   const task = async (title, projectId, status = 'TODO') =>
     (await prisma.task.create({ data: { tenantId: t, title: `${title} ${RUN}`, projectId, status }, select: { id: true } })).id;

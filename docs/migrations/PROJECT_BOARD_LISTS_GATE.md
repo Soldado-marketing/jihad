@@ -87,6 +87,14 @@ The migration rewrites no existing row. `prisma migrate diff` from the migrated 
 - **Rolling back the migration loses list data.** It removes list names, order and card placement. No task, status, order or assignment is lost.
 - **Lock and table size.** `ALTER TABLE "Task" ADD COLUMN` (nullable, no default) takes a brief lock without rewriting the table. The new index on `Task` builds without `CONCURRENTLY`, which is fine at the current table size.
 
+
+## Re-verification 2026-11-03 (after merging `main` at release `e301574`/`ff21ca6`)
+
+- Branch merged with `main`; conflicts resolved in `tasks.service.ts`, `tasks.repository.ts` (client scope from `main` + list clearing from this branch) and `activity.ts`. API unit 572 pass, web 372/372, typecheck and builds clean.
+- Test fixture updated: since #126 an EMPLOYEE works only on assigned tasks and member projects, so the employee moving cards in `task-lists.test.mjs` is now a member of the video project (the production rule did not change).
+- **Migration on a copy of production:** today's verified backup `maos-20261103T122203Z` restored into a network-isolated PostgreSQL 18 container (15 migrations, 5 tasks). `prisma migrate deploy` applied only `20261029202156_task_lists` (16 migrations, `TaskList` present, `Task.listId` present); `prisma migrate diff` against the schema: **no drift**. The rollback SQL below was executed (back to 15 migrations, table and column gone), then the migration re-applied. Task checksum (id, status, projectId, sortOrder, title, assignee, client scope, visibility) **identical** at all four points: `5:7d743b6d7990a196ca73c4382d0cb65e`. Container removed; production untouched.
+- **Production application plan (owner window, O7):** fresh backup → `scripts/migrate-deploy-one.sh` for `20261029202156_task_lists` through the private tunnel → verify `_prisma_migrations` = 16 and `TaskList` exists → merge #120 → Railway deploy → readiness → smoke. **Rollback plan:** application: revert the merge commit on `main` and redeploy (the column is nullable, old code ignores it); database: the SQL in "Rollback" below, which loses only list names/order/placement, never tasks, statuses, order or assignments.
+
 ## Rollback
 
 ```sql
