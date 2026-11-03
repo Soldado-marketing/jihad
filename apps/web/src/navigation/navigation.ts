@@ -51,25 +51,10 @@ export const workspaceNavigation: NavigationItem[] = [
   },
   // ── Admin (Owner only) ───────────────────────────────────────────────────
   {
-    id: 'company-access',
-    label: 'Company Access',
-    href: '/dashboard/admin/company-access',
-    allowedRoles: ['OWNER'],
-    sprint2Status: 'active',
-    clientSafe: false,
-  },
-  {
-    id: 'admin-users',
-    label: 'User Requests',
-    href: '/dashboard/admin/users/requests',
-    allowedRoles: ['OWNER'],
-    sprint2Status: 'active',
-    clientSafe: false,
-  },
-  {
-    id: 'admin-invites',
-    label: 'Invitations',
-    href: '/dashboard/admin/invites',
+    // Team & Access (E01): members and grants, invitations and user requests under one route.
+    id: 'team',
+    label: 'Team & Access',
+    href: '/team',
     allowedRoles: ['OWNER'],
     sprint2Status: 'active',
     clientSafe: false,

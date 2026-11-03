@@ -16,7 +16,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
 describe('company access member actions', () => {
-  const page = read('app/(workspace)/dashboard/admin/company-access/page.tsx');
+  const page = read('src/components/team/company-access-panel.tsx');
 
   it('changes roles and removes members through the owner-only endpoints', () => {
     assert.match(page, /`\/admin\/users\/\$\{encodeURIComponent\(member\.userId\)\}\/role`/);
@@ -37,7 +37,7 @@ describe('company access member actions', () => {
 
 describe('invitations', () => {
   it('asks before revoking an invitation', () => {
-    const page = read('app/(workspace)/dashboard/admin/invites/page.tsx');
+    const page = read('src/components/team/invitations-panel.tsx');
     assert.match(page, /onClick=\{\(\) => setRevokeTarget\(inv\)\}/);
     assert.match(page, /<ConfirmDialog title="Revoke invitation"/);
   });

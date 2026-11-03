@@ -15,9 +15,6 @@ type SidebarProps = {
 };
 
 export const navGlyphs: Record<string, string> = {
-  'admin-invites': 'IN',
-  'admin-users': 'AU',
-  'company-access': 'CP',
   approvals: 'AP',
   invoices: 'IV',
   audit: 'AL',
@@ -35,12 +32,13 @@ export const navGlyphs: Record<string, string> = {
   reports: 'RE',
   settings: 'SE',
   tasks: 'TA',
+  team: 'TM',
   voice: 'VO',
 };
 
 export const navGroups = [
   {
-    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'admin-users', 'admin-invites', 'company-access'],
+    ids: ['dashboard', 'control-center', 'my-work', 'calendar', 'team'],
     label: 'Workspace',
   },
   {
@@ -69,13 +67,7 @@ export function visibleNavGroups(role: WorkspaceRole, grants: MyGrants = {}) {
 }
 
 export function isNavItemActive(item: NavigationItem, pathname: string | null): boolean {
-  return (
-    pathname === item.href ||
-    (item.href !== '/dashboard' &&
-      item.id !== 'admin-users' &&
-      Boolean(pathname?.startsWith(`${item.href}/`))) ||
-    (item.id === 'admin-users' && Boolean(pathname?.startsWith('/dashboard/admin/users/')))
-  );
+  return pathname === item.href || (item.href !== '/dashboard' && Boolean(pathname?.startsWith(`${item.href}/`)));
 }
 
 export function Sidebar({ role }: SidebarProps) {

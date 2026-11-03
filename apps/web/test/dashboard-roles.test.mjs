@@ -44,7 +44,7 @@ describe('dashboard links follow the navigation rules', () => {
 
   it('keeps finance and access requests OWNER-only', () => {
     assert.match(dashboard, /if \(canSeeFinance\(u\?\.role\)\) \{/);
-    assert.match(dashboard, /user\?\.role === 'OWNER' && \(\s*<>\s*<Link href="\/dashboard\/admin\/users\/requests"/);
+    assert.match(dashboard, /user\?\.role === 'OWNER' && \(\s*<>\s*<Link href="\/team\/requests"/);
     for (const role of ['MANAGER', 'EMPLOYEE', 'CONTRACTOR']) assert.equal(navIds(role).has('finance'), false, role);
   });
 
