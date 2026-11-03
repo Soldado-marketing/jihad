@@ -321,6 +321,12 @@ Also confirmed: size limit checked before content; empty files refused; double e
 
 - `whois` for Klarwerk, Taktwerk, Studiokern on `.de`, `.com`, `.app`: **all nine registered by others**. Web search finds no software product or mark for any of the three; DPMA/EUIPO/WIPO registers were not searched (interactive). Nothing registered or bought. Decision O35: accept a variant domain for one of the three or run a second naming round; H03 waits on it.
 
+## 2026-11-03 — #120 window executed (owner approval O7)
+
+- CI on head `d3ca32a` SUCCESS; fresh backup `maos-20261103T140958Z` (sha256 OK, REHEARSAL OK: 15 migrations, 5 tasks); `scripts/migrate-deploy-one.sh check` → CHECK OK (only `20261029202156_task_lists` pending, sha256 `bbf172e4…`); `apply` through the private tunnel → APPLY OK, schema up to date; the still-running old API answered 200/200/200 after the migration (backward compatible: nullable column + new table).
+- Merged `3baaad7`; Railway `jihad` and `maos-web` SUCCESS on `3baaad7`; readiness 200; new routes refuse anonymous callers (`/projects/:id/lists` 401, `/tasks/reorder` 401); pages served 200; no error lines in API logs. Main CI running at checkpoint.
+- **INCOMPLETE:** functional test of the board lists and of existing workflows on the released code (isolated stack walk-through) was not run — the session's usage limit was reached right after the deployment. Rows G01/G02 stay NOT VERIFIED for the board feature; rollback path if needed: revert `3baaad7` on `main` (code) and the rollback SQL in `docs/migrations/PROJECT_BOARD_LISTS_GATE.md` (loses list data only).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -331,7 +337,6 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O4 | Rotate `RESEND_API_KEY` in the Resend dashboard and on `jihad` | B02 |
 | O5 | Approve a Drive-side sharing audit with the Drive connector | B04 |
 | O6 | Production upload limit value (`FILE_MAX_UPLOAD_BYTES` on `jihad`, ≤ 100 MiB) | C01, C02 |
-| O7 | Migration window for #120 (board lists); #109 and #110 merged 2026-11-03 | G01, G02 |
 | O8 | E-mail notifications to real clients (D01) and AI provider/cost (L) when those phases start | D01, L |
 | O10 | Production window for B03 roles + `DATABASE_URL` + Keychain switch, after the rehearsal passes | B03 |
 | O20 | Collapsible sidebar groups (desktop OWNER list is 1661 px tall): implement, or accept page scroll | M03 |
