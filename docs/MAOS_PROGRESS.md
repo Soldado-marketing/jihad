@@ -327,6 +327,11 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Merged `3baaad7`; Railway `jihad` and `maos-web` SUCCESS on `3baaad7`; readiness 200; new routes refuse anonymous callers (`/projects/:id/lists` 401, `/tasks/reorder` 401); pages served 200; no error lines in API logs. Main CI running at checkpoint.
 - **INCOMPLETE:** functional test of the board lists and of existing workflows on the released code (isolated stack walk-through) was not run — the session's usage limit was reached right after the deployment. Rows G01/G02 stay NOT VERIFIED for the board feature; rollback path if needed: revert `3baaad7` on `main` (code) and the rollback SQL in `docs/migrations/PROJECT_BOARD_LISTS_GATE.md` (loses list data only).
 
+## 2026-11-03 — G01/#120 closed: board lists verified on the released code
+
+- GitHub CI on `main` `3baaad7` SUCCESS. Isolated stack rebuilt from `3baaad7` (PostgreSQL 18, MinIO, API + web, fictional companies): **13/13 checks PASS** — board opens without writes, setup creates the five mapped lists without touching tasks, custom list, add card, moves to mapped (status follows) and unmapped (status kept) lists, persistence after reload, rename/reorder/archive/restore with audit events, employee sees no structure controls but moves the own card, API permissions (client 403, employee read-only, manager full) and tenant isolation (company B 404 on every Nord list and move), existing task board / My Work / client portal unchanged, phone layout without page overflow. Record: `docs/MAOS_O1_ACCEPTANCE_2026-11-03.md` (section "#120 board lists").
+- No defect found; nothing changed in production after the release. G01 and G02 closed; signed-in production verification of the board stays NOT VERIFIED (O1/O2).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |

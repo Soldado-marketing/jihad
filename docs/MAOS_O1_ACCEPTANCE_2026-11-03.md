@@ -34,3 +34,29 @@
 **Finding (fixed):** the client "Request new work" page carried the problem-report wording ("Something went wrong…", "What happened?"). Fixed in PR #148 (web only; tests 349/349; wording pinned by a test). Not yet released.
 
 **Not verified anywhere:** e-mail delivery (no mail provider in the isolated stack; production mail untouched), file uploads through the browser's file picker (uploaded through the API instead), the compact mobile menu contents on a phone beyond the bottom bar, invitations and user-request approval flows (unchanged by this release; covered by CI suites).
+
+---
+
+# #120 board lists — functional verification of `main` `3baaad7` (isolated stack, fictional data, 2026-11-03)
+
+Same stack as above, rebuilt from the merged commit (16 migrations). GitHub CI on `3baaad7`: SUCCESS.
+
+| # | Check | Role | Result | Evidence |
+|---|---|---|---|---|
+| 1 | Opening a project board writes nothing | OWNER | PASS | 0 lists, 0 cards in lists before "Set up lists"; "This board has no lists yet" |
+| 2 | Set up lists | OWNER | PASS | five lists To Do / In Progress / In Review / Blocked / Done with status mapping; existing card shown under In Progress by status; `Task.listId` still null (no task rewritten); audit `board.initialized` |
+| 3 | Add a custom list (unmapped) | OWNER | PASS | "Revisions" created, 6 lists; audit `board.list.created` |
+| 4 | Add a card from a list | OWNER | PASS | card created in To Do, status TODO; audit `task.created` |
+| 5 | Move a card to a mapped list | OWNER | PASS | card → In Review: `status = IN_REVIEW`, `listId` = In Review; audit `task.list.changed` + `task.status.changed`; activity timeline shows both |
+| 6 | Move a card to an unmapped list keeps its status | OWNER | PASS | card → Revisions: status stays TODO, `listId` = Revisions |
+| 7 | Board identical after reload | OWNER | PASS | reload shows the same placement |
+| 8 | Rename, reorder, archive, restore lists | OWNER | PASS | rename saved (`board.list.updated`), "move earlier" reorders (`board.lists.reordered`), archive moves the list to "Archived lists (1)" (`board.list.archived`), restore brings it back (`board.list.restored`) — restored list is appended at the end (sortOrder 6000) |
+| 9 | Employee on the board | EMPLOYEE (assignee) | PASS | no rename / archive / add-list controls; may add cards and moved the own card back to In Progress (status IN_PROGRESS, visible in My Work "Due this week") |
+| 10 | Permissions (API) | CLIENT / EMPLOYEE / MANAGER | PASS | client: lists 403, reorder 403; employee: read lists 200, create list 403; manager: create 201, archive 200 |
+| 11 | Tenant isolation (API) | OWNER of company B | PASS | read Nord lists 404, patch Nord list 404, move a Süd task into a Nord list 404 (task unchanged) |
+| 12 | Existing workflows | OWNER / CLIENT | PASS | `/tasks` (status board) returns every task with `listId`; filter by project; My Work; client portal task view shows the card with its status |
+| 13 | Phone (375 px) | EMPLOYEE | PASS | page has no horizontal scroll (375/375); the board region itself scrolls horizontally with snap, one list per screen |
+
+**Tooling note:** a pointer drag did not trigger the board's HTML5 drag-and-drop in the automated browser; the moves above were triggered by dispatching the page's own `dragstart`/`dragover`/`drop` events on the real card and list elements, so the application handlers and API path are the ones exercised. A manual drag in a real browser was verified by the branch author on 2026-10-29 (PR #120).
+
+**No defect found.** One test artefact: a list was renamed to "RevisionsRevisionen" because select-all did not apply in the automated field — the rename itself worked.
