@@ -98,8 +98,8 @@ Preserve (regression-guarded in CI): deliveries and approvals, revision requests
 
 | ID | Task | Status | Notes |
 |---|---|---|---|
-| H01 | Research independent commercial product names | NOT_STARTED | Phase 7 |
-| H02 | Preliminary domain and trademark availability | NOT_STARTED | No purchases |
+| H01 | Research independent commercial product names | DONE (docs research; no purchases) | `docs/branding/MAOS_PRODUCT_NAME_RESEARCH_H01.md`: criteria, eight candidates screened by web search, shortlist Klarwerk / Taktwerk / Studiokern for H02 read-only checks |
+| H02 | Preliminary domain and trademark availability | READY (read-only lookups only) | No purchases |
 | H03 | Branding and logo proposals | NOT_STARTED | — |
 | H04 | Apply the owner-approved brand | BLOCKED_OWNER | Owner approval required |
 

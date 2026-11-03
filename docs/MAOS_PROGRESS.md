@@ -313,6 +313,10 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Waiting on O7: owner migration window. Then: fresh backup → `scripts/migrate-deploy-one.sh` through the private tunnel → merge #120 → Railway deploy → smoke.
 - Also today: ADR-019 (TenantSettings, J01 → O24) and ADR-020 (multi-file delivery, D05 → O34) proposed; A04 evidence state recorded.
 
+## 2026-11-03 — H01 product-name research (docs only)
+
+- `docs/branding/MAOS_PRODUCT_NAME_RESEARCH_H01.md`: five criteria, eight candidates screened against existing software/company names by web search, three rejected as descriptive or taken, shortlist **Klarwerk, Taktwerk, Studiokern** for H02 (DPMA/EUIPO/WIPO, whois, stores, handles — read-only). Nothing bought or registered.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
