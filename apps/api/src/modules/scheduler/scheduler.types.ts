@@ -23,6 +23,8 @@ export type RunOutcome =
 
 export interface JobStatus {
   name: string;
+  /** Interval between runs on this instance, so a watchdog can tell silence from a long gap. */
+  everyMs: number;
   runs: number;
   failures: number;
   lastOutcome: RunOutcome['outcome'] | null;

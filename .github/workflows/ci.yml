@@ -208,7 +208,8 @@ jobs:
             test/invites.test.mjs \
             test/scheduler.test.mjs \
             test/deadline-reminders.test.mjs \
-            test/client-review-reminders.test.mjs
+            test/client-review-reminders.test.mjs \
+            test/ops-alerts.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
