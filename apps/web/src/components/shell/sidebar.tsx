@@ -15,9 +15,6 @@ type SidebarProps = {
 };
 
 export const navGlyphs: Record<string, string> = {
-  'admin-invites': 'IN',
-  'admin-users': 'AU',
-  'company-access': 'CP',
   approvals: 'AP',
   invoices: 'IV',
   audit: 'AL',
@@ -46,8 +43,7 @@ export const navGlyphs: Record<string, string> = {
  * Reports · Settings. A group is only a heading: visibility still comes from
  * navigation.ts (`allowedRoles`, grants) through visibleNavGroups, and an
  * empty group is not rendered (AI Assistant has no item until phase L ships).
- * Ids that are not in the navigation yet (`team` from E01, `requests` from
- * D02) already have their slot so neither merge order leaves them without one.
+ * `team` (E01) replaced the three separate admin entries; `requests` is D02.
  */
 export const navGroups = [
   {
@@ -55,7 +51,7 @@ export const navGroups = [
     label: 'Workspace',
   },
   {
-    ids: ['team', 'company-access', 'admin-users', 'admin-invites', 'audit'],
+    ids: ['team', 'audit'],
     label: 'Company & Team',
   },
   {
@@ -96,13 +92,7 @@ export function visibleNavGroups(role: WorkspaceRole, grants: MyGrants = {}) {
 }
 
 export function isNavItemActive(item: NavigationItem, pathname: string | null): boolean {
-  return (
-    pathname === item.href ||
-    (item.href !== '/dashboard' &&
-      item.id !== 'admin-users' &&
-      Boolean(pathname?.startsWith(`${item.href}/`))) ||
-    (item.id === 'admin-users' && Boolean(pathname?.startsWith('/dashboard/admin/users/')))
-  );
+  return pathname === item.href || (item.href !== '/dashboard' && Boolean(pathname?.startsWith(`${item.href}/`)));
 }
 
 export function Sidebar({ role }: SidebarProps) {

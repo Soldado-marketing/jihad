@@ -44,7 +44,7 @@ describe('the eight target groups', () => {
 
   it('put company administration, delivery work, customers, money, reports and settings apart', () => {
     const by = Object.fromEntries(groups.map((g) => [g.label, g.ids]));
-    assert.deepEqual(by['Company & Team'], ['team', 'company-access', 'admin-users', 'admin-invites', 'audit']);
+    assert.deepEqual(by['Company & Team'], ['team', 'audit']);
     assert.deepEqual(by['Projects & Delivery'], ['projects', 'tasks', 'time', 'files', 'approvals', 'voice', 'complaints', 'requests']);
     assert.deepEqual(by['Customers & CRM'], ['customers', 'crm']);
     assert.deepEqual(by['Finance & Banking'], ['finance', 'invoices']);
@@ -86,6 +86,6 @@ describe('who sees what is unchanged', () => {
 
   it('the OWNER sees every group that has an item today', () => {
     assert.deepEqual(view('OWNER').map((g) => g.label), ['Workspace', 'Company & Team', 'Projects & Delivery', 'Customers & CRM', 'Finance & Banking', 'Reports', 'Settings']);
-    assert.deepEqual(view('OWNER').find((g) => g.label === 'Company & Team').items, ['Company Access', 'User Requests', 'Invitations', 'Audit Log']);
+    assert.deepEqual(view('OWNER').find((g) => g.label === 'Company & Team').items, ['Team & Access', 'Audit Log']);
   });
 });
