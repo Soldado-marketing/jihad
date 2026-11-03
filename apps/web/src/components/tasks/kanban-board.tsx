@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TaskCard } from './task-card';
+import { dropIndex, moveCard } from './board-order';
 import { Task, TaskStatus, FileAttachment, COLUMNS } from './task-types';
 
 type KanbanBoardProps = {
@@ -11,6 +12,8 @@ type KanbanBoardProps = {
   onTaskOpen: (task: Task) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => Promise<void>;
   onQuickCreate: (status: TaskStatus, title: string) => Promise<void>;
+  /** Persists the list's card order after a drop; without it only the status changes. */
+  onReorder?: (status: TaskStatus, orderedIds: string[]) => Promise<void>;
 };
 
 export function KanbanBoard({
@@ -19,6 +22,7 @@ export function KanbanBoard({
   onTaskOpen,
   onStatusChange,
   onQuickCreate,
+  onReorder,
 }: KanbanBoardProps) {
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
   const [quickCreate, setQuickCreate] = useState<TaskStatus | null>(null);
@@ -62,9 +66,20 @@ export function KanbanBoard({
     const taskId = dragTaskId.current;
     if (!taskId) return;
     const task = tasks.find((t) => t.id === taskId);
-    if (!task || task.status === status) return;
+    if (!task) return;
     dragTaskId.current = null;
-    await onStatusChange(taskId, status);
+
+    // Where in the list the card was dropped, from the other cards' midpoints.
+    const cards = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[data-task-card]')]
+      .filter((el) => el.dataset.taskCard !== taskId);
+    const index = dropIndex(cards.map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; }), e.clientY);
+    const listIds = tasks.filter((t) => t.status === status).map((t) => t.id);
+    const ordered = moveCard(listIds, taskId, index);
+    const unchanged = task.status === status && ordered.every((id, i) => id === listIds[i]);
+    if (unchanged) return;
+
+    if (task.status !== status) await onStatusChange(taskId, status);
+    if (onReorder) await onReorder(status, ordered);
   }
 
   function handleDragEnd() {

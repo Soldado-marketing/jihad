@@ -8,6 +8,7 @@ import {
   STATUS_META, PRIORITY_META, getInitials, avatarColor, formatDueDate,
 } from './task-types';
 import { apiFetch } from '@/lib/fetch';
+import { ActivityTimeline } from '@/components/ui/activity-timeline';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1031,25 +1032,8 @@ export function TaskModal({
             )}
 
             {/* ─── Activity ─── */}
-            <section>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">Activity</p>
-              <div className="space-y-3 text-[11px] text-muted border-l-2 border-line ml-2 pl-4">
-                <div className="relative before:absolute before:-left-[21px] before:top-1 before:w-2 before:h-2 before:rounded-full before:bg-line">
-                  Task created
-                  <span className="ml-2 text-muted/70">
-                    {new Date(task.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                {task.updatedAt !== task.createdAt && (
-                  <div className="relative before:absolute before:-left-[21px] before:top-1 before:w-2 before:h-2 before:rounded-full before:bg-line">
-                    Last updated
-                    <span className="ml-2 text-muted/70">
-                      {new Date(task.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </section>
+            {/* Real history from the audit log (MAOS-T66); the API decides who may see it. */}
+            <ActivityTimeline resourceType="task" resourceId={task.id} />
 
             {/* Bottom spacer */}
             <div className="h-4" />
