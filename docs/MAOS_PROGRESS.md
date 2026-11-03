@@ -317,6 +317,10 @@ Also confirmed: size limit checked before content; empty files refused; double e
 
 - `docs/branding/MAOS_PRODUCT_NAME_RESEARCH_H01.md`: five criteria, eight candidates screened against existing software/company names by web search, three rejected as descriptive or taken, shortlist **Klarwerk, Taktwerk, Studiokern** for H02 (DPMA/EUIPO/WIPO, whois, stores, handles — read-only). Nothing bought or registered.
 
+## 2026-11-03 — H02 availability lookups (read-only)
+
+- `whois` for Klarwerk, Taktwerk, Studiokern on `.de`, `.com`, `.app`: **all nine registered by others**. Web search finds no software product or mark for any of the three; DPMA/EUIPO/WIPO registers were not searched (interactive). Nothing registered or bought. Decision O35: accept a variant domain for one of the three or run a second naming round; H03 waits on it.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -339,3 +343,4 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O30 | Per company: SKR03 or SKR04, Sachkontenlänge, debtor accounts per customer from the start (ask the tax adviser) | K06, K01 |
 | O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
 | O34 | Approve ADR-020 (`ApprovalRequestFile`, message-only deliveries) and its migration task; max files per delivery | D05 |
+| O35 | Product name: accept a variant domain for Klarwerk / Taktwerk / Studiokern (natural domains taken) or ask for a second naming round; register-level trademark search by owner/counsel | H02, H03, H04 |

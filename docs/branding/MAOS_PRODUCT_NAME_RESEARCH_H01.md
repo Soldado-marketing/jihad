@@ -43,3 +43,19 @@ H02 checks, all read-only and free: DPMA register (DE), EUIPO eSearch (EU), WIPO
 - Search results for "Klarwerk" / "Werkbahn" / "Orbitlane": no matching product; neighbours webcatalog.io "Klarops", orbit.online, Gartner "Boston Dynamics Orbit".
 - Search results for "Taktwerk" / "Lotsenwerk" / "Studiokern": no matching product; neighbours stepstone.de "TAKTIQ GmbH & Co. KG", Kern & Sohn GmbH, Kern Concept AG.
 - Search results for "Kanzlo" / "Orbiva" / "Werkbahn": no matching product; neighbours orbis.de (ORBIS AG/SE), ORSOFT GmbH, ORCA Software GmbH.
+
+---
+
+# H02 — Preliminary availability (read-only, 2026-11-03)
+
+Only lookups; nothing registered, reserved or bought.
+
+| Name | `.de` (DENIC) | `.com` | `.app` | Trademark registers | Web presence |
+|---|---|---|---|---|---|
+| Klarwerk | **taken** (status connect) | **taken** (registrar Fiducia LLC) | **taken** | not checked in DPMA/EUIPO/WIPO registers (interactive search; owner or counsel) — no web hit for a mark | no software product found |
+| Taktwerk | **taken** (connect) | **taken** (registrar 1API GmbH) | **taken** | as above; neighbour TAKTIQ GmbH (planning software) | no software product found |
+| Studiokern | **taken** (connect) | **taken** (registrar GoDaddy) | **taken** | as above; many "Kern …" company names | no software product found |
+
+**Result:** all three shortlisted names have their natural domains registered by others. The names are still distinct as software products, but a launch would need a variant domain (`klarwerk.io`, `klarwerk-app.de`, `getklarwerk.com`, …) or a different name. This is a branding decision for the owner (O35): accept a variant domain for one of the three, or ask for a second naming round with the same criteria. H03 (logo and brand proposals) starts after that choice; H04 (apply) needs the owner's trademark/domain clearance.
+
+**Not done, by design:** DPMA, EUIPO and WIPO register searches (interactive forms), Handelsregister search, store and handle reservations, any purchase.
