@@ -403,6 +403,6 @@ Also confirmed: size limit checked before content; empty files refused; double e
 | O47 | Approve content items + media rights when Phase 8 starts | Q01, Q04 |
 | O48 | Social-platform integrations only after platform app reviews | Q06 |
 | O49 | Transcription provider, cost and data handling | R02 |
-| O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) | B06, B08 |
+| O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) — **APPROVED 2026-11-04** (owner message "Approve O50"); release in progress per docs/ops/RELEASE_ROLLBACK.md, order #151 → #152 → #150 | B06, B08 |
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
