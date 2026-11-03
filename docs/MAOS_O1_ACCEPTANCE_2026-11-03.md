@@ -60,3 +60,24 @@ Same stack as above, rebuilt from the merged commit (16 migrations). GitHub CI o
 **Tooling note:** a pointer drag did not trigger the board's HTML5 drag-and-drop in the automated browser; the moves above were triggered by dispatching the page's own `dragstart`/`dragover`/`drop` events on the real card and list elements, so the application handlers and API path are the ones exercised. A manual drag in a real browser was verified by the branch author on 2026-10-29 (PR #120).
 
 **No defect found.** One test artefact: a list was renamed to "RevisionsRevisionen" because select-all did not apply in the automated field — the rename itself worked.
+
+---
+
+# O1/O2 — Authenticated PRODUCTION walk-through with fictional accounts (2026-11-03, owner approval O2)
+
+**Setup:** fresh backup `maos-20261103T155001Z` (sha256 OK) first. Two fictional companies (`o1test-nord`, `o1test-sued`) with seven fictional accounts (`@o1.fiktiv.test`, random secret kept only in a local file and deleted afterwards), fictional customers, projects, tasks, one file, two invoices and one payment were created in the production database through Railway's private tunnel (additive rows only; real company untouched: counts before 1 tenant / 4 users / 5 tasks / 1 invoice). **Removed afterwards:** the file through the API (storage object purged, 204), then audit rows, login history, both tenants (cascade) and the seven users through the tunnel with guards; counts back to 1 / 4 / 5 / 1 and zero leftovers by name, e-mail domain, invoice number, notification or list.
+
+**Method:** API-level walk-through on production (`jihad-production.up.railway.app`) with the fictional accounts; secrets never printed. **53/53 PASS** (one script-side payload error corrected and re-run).
+
+| Area | Checks | Result |
+|---|---|---|
+| Login | five accounts sign in; wrong password 401 | PASS |
+| Owner scope | projects 2 / tasks 2 / customers 2 / members 5 / invoices 2 — only the fictional company's rows; audit log readable | PASS |
+| Board lists (#120) | 0 lists before setup; initialize → five mapped lists; custom list; move to mapped list sets IN_REVIEW; move to unmapped list keeps status; archive + restore; card history `task.list.changed` + `task.status.changed`; client 403, employee create 403, other company 404 | PASS |
+| Files | upload v1 to the production bucket (201), owner opens content (200), client refused before delivery (403) | PASS |
+| Delivery + review-by (D03) | submit with `reviewBy` 201, client sees it with the date, opens the delivered version, detail carries the company name and no staff name, requests changes 200 → employee notified "Client requested changes" | PASS |
+| Client portal | own invoice only (X: 0001, Y: 0002), other client 404 on the delivery, other company's client 404; work request 201 (`subject`/`body`), manager sees it (1), client lists it (1) | PASS |
+| Permissions | employee: invoices/audit/member-history 403; manager: audit 403; client: staff invoices/members 403; owner reads a member's history 200 | PASS |
+| Company switching (J02/J04) | companies list both; switch to Süd → role MANAGER, Süd projects only, members page 403; the old Nord session is invalid after the switch (401) | PASS |
+
+**Not verified in production:** the signed-in **browser** UI (desktop/phone rendering with a real session). Blocker, exact: signing a browser session in requires placing the account's password or session token into a tool call that is recorded in the conversation, which the owner's rule "never request or expose credentials in chat" forbids; the tool policy refused materialising the token as well. The same UI was verified on 2026-11-03 on an isolated stack built from the identical commit (24/24 + 13/13), and production serves the pages (unauthenticated smoke). If the owner wants the browser pass on production, they can sign in themselves with a fictional account created for that purpose, or allow a one-time credential entry in a tool call.

@@ -332,12 +332,16 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - GitHub CI on `main` `3baaad7` SUCCESS. Isolated stack rebuilt from `3baaad7` (PostgreSQL 18, MinIO, API + web, fictional companies): **13/13 checks PASS** — board opens without writes, setup creates the five mapped lists without touching tasks, custom list, add card, moves to mapped (status follows) and unmapped (status kept) lists, persistence after reload, rename/reorder/archive/restore with audit events, employee sees no structure controls but moves the own card, API permissions (client 403, employee read-only, manager full) and tenant isolation (company B 404 on every Nord list and move), existing task board / My Work / client portal unchanged, phone layout without page overflow. Record: `docs/MAOS_O1_ACCEPTANCE_2026-11-03.md` (section "#120 board lists").
 - No defect found; nothing changed in production after the release. G01 and G02 closed; signed-in production verification of the board stays NOT VERIFIED (O1/O2).
 
+## 2026-11-03 — O1/O2 done: authenticated production walk-through with fictional accounts
+
+- Owner approval O2 (fictional production test accounts). Fresh backup `maos-20261103T155001Z` first. Two fictional companies and seven fictional accounts with fictional customers/projects/tasks/file/invoices created in production through the private tunnel (additive; real company untouched), **53/53 checks PASS** at the API level: logins, owner scope, board lists (#120) end to end, file upload to the production bucket and permission-checked download, delivery with review-by and client decision, client portal and isolation across clients and companies, role permissions, member history, company switching with session re-issue. Record: `docs/MAOS_O1_ACCEPTANCE_2026-11-03.md` (section "O1/O2").
+- Everything created was removed afterwards (file via API → object purged; audit rows, login history, both tenants, seven users via the tunnel with guards); counts back to 1 tenant / 4 users / 5 tasks / 1 invoice, zero leftovers. The random secret existed only in a local file and was deleted.
+- Not run: the signed-in browser UI on production — doing so would require a password or session token inside a recorded tool call, which the "never expose credentials in chat" rule forbids (the tool policy also refused materialising the token). The identical commit's UI was verified on the isolated stack (24/24 + 13/13). A01–A04 closed; O1 and O2 closed.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
 |---|---|---|
-| O1 | Production signed-in verification: walk through with the owner account, or approve fictional production test accounts (O2); the isolated acceptance of 2026-11-03 is PASS 24/24 | A01, A04 |
-| O2 | Accept isolated evidence for employee/client/manager acceptance, or create fictional production accounts | A02, A03 |
 | O3 | Off-site backup provider, account, bucket, key (paid) per `docs/ops/OFFSITE_BACKUP_SETUP.md` | B01 (D2) |
 | O4 | Rotate `RESEND_API_KEY` in the Resend dashboard and on `jihad` | B02 |
 | O5 | Approve a Drive-side sharing audit with the Drive connector | B04 |
