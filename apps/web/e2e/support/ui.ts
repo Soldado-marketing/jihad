@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 import type { Person, Session } from './api';
 
+/** A real 1x1 PNG: the API checks file signatures and prepares a client copy. */
+export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+
 export async function signIn(page: Page, p: Person) {
   await page.goto('/auth/login');
   await page.getByLabel('Email').fill(p.email);

@@ -22,13 +22,14 @@ export interface Seed {
   appointment: { id: string; title: string; location: string };
   invoice: { id: string; number: string };
   /** One delivered file per viewport project, keyed by the Playwright project name. */
-  files: Record<'desktop' | 'mobile', { id: string; name: string; versionId: string; deliveryId: string }>;
+  files: Record<'desktop' | 'mobile' | 'desktopRevision' | 'mobileRevision', { id: string; name: string; versionId: string; deliveryId: string }>;
   other: { tenantSlug: string; tenantName: string; owner: Person; projectId: string; projectName: string };
   /** One signed-in session per person, taken at seed time; browser tests start from it instead of signing in again. */
   sessions: Record<'owner' | 'manager' | 'employee' | 'clientOne' | 'clientTwo' | 'otherOwner', Session>;
 }
 
-export const fileFor = (seed: Seed, projectName: string) => seed.files[projectName === 'mobile' ? 'mobile' : 'desktop'];
+export const fileFor = (seed: Seed, projectName: string, kind: 'approve' | 'revision' = 'approve') =>
+  seed.files[`${projectName === 'mobile' ? 'mobile' : 'desktop'}${kind === 'revision' ? 'Revision' : ''}` as keyof Seed['files']];
 
 export function readSeed(): Seed {
   return JSON.parse(readFileSync(SEED_FILE, 'utf8')) as Seed;

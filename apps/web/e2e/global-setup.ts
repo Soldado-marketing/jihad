@@ -105,7 +105,11 @@ export default async function globalSetup() {
     expectStatus('delivery', d, 201); file.deliveryId = d.body.id;
     return file;
   }
-  const files = { desktop: await deliverFile('desktop'), mobile: await deliverFile('mobile') };
+  // Per viewport project: one delivery the client approves, one the client sends back for revision.
+  const files = {
+    desktop: await deliverFile('desktop'), mobile: await deliverFile('mobile'),
+    desktopRevision: await deliverFile('desktop-revision'), mobileRevision: await deliverFile('mobile-revision'),
+  };
 
   const other = JSON.parse(execFileSync(process.execPath, [resolve(process.cwd(), '../api/test/e2e-seed-company.mjs')], {
     env: { ...process.env, DATABASE_URL: databaseUrl }, encoding: 'utf8', cwd: resolve(process.cwd(), '../api'),
