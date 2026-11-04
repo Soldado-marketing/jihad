@@ -222,6 +222,19 @@ describe('activity timeline', { skip }, () => {
     assert.equal((await timeline('owner', 'customer', ids.FCU)).status, 404);
   });
 
+  it('records a card\'s own changes: moving it to another list and editing it', async () => {
+    const res = await as('owner', request(server).patch(`/api/tasks/${ids.T0b}`)).send({ status: 'IN_REVIEW', dueAt: '2030-01-01T00:00:00.000Z' });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const again = await as('owner', request(server).patch(`/api/tasks/${ids.T0b}`)).send({ status: 'IN_REVIEW' });
+    assert.equal(again.status, 200);
+    const items = (await timeline('owner', 'task', ids.T0b)).body.items;
+    assert.deepEqual(items.map((e) => e.action).sort(), ['task.status.changed', 'task.updated'], 'an unchanged status is not a move');
+    for (const e of items) {
+      assert.equal(e.actor?.id, users.owner.id);
+      assert.equal('payload' in e, false, 'from/to and field names stay server-side');
+    }
+  });
+
   it('rejects an unsupported resource type and needs a session', async () => {
     assert.equal((await timeline('owner', 'user', users.owner.id)).status, 400);
     assert.equal((await request(server).get(`/api/activity/task/${ids.T1a}`)).status, 401);

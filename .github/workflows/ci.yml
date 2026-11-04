@@ -88,6 +88,8 @@ jobs:
           node --test \
             test/security-mvp.test.mjs \
             test/runtime-hardening.test.mjs \
+            test/no-store-cache.test.mjs \
+            test/file-formats-matrix.test.mjs \
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
@@ -137,6 +139,9 @@ jobs:
       # security-gate-contractor-scope proves a CONTRACTOR sees only assigned work.
       # security-gate-member-management proves role changes drop the old role's
       # permissions, removal ends one company only, and Owners are never changed.
+      # security-gate-role-transitions (E03) proves what each role change and grant
+      # revocation takes away and keeps, per company, on old and refreshed tokens,
+      # that refused changes write nothing, and that the last Owner is protected.
       # security-gate-client-deliveries proves a client reviews only its own deliveries,
       # sees the company name only, and change requests reach the assigned employee.
       # security-gate-client-complaints proves a problem report reaches management only,
@@ -145,6 +150,7 @@ jobs:
       # crm-update-validation proves CRM updates and reports validate their bodies.
       # notification-writers proves events reach only their audience (T47).
       # activity-timeline proves the audit timeline is permission- and scope-filtered (T65).
+      # task-lists proves custom board lists: per-project isolation, explicit idempotent setup, scoped card moves.
       # my-work proves the My Work view holds only the caller's permitted items (T67).
       # audit-log proves the audit log is OWNER-only and pages correctly (T132).
       # calendar proves the calendar shows each type only to permitted roles (T103).
@@ -164,6 +170,9 @@ jobs:
       # with it was a race that cascaded into 17 failures. They seed their own
       # tenants and do not need an empty database, so they share the second run.
       # The step shell is bash -e: a failure in the first run fails the step.
+      # The tenant/client/role isolation suites (security-gate-*, company-access-
+      # isolation, client scope) run in the separate `isolation-gate` job below
+      # (B09), so a leak fails a check with that name.
       - name: Integration tests
         working-directory: apps/api
         env:
@@ -171,23 +180,8 @@ jobs:
         run: |
           node --test test/integration-api.test.mjs
           node --test \
-            test/security-gate-authz.test.mjs \
-            test/company-access-isolation.test.mjs \
             test/control-center.test.mjs \
-            test/security-gate-client-isolation.test.mjs \
-            test/invoice-default-recipients.test.mjs \
-            test/visibility-scope.test.mjs \
             test/finance-payment-rules.test.mjs \
-            test/security-gate-foreign-ids.test.mjs \
-            test/security-gate-foreign-ids-content.test.mjs \
-            test/security-gate-foreign-ids-crm-finance.test.mjs \
-            test/security-gate-contractor-scope.test.mjs \
-            test/security-gate-explicit-grants.test.mjs \
-            test/security-gate-member-management.test.mjs \
-            test/security-gate-client-deliveries.test.mjs \
-            test/security-gate-client-portal-v2.test.mjs \
-            test/security-gate-client-complaints.test.mjs \
-            test/client-onboarding-scope.test.mjs \
             test/crm-update-validation.test.mjs \
             test/notification-writers.test.mjs \
             test/project-enrichment.test.mjs \
@@ -208,13 +202,14 @@ jobs:
             test/audit-log.test.mjs \
             test/my-work.test.mjs \
             test/activity-timeline.test.mjs \
+            test/task-lists.test.mjs \
             test/login-history.test.mjs \
-            test/security-gate-session-revocation.test.mjs \
             test/throttle-per-client.test.mjs \
-            test/security-gate-sessions.test.mjs \
             test/invites.test.mjs \
             test/scheduler.test.mjs \
-            test/deadline-reminders.test.mjs
+            test/deadline-reminders.test.mjs \
+            test/client-review-reminders.test.mjs \
+            test/ops-alerts.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
@@ -229,6 +224,94 @@ jobs:
       # runner. Blocking, like the backup and runner suites in npm test.
       - name: Operator script tests
         run: node --test scripts/test/*.test.mjs
+
+  # B09: the tenant-isolation regression suite as a named, blocking gate.
+  # Each suite boots the real app over HTTP against the PostgreSQL service and
+  # proves one group of invariants listed in docs/security/TENANT_ISOLATION_INVARIANTS.md
+  # (the file names map to its sections). A leak between companies, clients or
+  # roles fails this check by name. The suites seed their own tenants and do
+  # not need an empty database, so they share one run.
+  isolation-gate:
+    name: Isolation gate - tenant, client and role boundaries
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16-alpine
+        env:
+          POSTGRES_USER: maos
+          POSTGRES_PASSWORD: maos_password
+          POSTGRES_DB: maos_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maos -d maos_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://maos:maos_password@localhost:5432/maos_db?schema=public
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-0123456789abcdef0123456789abcdef
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Apply migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+
+      - name: Build
+        working-directory: apps/api
+        run: npm run build
+
+      # Unit-level invariants that need no database: a deleted file leaves no
+      # object behind, and a client copy carries no identifying metadata.
+      - name: Isolation unit suites
+        working-directory: apps/api
+        run: node --test test/security-gate-file-deletion.test.mjs test/client-file-privacy.test.mjs
+
+      - name: Isolation integration suites
+        working-directory: apps/api
+        env:
+          MAOS_INTEGRATION: '1'
+        run: |
+          node --test \
+            test/security-gate-authz.test.mjs \
+            test/company-access-isolation.test.mjs \
+            test/security-gate-client-isolation.test.mjs \
+            test/invoice-default-recipients.test.mjs \
+            test/visibility-scope.test.mjs \
+            test/security-gate-foreign-ids.test.mjs \
+            test/security-gate-foreign-ids-content.test.mjs \
+            test/security-gate-foreign-ids-crm-finance.test.mjs \
+            test/security-gate-contractor-scope.test.mjs \
+            test/security-gate-explicit-grants.test.mjs \
+            test/security-gate-member-management.test.mjs \
+            test/security-gate-role-transitions.test.mjs \
+            test/security-gate-client-deliveries.test.mjs \
+            test/security-gate-client-portal-v2.test.mjs \
+            test/security-gate-client-complaints.test.mjs \
+            test/security-gate-client-work-requests.test.mjs \
+            test/client-onboarding-scope.test.mjs \
+            test/client-scope-inheritance.test.mjs \
+            test/security-gate-session-revocation.test.mjs \
+            test/security-gate-sessions.test.mjs
 
   web:
     name: Web - typecheck and build
@@ -269,17 +352,168 @@ jobs:
         working-directory: apps/web
         run: npm test
 
+  # A09: browser smoke of the isolated stack. The real API (built dist) and the
+  # real production web build run on this runner against the PostgreSQL
+  # service and an in-memory S3 stub (apps/web/e2e/support/s3-stub.mjs);
+  # Playwright drives Chromium, desktop and mobile, through the OWNER, MANAGER,
+  # EMPLOYEE and CLIENT paths, the project board, tasks, files with a delivery,
+  # invoices, appointments, and the boundaries between roles, clients and
+  # companies (apps/web/e2e/*.spec.ts). Fictional data only, generated per run
+  # by e2e/global-setup.ts; no mail provider is configured, so the invitation
+  # link comes back from the API as it does on a fresh install.
+  e2e-smoke:
+    name: Browser smoke - roles, boards, files, invoices and boundaries on the isolated stack
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16-alpine
+        env:
+          POSTGRES_USER: maos
+          POSTGRES_PASSWORD: maos_password
+          POSTGRES_DB: maos_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maos -d maos_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://maos:maos_password@localhost:5432/maos_db?schema=public
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-0123456789abcdef0123456789abcdef
+      CORS_ORIGINS: http://127.0.0.1:3000
+      WEB_URL: http://127.0.0.1:3000
+      # As behind Railway's proxy: the seed signs each fictional person in from
+      # its own documentation-range address (X-Forwarded-For), so the per-address
+      # login throttle stays in force and still lets the seed through.
+      TRUST_PROXY_HOPS: '1'
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Object storage for uploads: the in-memory stub below. CI-only values.
+      S3_BUCKET: e2e
+      S3_REGION: eu-central-1
+      S3_ACCESS_KEY_ID: e2e-ci-only
+      S3_SECRET_ACCESS_KEY: e2e-ci-only-not-a-secret
+      S3_ENDPOINT: http://127.0.0.1:9100
+      S3_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+
+      - name: Install and build the API
+        working-directory: apps/api
+        run: |
+          npm ci --no-audit --no-fund
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run build
+
+      # Background processes keep running across the following steps of this job.
+      - name: Start the object-storage stub
+        working-directory: apps/web
+        run: |
+          nohup node e2e/support/s3-stub.mjs 9100 > "$RUNNER_TEMP/s3.log" 2>&1 &
+          for i in $(seq 1 20); do
+            curl -s -o /dev/null "http://127.0.0.1:9100/e2e?list-type=2" && exit 0
+            sleep 1
+          done
+          echo "storage stub not ready"; cat "$RUNNER_TEMP/s3.log"; exit 1
+
+      - name: Start the API
+        working-directory: apps/api
+        run: |
+          PORT=3001 NODE_ENV=production nohup node dist/main.js > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3001/api/health/ready && exit 0
+            sleep 1
+          done
+          echo "API not ready"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Install, build and start the web app
+        working-directory: apps/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          PORT=3000 HOSTNAME=127.0.0.1 NODE_ENV=production nohup node scripts/start-standalone.mjs > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/auth/login && exit 0
+            sleep 1
+          done
+          echo "web not ready"; cat "$RUNNER_TEMP/web.log"; exit 1
+
+      - name: Install Chromium for Playwright
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      # global-setup seeds the first company through the API and the second one
+      # directly (apps/api/test/e2e-seed-company.mjs), then both viewport
+      # projects (desktop, mobile) run every spec.
+      - name: Browser smoke
+        working-directory: apps/web
+        env:
+          E2E_WEB_URL: http://127.0.0.1:3000
+          E2E_API_URL: http://127.0.0.1:3001/api
+          E2E_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run e2e
+
+      - name: Keep the evidence of a failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-evidence
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            ${{ runner.temp }}/api.log
+            ${{ runner.temp }}/web.log
+            ${{ runner.temp }}/s3.log
+
   audit:
-    name: Dependency audit (informational)
+    name: Dependency audit (blocking on high in production dependencies)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # Reporting only. `npm audit fix --force` is forbidden in this project:
-      # it silently performs major-version upgrades.
-      - name: Audit API dependencies
+      # B08: production dependencies must carry no high or critical advisory.
+      # `npm audit fix --force` stays forbidden (silent major upgrades); fixes
+      # are reviewed bumps in a PR. Dev-only advisories are reported, not blocking.
+      - name: Audit API production dependencies (blocking)
         working-directory: apps/api
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit web production dependencies (blocking)
+        working-directory: apps/web
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit development dependencies (informational)
         continue-on-error: true
-        run: npm audit --audit-level=high
+        run: |
+          (cd apps/api && npm audit --audit-level=high) || true
+          (cd apps/web && npm audit --audit-level=high) || true
+
+  secrets:
+    name: Secret scan (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # B08: a committed credential fails the build. The scan reads the git
+      # history of the push/PR; no secret is ever printed (gitleaks redacts).
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_SUMMARY: "false"

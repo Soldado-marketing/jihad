@@ -19,6 +19,11 @@ export class ReorderItemDto {
 
   @IsNumber()
   sortOrder!: number;
+
+  /** Board list to put the card in: an active list of the card's own project. */
+  @IsOptional()
+  @IsString()
+  listId?: string;
 }
 
 export class ReorderTasksDto {

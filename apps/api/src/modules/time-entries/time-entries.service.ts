@@ -3,7 +3,7 @@ import { Prisma, TimeEntryStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
 import { ResourceScopeService, WorkScope } from '../permissions/resource-scope.service';
-import { costCents } from '../rates/rate-resolution';
+import { costCents } from '../finance/labour-cost';
 import { RatesService } from '../rates/rates.service';
 import { CreateTimeEntryDto } from './dto/create-time-entry.dto';
 import { UpdateTimeEntryDto } from './dto/update-time-entry.dto';

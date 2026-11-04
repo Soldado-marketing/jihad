@@ -71,6 +71,9 @@ let tenantId;
 const A = { token: '', id: '' };
 const B = { token: '', id: '' };
 const NOSCOPE = { token: '', id: '' };
+const MANAGER = { token: '', id: '' };
+const EMPLOYEE = { token: '', id: '' };
+const CONTRACTOR = { token: '', id: '' };
 let ownerToken = '';
 
 const auth = (token, req) => req.set('Authorization', `Bearer ${token}`);
@@ -257,6 +260,9 @@ before(async () => {
   Object.assign(A, await seedMember('clienta', 'CLIENT', SCOPE_A));
   Object.assign(B, await seedMember('clientb', 'CLIENT', SCOPE_B));
   Object.assign(NOSCOPE, await seedMember('noscope', 'CLIENT', null));
+  Object.assign(MANAGER, await seedMember('manager', 'MANAGER', null));
+  Object.assign(EMPLOYEE, await seedMember('employee', 'EMPLOYEE', null));
+  Object.assign(CONTRACTOR, await seedMember('contractor', 'CONTRACTOR', null));
 
   worldA = await seedWorld(SCOPE_A);
   worldB = await seedWorld(SCOPE_B);
@@ -440,6 +446,46 @@ describe('Gate 3 - internal roles are not narrowed', { skip }, () => {
 // size of every other client's world. The counts must match exactly what the
 // caller's own portal lists show: client-visible, in the caller's scope, and
 // for invoices not DRAFT.
+
+// ── Work-scoped roles do not reach the portal ───────────────────────────────
+//
+// A09 finding (2026-11-04): the portal routes applied no client filter for any
+// internal role, so an EMPLOYEE (assigned tasks only) or a CONTRACTOR (assigned
+// work only) could read every client's shared projects, tasks, appointments and
+// files through /api/client/* while the internal routes hid them. The resolver
+// now refuses those two roles; OWNER and MANAGER, whose internal view is already
+// company-wide, keep the tenant-wide preview the test above protects.
+
+describe('Gate 3 - work-scoped roles do not reach the portal', { skip }, () => {
+  const portalLists = ['/api/client/projects', '/api/client/tasks', '/api/client/appointments', '/api/client/files', '/api/client/deliveries'];
+
+  for (const route of portalLists) {
+    it(`refuses an EMPLOYEE on ${route}`, async () => {
+      const res = await auth(EMPLOYEE.token, request(server).get(route));
+      assert.equal(res.status, 403, JSON.stringify(res.body));
+      assert.match(JSON.stringify(res.body), /portal_requires_client_scope|_not_in_default_set/);
+      assert.ok(!JSON.stringify(res.body).includes(SCOPE_A) && !JSON.stringify(res.body).includes(SCOPE_B), 'no client data in the refusal');
+    });
+
+    it(`refuses a CONTRACTOR on ${route}`, async () => {
+      const res = await auth(CONTRACTOR.token, request(server).get(route));
+      assert.equal(res.status, 403, JSON.stringify(res.body));
+      assert.ok(!JSON.stringify(res.body).includes(SCOPE_A) && !JSON.stringify(res.body).includes(SCOPE_B), 'no client data in the refusal');
+    });
+  }
+
+  it('refuses an EMPLOYEE on a single shared project and task by id', async () => {
+    assert.equal((await auth(EMPLOYEE.token, request(server).get(`/api/client/projects/${worldA.projectId}`))).status, 403);
+    assert.equal((await auth(EMPLOYEE.token, request(server).get(`/api/client/tasks/${worldA.taskId}`))).status, 403);
+  });
+
+  it('lets a MANAGER preview the portal company-wide, like the OWNER', async () => {
+    const res = await auth(MANAGER.token, request(server).get('/api/client/projects'));
+    assert.equal(res.status, 200);
+    const body = JSON.stringify(res.body);
+    assert.ok(body.includes(SCOPE_A) && body.includes(SCOPE_B), 'manager preview stays tenant-wide');
+  });
+});
 
 describe('Gate 3 - dashboard client summary counts one client only', { skip }, () => {
   before(async () => {

@@ -1,0 +1,5 @@
+
+# Playwright (A09 browser smoke): traces, screenshots and the HTML report
+/test-results
+/playwright-report
+/.playwright

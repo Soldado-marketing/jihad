@@ -46,9 +46,9 @@ describe('global search UI', () => {
     const contractor = quickActions(getNavigationForRole('CONTRACTOR')).map((a) => a.href);
     assert.ok(contractor.includes('/my-work'));
     assert.ok(!contractor.includes('/customers'), 'contractors cannot read customers');
-    assert.ok(!contractor.includes('/dashboard/admin/invites'));
+    assert.ok(!contractor.includes('/team'));
     const owner = quickActions(getNavigationForRole('OWNER')).map((a) => a.href);
-    assert.ok(owner.includes('/customers') && owner.includes('/dashboard/admin/invites'));
+    assert.ok(owner.includes('/customers') && owner.includes('/team'));
     assert.ok(owner.every((h) => h.startsWith('/')), 'no placeholder anchors');
   });
 

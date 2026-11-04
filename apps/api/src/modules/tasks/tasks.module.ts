@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { TasksController } from './tasks.controller';
 import { TasksRepository } from './tasks.repository';
@@ -7,7 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   controllers: [TasksController],
-  imports: [NotificationsModule, PermissionsModule],
+  imports: [AuditModule, NotificationsModule, PermissionsModule],
   providers: [TasksRepository, TasksService],
   exports: [TasksService],
 })

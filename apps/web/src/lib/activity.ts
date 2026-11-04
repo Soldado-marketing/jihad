@@ -14,6 +14,18 @@ const KNOWN: Record<string, string> = {
   'notification.created': 'Notification sent',
   'notification.read': 'Notification read',
   'role.changed': 'Role changed',
+  'task.created': 'Card created',
+  'task.status.changed': 'Moved to another list',
+  'task.assigned': 'Assignee changed',
+  'task.updated': 'Card details edited',
+  'task.deleted': 'Card deleted',
+  'role.assigned': 'Role assigned',
+  'permissions.assigned': 'Permissions assigned',
+  'scope.assigned': 'Scope assigned',
+  'user.suspended': 'Suspended',
+  'user.reactivated': 'Reactivated',
+  'membership.grant_updated': 'Permission changed',
+  'membership.removed': 'Removed from company',
 };
 
 export function activityLabel(action: string): string {

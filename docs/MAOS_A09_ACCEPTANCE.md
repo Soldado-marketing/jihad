@@ -1,0 +1,48 @@
+# A09 — acceptance checklist and evidence matrix
+
+**Task (master task list, row A09):** cross-feature regression suite kept green in CI as the merge gate, plus the browser e2e smoke (Playwright) on the isolated stack as a CI job. **Owner's acceptance (2026-11-04):** browser tests for OWNER, MANAGER, EMPLOYEE and CLIENT; permissions; company isolation; projects; board lists; tasks; invoices; files; client workflows; desktop and mobile; employee access to `/client` investigated and any defect fixed; all relevant tests and CI green; Graphify dependencies and integration risks reviewed; evidence matrix.
+
+Written before the final implementation pass (strict policy: checklist first, independent comparison before closure). Status values: PASS (test named, green locally and in CI) · BLOCKED — OWNER · OPEN.
+
+**Closure status (2026-11-04):** every criterion the repository can satisfy is PASS. Two items need the owner: GitHub required-checks (row 1, O51) and the merge + deployment + production verification that completes the task (O53). Task status: **BLOCKED — OWNER**, not DONE.
+
+| # | Requirement (original wording) | Evidence: test(s) | Functional, not page-load? | Status |
+|---|---|---|---|---|
+| 1 | Integration batch + web suite are the merge gate | CI jobs `api`, `isolation-gate`, `web`, `e2e-smoke`, `audit`, `secrets` all blocking on every PR (`.github/workflows/ci.yml`) | n/a | PASS for "jobs run and fail the check"; **BLOCKED — OWNER** for "GitHub requires them before merge" (branch-protection setting, O51) |
+| 2 | Browser e2e smoke (Playwright) on the isolated stack as a CI job, green | job `e2e-smoke`: Postgres service, in-memory S3 stub, API dist, production web build, Chromium; `apps/web/e2e/*.spec.ts` | — | PASS (run record) |
+| 3 | OWNER browser tests | `02-owner`: real sign-in → dashboard + full navigation; creates a project (UI → list → API); board: lists, adds a list, adds a card (UI → API `lists`/`tasks`); creates a task (UI → API); uploads version 2 of a delivered file (file chooser → "Uploaded as version 2." → API versions [1,2]); creates an invoice with a line for the shared project (UI → list → API, inherits the customer scope); team members visible | yes | PASS (run record) |
+| 4 | MANAGER browser tests | `03-manager`: navigation offers projects/tasks/files/customers/CRM/reports and never finance/team/audit/control-center; creates a customer (UI → list → API); API 403 on finance, invoices, audit, invitations; `/finance` shows no invoice number or amount | yes | PASS (run record) |
+| 5 | EMPLOYEE browser tests | `04-employee`: navigation; task board shows only the assigned task; My Work; moves the assigned task to In Progress / In Review through the editor (UI → API status); `/client` → `/dashboard`; API 403 on every portal route and on project/customer creation, finance, audit, invitations; internal `/tasks` = assigned task only | yes | PASS (run record) |
+| 6 | CLIENT browser tests | `05-client`: real sign-in → portal only, no internal links, redirects from internal URLs, API 403 on internal reads and writes; approves a delivery through the confirm dialog (image served by the client content route, API status APPROVED); sends another delivery back with a note (API: CHANGES_REQUESTED + note visible to the company); invoice listed and its PDF served; appointment confirmed ("Seen ✓"); requests new work (UI → management list; employee refused) | yes | PASS (run record) |
+| 7 | Permissions | `07-permissions` (API matrix, 14 routes × 4 roles) + the role specs' API refusals + navigation per role | API-level | PASS (run record) |
+| 8 | Company isolation | `06-isolation`: other company's owner sees only its company on projects/tasks/customers pages; 404 on read and write of the first company's project, task, invoice, file, customer; list = own project only; first owner sees nothing of the other company | yes | PASS (run record) |
+| 9 | Client isolation | `06-isolation`: second client sees none of the first client's project, files, invoice, appointment, request on five portal pages; API 404 on by-id reads, PDF, file content and decision | yes | PASS (run record) |
+| 10 | Projects | rows 3, 4, 8 (create, list, detail; isolation) | yes | PASS (run record) |
+| 11 | Board lists | row 3 (initialised lists shown, list added, card added into the list, stored `listId`) | yes | PASS (run record) |
+| 12 | Tasks | rows 3, 5 (create; status change by the assignee; assigned-only view) | yes | PASS (run record) |
+| 13 | Invoices | rows 3, 6, 9 (create with a line; client reads it and its PDF; other client gets 404) | yes | PASS (run record) |
+| 14 | Files | rows 3, 6, 9 (upload version 2; delivery in review; client content route serves the image; other client 404 on content) | yes | PASS (run record) |
+| 15 | Client workflows | row 6 (approve, request revision, confirm appointment, request new work) | yes | PASS (run record) |
+| 16 | Desktop and mobile | Playwright projects `desktop` (Desktop Chrome) and `mobile` (Pixel 7, compact navigation Menu dialog); every spec runs in both | — | PASS (run record) |
+| 17 | Employee access to `/client` investigated; defect fixed | Probe on an isolated stack (before the fix: CONTRACTOR with 0 internal projects/tasks received 2 projects, 2 tasks, 1 appointment via `/api/client/*`; EMPLOYEE received tasks beyond assigned work). Root cause `ClientScopeService.resolve()` → null for every internal role. Fix `86e8d63`: EMPLOYEE/CONTRACTOR refused (`portal_requires_client_scope`), OWNER/MANAGER preview unchanged, web layout redirect. Gate cases in `security-gate-client-isolation` ("work-scoped roles do not reach the portal"); e2e `04-employee` | yes | PASS (gate 317/317 locally; CI isolation-gate green) |
+| 18 | All relevant tests and GitHub CI green | API unit/contract 572/572 (10 todo), isolation gate + portal suites 317/317 locally, web static 372/372, web typecheck clean, CI: all six jobs green on `b1c2c77` | — | PASS |
+| 19 | Graphify dependencies and integration risks reviewed | `graphify query "ClientScopeService resolve dependents"` → dependents: client-portal, files, file-versions (client content), invoices (client list/PDF), payments, appointments, deliveries, complaints, dashboards (client summary) — all portal paths (method names checked: `listForClient`, `getForClient`, `getClientSummary`, `markSeen`, `decideForClient`, `renderPdf` for client, `assertClientMayRead`, `requireClient`). No internal route calls the resolver, so refusing work-scoped roles there changes no internal behaviour. Integration risks checked: login throttle (10/min per address) — seed uses one address per person behind `TRUST_PROXY_HOPS=1`; object storage — MinIO is archived (downloads and images gone), replaced in tests by an in-memory stub covering the five S3 operations the API uses; bootstrap serves only the first company — second company seeded directly | — | PASS |
+| 20 | Evidence-based acceptance matrix | this file + PR #154 description/comment | — | PASS |
+
+## Run record
+
+Filled from the final local run and the CI run on the final head (see `docs/MAOS_PROGRESS.md` entry of the same date and the PR comment).
+
+| Where | Result |
+|---|---|
+| Local, desktop project | 37/37 (final run 2026-11-04, 39.7 s for both projects; disposable PostgreSQL 16, API dist, production web build, S3 stub) |
+| Local, mobile project | 37/37 (Pixel 7, Chromium) |
+| CI `e2e-smoke` on head `b1c2c77` | pass, 3m27s (74 tests, desktop + mobile) — the record commit after it reruns every job; see the PR checks for the newest head |
+| CI `isolation-gate` on head `b1c2c77` | pass, 1m10s (incl. the new portal cases) |
+| CI `api`, `web`, `audit`, `secrets` on head `b1c2c77` | pass (4m04s, 1m12s, 10s, 11s) |
+
+## Scope notes
+
+- "CI blocks merges" needs GitHub branch protection (owner setting, O51); the jobs themselves fail the PR checks today. Recorded, not reduced.
+- Drag-and-drop of cards is exercised through the board's keyboard/button controls (add card into a list) and the editor's status change, not through pointer drag; the stored result is asserted through the API. Recorded as the chosen method, not as a scope reduction.
+- Production verification after deployment is part of task completion and is still open until the owner authorises the release (O53 must not be requested before this checklist is satisfied).

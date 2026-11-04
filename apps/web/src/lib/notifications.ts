@@ -39,6 +39,7 @@ export function notificationHref(
       case 'payment': return '/client/invoices';
       case 'appointment': return id ? `/client/appointments#appointment-${id}` : '/client/appointments';
       case 'complaint': return id ? `/client/problems/${id}` : '/client/problems';
+      case 'request': return id ? `/client/requests/${id}` : '/client/requests';
       default: return null;
     }
   }
@@ -50,6 +51,7 @@ export function notificationHref(
     case 'task':
     case 'appointment': return '/tasks';
     case 'complaint': return id ? `/complaints?open=${id}` : '/complaints';
+    case 'request': return id ? `/requests?open=${id}` : '/requests';
     case 'time-entry': return '/time';
     default: return null;
   }

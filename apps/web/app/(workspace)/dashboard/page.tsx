@@ -372,10 +372,10 @@ export default function DashboardPage() {
           ))}
           {user?.role === 'OWNER' && (
             <>
-              <Link href="/dashboard/admin/users/requests" className="rounded-full border border-line bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">
+              <Link href="/team/requests" className="rounded-full border border-line bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">
                 Access requests <span className="font-semibold text-ink">{pendingUsers ?? '–'}</span>
               </Link>
-              <Link href="/dashboard/admin/invites" className="rounded-full border border-line bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">
+              <Link href="/team/invitations" className="rounded-full border border-line bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">
                 Invite people
               </Link>
             </>
