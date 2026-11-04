@@ -398,6 +398,10 @@ The owner set a permanent rule for every remaining MAOS task: (1) review require
 - Pushed over HTTPS with the GitHub CLI credentials because the SSH agent on this Mac had lost its key mid-session (no secret involved; `ssh -T` still authenticates).
 - TESTED; CI on #154 runs the new job. DONE only when the job is green on the PR and merged (CI-only, no deploy).
 
+## 2026-11-04 — A09 CI green on the first run
+
+- PR #154: API 3m48s, **Browser smoke 2m19s**, Isolation gate 1m11s, Web 1m21s, Dependency audit, Secret scan — all pass on the first run (retries 0). A09 is READY FOR RELEASE; the merge is CI-only (no deploy, no migration) and waits for one owner message (O53). After it, every PR runs six blocking jobs; making them *required* in GitHub is O51.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -435,3 +439,4 @@ The owner set a permanent rule for every remaining MAOS task: (1) review require
 | O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) — **APPROVED 2026-11-04** (owner message "Approve O50"); release in progress per docs/ops/RELEASE_ROLLBACK.md, order #151 → #152 → #150 — **DONE 2026-11-04 21:50Z** | B06, B08 |
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
+| O53 | Merge approval for #154 (A09 browser smoke, CI-only) and #153 (B10/A08 runbooks, docs-only); neither deploys anything | A09, B10, A08 |
