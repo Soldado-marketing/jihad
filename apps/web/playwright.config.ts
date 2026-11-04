@@ -9,10 +9,11 @@ import { defineConfig, devices } from '@playwright/test';
  *
  *   E2E_WEB_URL  web origin        default http://127.0.0.1:3000
  *   E2E_API_URL  API base with /api default http://127.0.0.1:3001/api
+ *   E2E_DATABASE_URL  the disposable database (second company is seeded directly)
  *
- * The database must be empty of OWNERs (the suite bootstraps its own company)
- * or E2E_OWNER_EMAIL / E2E_OWNER_PASSWORD must name an existing OWNER of a
- * disposable database. Never point this at production.
+ * The database must be empty of OWNERs: global-setup bootstraps the first
+ * company through the API and seeds a second one directly (apps/api/test/
+ * e2e-seed-company.mjs). Never point this at production.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -29,5 +30,11 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  globalSetup: './e2e/global-setup.ts',
+  projects: [
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    // Pixel 7 runs on Chromium (no second browser download); below the lg
+    // breakpoint the shell switches to the compact navigation with its Menu.
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+  ],
 });
