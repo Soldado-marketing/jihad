@@ -443,6 +443,12 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - CI on the deployed commit `30125fe`: six jobs success; PR #155: six jobs success on `ef1ff5c`. Graphify built from the deployed tree. Suite regression in isolated mode after the tooling change: 74/74.
 - **A09 status: VERIFIED.** DONE once PR #155 is merged — one owner approval (O54). O51 remains a separate security task. No other task started.
 
+## 2026-11-05 — O54: #155 merged; A09 DONE
+
+- Pre-checks: head `ef1ff5c`, six CI jobs green, diff = test tooling only. Merged → main `5f12968`. Railway: API skipped (no API change), web rebuilt `26e59add` with unchanged application code; smoke after: health/ready 200, ops and portal 401 anonymous, web and sign-in 200. Main CI on `5f12968`: six jobs success. Graphify built from `5f12968`.
+- **A09 DONE** — every item of `docs/MAOS_A09_ACCEPTANCE.md` PASS, including authenticated production verification. Open items outside the task: O51 (required checks, owner security task), O52 (#153 drills), O22 etc.
+- Next task starts with its own acceptance checklist (one-task policy).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -481,4 +487,4 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
 | O53 | Final merge approval for #154 (A09 + the portal security fix; API + web redeploy, no migration) and #153 (docs only; its tabletop and redeploy drill stay open under O52) — requested only after CI is green on the final head — **APPROVED and executed for #154 on 2026-11-04 23:20Z** (#153 not included) | A09, B10, A08 |
-| O54 | Merge approval for #155 (browser suite: existing-environment mode used for the authenticated production acceptance; test tooling only, CI green) — closes A09 as DONE | A09 |
+| O54 | Merge approval for #155 (browser suite: existing-environment mode used for the authenticated production acceptance; test tooling only, CI green) — closes A09 as DONE — **APPROVED and executed 2026-11-05** | A09 |
