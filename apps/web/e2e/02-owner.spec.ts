@@ -110,7 +110,7 @@ test.describe('OWNER', () => {
     expect(stored, 'the invoice is stored').toBeTruthy();
     const detail = await call<{ clientScopeKey: string | null; projectId: string | null }>(`/invoices/${stored?.id}`, { token: s.sessions.owner.tokens.accessToken });
     expect(detail.body.projectId).toBe(s.project.id);
-    expect(detail.body.clientScopeKey, 'inherits the project customer').toBe(`e2e-one-${s.run}`);
+    expect(detail.body.clientScopeKey, 'inherits the project customer').toBe(s.customerOne.clientScopeKey ?? `e2e-one-${s.run}`);
   });
 
   test('sees the team members', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { API, call, expectStatus, loginSession, type Person, type Session } from './support/api';
 import { SEED_FILE, type Seed } from './support/seed';
@@ -14,6 +14,13 @@ import { SEED_FILE, type Seed } from './support/seed';
  * seeded directly (bootstrap serves only the first), so company isolation can
  * be checked from a browser. Credentials are random per run and never leave
  * .playwright/seed.json, which is ignored by git.
+ *
+ * Existing-environment mode (E2E_PEOPLE_FILE): when the people, customers and
+ * the second company already exist — seeded by an operator for an acceptance
+ * run against a deployed environment — the file names them (same shape as the
+ * `people` part of the seed) and this setup skips bootstrap, invitations and the
+ * direct seed; everything else is built through the public API as before.
+ * E2E_SETTLE_SECONDS pauses after seeding so the login throttle recovers.
  */
 const run = `${Date.now().toString(36)}${randomBytes(2).toString('hex')}`;
 const secret = () => randomBytes(18).toString('base64url');
@@ -32,29 +39,46 @@ async function invite(ownerToken: string, p: Person, role: string, extra: Record
 }
 
 export default async function globalSetup() {
-  const databaseUrl = process.env.E2E_DATABASE_URL;
-  if (!databaseUrl) throw new Error('E2E_DATABASE_URL must point at the disposable database of this run.');
+  const databaseUrl = process.env.E2E_DATABASE_URL ?? '';
+  if (!databaseUrl && !process.env.E2E_PEOPLE_FILE) throw new Error('E2E_DATABASE_URL must point at the disposable database of this run (or E2E_PEOPLE_FILE must name pre-seeded people).');
 
-  const owner = person('owner', 'E2E Owner');
-  const company = { slug: `e2e-${run}`, name: `E2E Agency ${run}` };
-  const boot = await call('/auth/bootstrap', { method: 'POST', body: { ...owner, tenantName: company.name, tenantSlug: company.slug } });
-  if (boot.status === 403) throw new Error('An OWNER already exists in this database; the smoke needs an empty disposable database.');
-  expectStatus('bootstrap', boot, 200, 201);
-  const ownerSession = await loginSession(owner);
-  const ot = ownerSession.tokens.accessToken;
-  owner.id = ownerSession.user.id;
+  type People = Pick<Seed, 'company' | 'owner' | 'manager' | 'employee' | 'clientOne' | 'clientTwo' | 'customerOne' | 'customerTwo' | 'other'>;
+  const peopleFile = process.env.E2E_PEOPLE_FILE;
+  const existing: People | null = peopleFile ? (JSON.parse(readFileSync(peopleFile, 'utf8')) as People) : null;
 
-  const customerOne = { id: '', name: `E2E Customer One ${run}` };
-  const customerTwo = { id: '', name: `E2E Customer Two ${run}` };
-  for (const [c, key] of [[customerOne, 'one'], [customerTwo, 'two']] as const) {
-    const r = await call<{ id: string }>('/customers', { method: 'POST', token: ot, body: { name: c.name, clientScopeKey: `e2e-${key}-${run}` } });
-    expectStatus('customer', r, 201); c.id = r.body.id;
+  let owner: Person; let company: Seed['company']; let ownerSession: Session;
+  if (existing) {
+    owner = existing.owner; company = existing.company;
+    ownerSession = await loginSession(owner, company.slug);
+  } else {
+    owner = person('owner', 'E2E Owner');
+    company = { slug: `e2e-${run}`, name: `E2E Agency ${run}` };
+    const boot = await call('/auth/bootstrap', { method: 'POST', body: { ...owner, tenantName: company.name, tenantSlug: company.slug } });
+    if (boot.status === 403) throw new Error('An OWNER already exists in this database; the smoke needs an empty disposable database or E2E_PEOPLE_FILE.');
+    expectStatus('bootstrap', boot, 200, 201);
+    ownerSession = await loginSession(owner);
+    owner.id = ownerSession.user.id;
   }
+  const ot = ownerSession.tokens.accessToken;
 
-  const { person: manager, session: managerSession } = await invite(ot, person('manager', 'E2E Manager'), 'MANAGER');
-  const { person: employee, session: employeeSession } = await invite(ot, person('employee', 'E2E Employee'), 'EMPLOYEE');
-  const { person: clientOne, session: clientOneSession } = await invite(ot, person('client-one', 'E2E Client One'), 'CLIENT', { customerId: customerOne.id });
-  const { person: clientTwo, session: clientTwoSession } = await invite(ot, person('client-two', 'E2E Client Two'), 'CLIENT', { customerId: customerTwo.id });
+  const customerOne = existing ? { ...existing.customerOne } : { id: '', name: `E2E Customer One ${run}` };
+  const customerTwo = existing ? { ...existing.customerTwo } : { id: '', name: `E2E Customer Two ${run}` };
+  if (!existing) {
+    for (const [c, key] of [[customerOne, 'one'], [customerTwo, 'two']] as const) {
+      const r = await call<{ id: string }>('/customers', { method: 'POST', token: ot, body: { name: c.name, clientScopeKey: `e2e-${key}-${run}` } });
+      expectStatus('customer', r, 201); c.id = r.body.id;
+    }
+  }
+  const scopeKeyOne = (existing?.customerOne as { clientScopeKey?: string } | undefined)?.clientScopeKey ?? `e2e-one-${run}`;
+
+  const signedIn = async (p: Person) => {
+    const session = await loginSession(p, company.slug);
+    return { person: { ...p, id: session.user.id }, session };
+  };
+  const { person: manager, session: managerSession } = existing ? await signedIn(existing.manager) : await invite(ot, person('manager', 'E2E Manager'), 'MANAGER');
+  const { person: employee, session: employeeSession } = existing ? await signedIn(existing.employee) : await invite(ot, person('employee', 'E2E Employee'), 'EMPLOYEE');
+  const { person: clientOne, session: clientOneSession } = existing ? await signedIn(existing.clientOne) : await invite(ot, person('client-one', 'E2E Client One'), 'CLIENT', { customerId: customerOne.id });
+  const { person: clientTwo, session: clientTwoSession } = existing ? await signedIn(existing.clientTwo) : await invite(ot, person('client-two', 'E2E Client Two'), 'CLIENT', { customerId: customerTwo.id });
 
   const project = { id: '', name: `E2E Launch Campaign ${run}` };
   const p = await call<{ id: string }>('/projects', { method: 'POST', token: ot, body: { name: project.name, customerId: customerOne.id } });
@@ -111,7 +135,7 @@ export default async function globalSetup() {
     desktopRevision: await deliverFile('desktop-revision'), mobileRevision: await deliverFile('mobile-revision'),
   };
 
-  const other = JSON.parse(execFileSync(process.execPath, [resolve(process.cwd(), '../api/test/e2e-seed-company.mjs')], {
+  const other = existing ? existing.other : JSON.parse(execFileSync(process.execPath, [resolve(process.cwd(), '../api/test/e2e-seed-company.mjs')], {
     env: { ...process.env, DATABASE_URL: databaseUrl }, encoding: 'utf8', cwd: resolve(process.cwd(), '../api'),
   })) as Seed['other'];
 
@@ -122,6 +146,8 @@ export default async function globalSetup() {
     sessions: { owner: ownerSession, manager: managerSession, employee: employeeSession, clientOne: clientOneSession, clientTwo: clientTwoSession, otherOwner: otherOwnerSession },
   };
   mkdirSync(dirname(SEED_FILE), { recursive: true });
-  writeFileSync(SEED_FILE, JSON.stringify(seed, null, 2));
-  console.log(`[e2e] seeded run ${run} against ${API}`);
+  writeFileSync(SEED_FILE, JSON.stringify(seed, null, 2), { mode: 0o600 });
+  console.log(`[e2e] seeded run ${run} against ${API}${existing ? ' (existing environment)' : ''}`);
+  const settle = Number(process.env.E2E_SETTLE_SECONDS ?? 0);
+  if (settle > 0) await new Promise((r) => setTimeout(r, settle * 1000));
 }
