@@ -435,6 +435,14 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **A09 status: DEPLOYED; BLOCKED — OWNER** (O36 authenticated verification, O51 required checks). Not marked DONE, per the owner's rule that CI and unauthenticated smoke are not enough. O53 executed; #153 untouched (not in the approval).
 - Rollback if needed: Railway redeploy API `5c664bd2` / web `41fd1502`, or revert `30125fe` on main (no migration involved).
 
+## 2026-11-05 — O36: authenticated acceptance of A09 on the deployed production version
+
+- Owner authorised temporary fictional production accounts and isolated test data for A09. Method (the O1/O2 pattern): `prod-seed.mjs` through the private tunnel created two fictional companies (`a09-mw2r47275e87`, `a09b-…`), OWNER/MANAGER/EMPLOYEE/two CLIENTs with customers in the first and an OWNER + client-visible project in the second (random passwords in a mode-600 file, never printed); the browser suite in its new existing-environment mode (`ef1ff5c`, PR #155) built projects, board, tasks, appointment, invoice and two deliveries through the production API and ran against the production web and API.
+- **Result: 74/74 on production** — 37 desktop + 37 mobile: four roles, permissions (14×4 matrix), client and company isolation, project board, tasks, files (upload + delivery + client content), invoices (+ PDF), appointments, client workflows (approve, revision, confirm, request), and the security fix (employee refused on every portal route and sent to the dashboard). 3.0 minutes.
+- **Cleanup:** 4 files deleted through the API (storage objects go with them; 0 storage keys left), audit 58 + login-history 13 rows of the fictional actors, 2 tenants (cascade), 6 users; counts after = seed-time baseline exactly (tenants 1, users 4, customers 0, projects 2, tasks 5, invoices 1, files 2, approvals 1); leftovers 0. Credential file, session file, traces and report deleted; the kept log contains no secret (its two "password" mentions are test titles).
+- CI on the deployed commit `30125fe`: six jobs success; PR #155: six jobs success on `ef1ff5c`. Graphify built from the deployed tree. Suite regression in isolated mode after the tooling change: 74/74.
+- **A09 status: VERIFIED.** DONE once PR #155 is merged — one owner approval (O54). O51 remains a separate security task. No other task started.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -455,7 +463,7 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 | O31 | Add the G05 proposed rows (`docs/MAOS_PLATFORM_GAPS_G05.md` §2) to the master task list and confirm the order in §3; answer D12 | G05 |
 | O34 | Approve ADR-020 (`ApprovalRequestFile`, message-only deliveries) and its migration task; max files per delivery | D05 |
 | O35 | Product name: accept a variant domain for Klarwerk / Taktwerk / Studiokern (natural domains taken) or ask for a second naming round; register-level trademark search by owner/counsel | H02, H03, H04 |
-| O36 | Browser acceptance on production: sign in yourself with a fictional account, or allow a one-time credential entry in a tool call | A05 |
+| O36 | Browser acceptance on production: sign in yourself with a fictional account, or allow a one-time credential entry in a tool call — **executed 2026-11-05 for A09 with temporary fictional accounts, all removed** | A05 |
 | O37 | Uptime monitor provider (recommend UptimeRobot free tier → owner e-mail) | B07 |
 | O38 | Allow deletion of orphan storage objects after the first report | C07 |
 | O39 | Approve the `NotificationPreference` model (with D01) | D06, J11 |
@@ -473,3 +481,4 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
 | O53 | Final merge approval for #154 (A09 + the portal security fix; API + web redeploy, no migration) and #153 (docs only; its tabletop and redeploy drill stay open under O52) — requested only after CI is green on the final head — **APPROVED and executed for #154 on 2026-11-04 23:20Z** (#153 not included) | A09, B10, A08 |
+| O54 | Merge approval for #155 (browser suite: existing-environment mode used for the authenticated production acceptance; test tooling only, CI green) — closes A09 as DONE | A09 |
