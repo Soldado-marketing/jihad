@@ -13,8 +13,8 @@ export interface Seed {
   employee: Person;
   clientOne: Person;
   clientTwo: Person;
-  customerOne: { id: string; name: string };
-  customerTwo: { id: string; name: string };
+  customerOne: { id: string; name: string; clientScopeKey?: string };
+  customerTwo: { id: string; name: string; clientScopeKey?: string };
   project: { id: string; name: string };
   internalProject: { id: string; name: string };
   sharedTask: { id: string; title: string };
