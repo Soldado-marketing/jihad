@@ -414,6 +414,10 @@ The owner set a permanent rule for every remaining MAOS task: (1) review require
 - PR #154 `20cc96e`: API 3m59s · Browser smoke 2m01s (28 tests, desktop + mobile) · Isolation gate 1m17s · Web 1m14s · Dependency audit · Secret scan — all pass, first run on this head, retries 0. Graphify refreshed.
 - A09 READY FOR RELEASE. The PR carries the portal security fix, so the merge deploys API + web (no migration). #153 (docs) stays with its tabletop and redeploy drill explicitly not done (O52).
 
+## 2026-11-04 — Owner correction: strict execution and one-task policy (permanent)
+
+The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried four browser tests while most acceptance requirements were uncovered, and the extended head was still reported without an acceptance matrix. Permanent rules recorded in `docs/MAOS_RESUME.md` STANDING_RULES: acceptance checklist from the original specification before every task; independent comparison before closure; complete = implemented + integrated + all test classes passing + CI green + Graphify reviewed + bugs resolved + merged/deployed/verified when authorized + checklist satisfied + panel/checkpoint updated; otherwise INCOMPLETE or BLOCKED; one task at a time; no scope reduction without recorded justification; functional tests, not page loads; no merge-approval request before the checklist is met. A09 continues under these rules; C05 is not started.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
