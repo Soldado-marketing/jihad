@@ -409,6 +409,11 @@ The owner set a permanent rule for every remaining MAOS task: (1) review require
 - **Suite** (`20cc96e`): one seeded world per run through the public API (plus a second company seeded directly, since bootstrap serves only the first); sessions taken once per person from distinct addresses behind `TRUST_PROXY_HOPS=1` (the 10/min login throttle stays in force); specs 01-auth … 06-isolation on Desktop Chrome and Pixel 7; in-memory S3 stub for uploads (MinIO is archived — downloads and images gone). Local: 28/28 in 20 s; API unit 572/572; web 372/372; typecheck clean. PR #154 description and evidence comment updated.
 - **Status:** A09 TESTED; DONE only after CI is green on `20cc96e` and the PR is merged and deployed (API + web change). #153: tabletop and Railway redeploy rehearsal remain **not done** (O52).
 
+## 2026-11-04 — A09 CI green on the final head; O53 requested
+
+- PR #154 `20cc96e`: API 3m59s · Browser smoke 2m01s (28 tests, desktop + mobile) · Isolation gate 1m17s · Web 1m14s · Dependency audit · Secret scan — all pass, first run on this head, retries 0. Graphify refreshed.
+- A09 READY FOR RELEASE. The PR carries the portal security fix, so the merge deploys API + web (no migration). #153 (docs) stays with its tabletop and redeploy drill explicitly not done (O52).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
