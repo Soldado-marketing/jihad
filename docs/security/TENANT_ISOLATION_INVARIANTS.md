@@ -36,6 +36,7 @@ file name points at the broken rule.
 | 2.7 | A problem report is opened only by a client, only about its own delivery; it reaches management only; internal notes never reach the client. Work requests follow the same rule. | `security-gate-client-complaints`, `security-gate-client-work-requests` |
 | 2.8 | A default invoice send reaches only the invoice's own, active client. | `invoice-default-recipients` |
 | 2.9 | A client copy of a file keeps the content intact and drops identifying metadata (author, device, location); client file names reveal no internal names. | `client-file-privacy` (unit) |
+| 2.10 | The client-portal routes (`/api/client/*`) serve the CLIENT role and, as a company-wide preview, OWNER and MANAGER only. EMPLOYEE and CONTRACTOR are refused (`portal_requires_client_scope`): their internal view is limited to assigned work, and the portal carries no such filter, so an open portal would widen what they see. The web portal shell sends them to the dashboard. (A09 finding, fixed 2026-11-04.) | `security-gate-client-isolation` ("work-scoped roles do not reach the portal"), e2e `employee.spec.ts` |
 
 ## 3. Role and grant boundary
 
@@ -72,6 +73,6 @@ cd apps/api && npm run build && MAOS_INTEGRATION=1 DATABASE_URL=postgresql://mao
 
 ## Known gaps (tracked in the master task list)
 
-- No browser end-to-end check of the client portal yet (A09).
+- Browser end-to-end: the CI job `e2e-smoke` (A09, `apps/web/e2e/smoke.spec.ts`) signs in as OWNER and as CLIENT in Chromium and proves the CLIENT lands in the portal only, is offered no internal navigation, and is sent back to the portal from internal URLs. API-level boundaries stay with the suites above.
 - Row-level security in PostgreSQL is not used; isolation is enforced in the tenant-aware repositories and guards above (`postgres-least-privilege-plan.md`, decision pending).
 - Reports and search are covered by their own suites (`global-search`, `customer-overview`), not by this gate.

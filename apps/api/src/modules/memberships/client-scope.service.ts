@@ -9,7 +9,7 @@
  *
  * The return value is deliberately a small union:
  *
- *   null   - apply no client filter. Internal roles already read everything
+ *   null   - apply no client filter. OWNER and MANAGER already read everything
  *            through the internal API, so scoping their portal reads would add
  *            no protection and would break owner-side preview.
  *   string - filter every client-facing query to exactly this key.
@@ -27,6 +27,9 @@ import { PrismaService } from '../prisma/prisma.service';
 /** null means "apply no client filter"; a string is the key to filter on. */
 export type ClientScope = string | null;
 
+/** Internal roles whose internal view is already tenant-wide; they may preview the portal. */
+const PORTAL_PREVIEW_ROLES: ReadonlySet<string> = new Set<string>([MembershipRole.OWNER, MembershipRole.MANAGER]);
+
 const deny = (reason: string): never => {
   throw new ForbiddenException({ code: 'FORBIDDEN', reason });
 };
@@ -36,7 +39,15 @@ export class ClientScopeService {
   constructor(private readonly prisma: PrismaService) {}
 
   async resolve(tenantId: string, userId: string, role: string): Promise<ClientScope> {
-    if (role !== MembershipRole.CLIENT) return null;
+    if (role !== MembershipRole.CLIENT) {
+      // OWNER and MANAGER read the whole company through the internal routes,
+      // so a tenant-wide portal preview gives them nothing new. EMPLOYEE and
+      // CONTRACTOR are work-scoped there (assigned tasks, member projects); the
+      // portal routes carry no such filter, so for them "no client filter"
+      // would widen what they see (A09 finding, 2026-11-04). Refuse instead.
+      if (PORTAL_PREVIEW_ROLES.has(role)) return null;
+      return deny('portal_requires_client_scope');
+    }
 
     const membership = await this.prisma.tenantMembership.findUnique({
       where: { tenantId_userId: { tenantId, userId } },

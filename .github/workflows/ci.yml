@@ -352,6 +352,135 @@ jobs:
         working-directory: apps/web
         run: npm test
 
+  # A09: browser smoke of the isolated stack. The real API (built dist) and the
+  # real production web build run on this runner against the PostgreSQL
+  # service and an in-memory S3 stub (apps/web/e2e/support/s3-stub.mjs);
+  # Playwright drives Chromium, desktop and mobile, through the OWNER, MANAGER,
+  # EMPLOYEE and CLIENT paths, the project board, tasks, files with a delivery,
+  # invoices, appointments, and the boundaries between roles, clients and
+  # companies (apps/web/e2e/*.spec.ts). Fictional data only, generated per run
+  # by e2e/global-setup.ts; no mail provider is configured, so the invitation
+  # link comes back from the API as it does on a fresh install.
+  e2e-smoke:
+    name: Browser smoke - roles, boards, files, invoices and boundaries on the isolated stack
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16-alpine
+        env:
+          POSTGRES_USER: maos
+          POSTGRES_PASSWORD: maos_password
+          POSTGRES_DB: maos_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maos -d maos_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://maos:maos_password@localhost:5432/maos_db?schema=public
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-0123456789abcdef0123456789abcdef
+      CORS_ORIGINS: http://127.0.0.1:3000
+      WEB_URL: http://127.0.0.1:3000
+      # As behind Railway's proxy: the seed signs each fictional person in from
+      # its own documentation-range address (X-Forwarded-For), so the per-address
+      # login throttle stays in force and still lets the seed through.
+      TRUST_PROXY_HOPS: '1'
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Object storage for uploads: the in-memory stub below. CI-only values.
+      S3_BUCKET: e2e
+      S3_REGION: eu-central-1
+      S3_ACCESS_KEY_ID: e2e-ci-only
+      S3_SECRET_ACCESS_KEY: e2e-ci-only-not-a-secret
+      S3_ENDPOINT: http://127.0.0.1:9100
+      S3_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+
+      - name: Install and build the API
+        working-directory: apps/api
+        run: |
+          npm ci --no-audit --no-fund
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run build
+
+      # Background processes keep running across the following steps of this job.
+      - name: Start the object-storage stub
+        working-directory: apps/web
+        run: |
+          nohup node e2e/support/s3-stub.mjs 9100 > "$RUNNER_TEMP/s3.log" 2>&1 &
+          for i in $(seq 1 20); do
+            curl -s -o /dev/null "http://127.0.0.1:9100/e2e?list-type=2" && exit 0
+            sleep 1
+          done
+          echo "storage stub not ready"; cat "$RUNNER_TEMP/s3.log"; exit 1
+
+      - name: Start the API
+        working-directory: apps/api
+        run: |
+          PORT=3001 NODE_ENV=production nohup node dist/main.js > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3001/api/health/ready && exit 0
+            sleep 1
+          done
+          echo "API not ready"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Install, build and start the web app
+        working-directory: apps/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          PORT=3000 HOSTNAME=127.0.0.1 NODE_ENV=production nohup node scripts/start-standalone.mjs > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/auth/login && exit 0
+            sleep 1
+          done
+          echo "web not ready"; cat "$RUNNER_TEMP/web.log"; exit 1
+
+      - name: Install Chromium for Playwright
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      # global-setup seeds the first company through the API and the second one
+      # directly (apps/api/test/e2e-seed-company.mjs), then both viewport
+      # projects (desktop, mobile) run every spec.
+      - name: Browser smoke
+        working-directory: apps/web
+        env:
+          E2E_WEB_URL: http://127.0.0.1:3000
+          E2E_API_URL: http://127.0.0.1:3001/api
+          E2E_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run e2e
+
+      - name: Keep the evidence of a failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-evidence
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            ${{ runner.temp }}/api.log
+            ${{ runner.temp }}/web.log
+            ${{ runner.temp }}/s3.log
+
   audit:
     name: Dependency audit (blocking on high in production dependencies)
     runs-on: ubuntu-latest
