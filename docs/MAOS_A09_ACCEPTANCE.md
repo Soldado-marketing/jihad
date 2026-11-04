@@ -4,7 +4,7 @@
 
 Written before the final implementation pass (strict policy: checklist first, independent comparison before closure). Status values: PASS (test named, green locally and in CI) · BLOCKED — OWNER · OPEN.
 
-**Closure status (2026-11-04):** every criterion the repository can satisfy is PASS. Two items need the owner: GitHub required-checks (row 1, O51) and the merge + deployment + production verification that completes the task (O53). Task status: **BLOCKED — OWNER**, not DONE.
+**Closure status (2026-11-05, after O53):** merged (`30125fe`) and deployed — Railway API `a6e7127c`, web `004af8cf`, both SUCCESS for commit `30125fe`; fresh backup `maos-20261104T231824Z` verified before the merge. Production verification without credentials PASS: `/api/health` 200, `/api/health/ready` 200, `/api/health/ops` 401, `/api/client/*` and `/api/projects` 401 anonymous, bootstrap closed, web root / `/auth/login` / `/client` 200, HSTS + X-Frame-Options + CSP-report-only present. **NOT VERIFIED in production:** the authenticated behaviour (employee refused on the portal, role flows) — no authorized production account exists (O36); the isolated-stack suite and CI are the evidence for it. GitHub required checks still need the owner (O51). Task status: **DEPLOYED; BLOCKED — OWNER for the authenticated production verification (O36) and O51**, not DONE.
 
 | # | Requirement (original wording) | Evidence: test(s) | Functional, not page-load? | Status |
 |---|---|---|---|---|
@@ -40,6 +40,10 @@ Filled from the final local run and the CI run on the final head (see `docs/MAOS
 | CI `e2e-smoke` on head `b1c2c77` | pass, 3m27s (74 tests, desktop + mobile) — the record commit after it reruns every job; see the PR checks for the newest head |
 | CI `isolation-gate` on head `b1c2c77` | pass, 1m10s (incl. the new portal cases) |
 | CI `api`, `web`, `audit`, `secrets` on head `b1c2c77` | pass (4m04s, 1m12s, 10s, 11s) |
+| CI, all six jobs on the final head `15979ad` | pass (API 3m51s, Browser smoke 2m50s, Isolation gate 1m08s, Web 57s, audit 11s, secret scan 6s) |
+| Merge and deployment | main `30125fe`; Railway API `a6e7127c`, web `004af8cf` SUCCESS; backup `maos-20261104T231824Z` + rehearsal PASS beforehand |
+| Production, anonymous | health 200, ready 200, ops 401, portal and internal routes 401, bootstrap closed, web pages 200, security headers present |
+| Production, authenticated | NOT VERIFIED — no authorized production account (O36) |
 
 ## Scope notes
 

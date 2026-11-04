@@ -426,6 +426,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - CI on `b1c2c77`: API 4m04s, Browser smoke 3m27s, Isolation gate 1m10s, Web 1m12s, Dependency audit, Secret scan — all green. Graphify refreshed (10,753 nodes); resolver dependents reviewed: all portal paths.
 - **Status: BLOCKED — OWNER.** Everything the repository can satisfy is done and verified. Completion needs: O51 (GitHub required checks) and O53 (merge #154, API + web deploy, production verification). No merge request is made until the owner confirms the checklist. #153 keeps its tabletop and redeploy drill open (O52). No other task started.
 
+## 2026-11-04 — O53 release of #154 (A09 + portal fix)
+
+- Pre-checks: head `15979ad`, six CI jobs green, 23 files, no migration, graph built from `15979ad`; production baseline health/ready 200; known-good API `5c664bd2`, web `41fd1502`.
+- Backup `maos-20261104T231824Z` through the private tunnel, isolated restore rehearsal PASS (16 migrations).
+- Merged → main `30125fe`. Railway API `a6e7127c` and web `004af8cf` SUCCESS. Smoke: health 200, ready 200, web 200, `/auth/login` 200. Security behaviour, anonymous: `/api/health/ops`, `/api/client/projects|deliveries|tasks`, `/api/projects`, `/api/auth/me` → 401; bootstrap refuses; HSTS, X-Frame-Options DENY, CSP report-only present. Graph on the merged tree (identical to `15979ad`).
+- **NOT VERIFIED in production:** authenticated behaviour (employee refused on the portal, the four role flows) — no authorized production account (O36). Evidence for it: the isolated-stack suite (74 browser tests) and the isolation gate, both green in CI.
+- **A09 status: DEPLOYED; BLOCKED — OWNER** (O36 authenticated verification, O51 required checks). Not marked DONE, per the owner's rule that CI and unauthenticated smoke are not enough. O53 executed; #153 untouched (not in the approval).
+- Rollback if needed: Railway redeploy API `5c664bd2` / web `41fd1502`, or revert `30125fe` on main (no migration involved).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -463,4 +472,4 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 | O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) — **APPROVED 2026-11-04** (owner message "Approve O50"); release in progress per docs/ops/RELEASE_ROLLBACK.md, order #151 → #152 → #150 — **DONE 2026-11-04 21:50Z** | B06, B08 |
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
-| O53 | Final merge approval for #154 (A09 + the portal security fix; API + web redeploy, no migration) and #153 (docs only; its tabletop and redeploy drill stay open under O52) — requested only after CI is green on the final head | A09, B10, A08 |
+| O53 | Final merge approval for #154 (A09 + the portal security fix; API + web redeploy, no migration) and #153 (docs only; its tabletop and redeploy drill stay open under O52) — requested only after CI is green on the final head — **APPROVED and executed for #154 on 2026-11-04 23:20Z** (#153 not included) | A09, B10, A08 |
