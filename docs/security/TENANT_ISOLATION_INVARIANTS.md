@@ -72,6 +72,6 @@ cd apps/api && npm run build && MAOS_INTEGRATION=1 DATABASE_URL=postgresql://mao
 
 ## Known gaps (tracked in the master task list)
 
-- No browser end-to-end check of the client portal yet (A09).
+- Browser end-to-end: the CI job `e2e-smoke` (A09, `apps/web/e2e/smoke.spec.ts`) signs in as OWNER and as CLIENT in Chromium and proves the CLIENT lands in the portal only, is offered no internal navigation, and is sent back to the portal from internal URLs. API-level boundaries stay with the suites above.
 - Row-level security in PostgreSQL is not used; isolation is enforced in the tenant-aware repositories and guards above (`postgres-least-privilege-plan.md`, decision pending).
 - Reports and search are covered by their own suites (`global-search`, `customer-overview`), not by this gate.
