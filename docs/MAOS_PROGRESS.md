@@ -386,6 +386,10 @@ Also confirmed: size limit checked before content; empty files refused; double e
 - Production now: main `e2bb560` (B06 + B08 + B09 + #120). Known-good for rollback: API `5c664bd2`, web `41fd1502`; previous API `be2ed7ff`.
 - Rows: B06 VERIFIED, B08 VERIFIED, B09 VERIFIED. O50 closed. Open PR: #153 (docs, B10/A08).
 
+## 2026-11-04 — Owner rule: quality and verification before speed (permanent)
+
+The owner set a permanent rule for every remaining MAOS task: (1) review requirements, existing code, GitHub history and Graphify dependencies; (2) verify the architecture is correct and compatible; (3) name security risks, missing requirements and integration conflicts before coding; (4) implement and test completely, edge cases and tenant isolation included; (5) fix root causes; (6) verify CI, integration tests and Graphify; (7) DONE only when all acceptance criteria hold, deployment and production verification included where authorized. Never build on a broken or incomplete dependency; do not rush or accumulate unfinished PRs; BLOCKED with one essential approval request when authorization is needed. Recorded in `docs/MAOS_RESUME.md` STANDING_RULES. First task under the rule: A09.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
