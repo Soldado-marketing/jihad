@@ -402,6 +402,13 @@ The owner set a permanent rule for every remaining MAOS task: (1) review require
 
 - PR #154: API 3m48s, **Browser smoke 2m19s**, Isolation gate 1m11s, Web 1m21s, Dependency audit, Secret scan — all pass on the first run (retries 0). A09 is READY FOR RELEASE; the merge is CI-only (no deploy, no migration) and waits for one owner message (O53). After it, every PR runs six blocking jobs; making them *required* in GitHub is O51.
 
+## 2026-11-04 — A09 extended to the full acceptance; security finding fixed at the root
+
+- **Owner correction:** A09 was not complete against the acceptance criteria (four roles, isolation, permissions, tasks, boards, invoices, files, client workflows, desktop and mobile; investigate employee access to `/client`). Work continued under the quality-first rule; C05 not started.
+- **Finding (security):** the client-portal routes applied no client filter for internal roles. Probe on an isolated stack: a CONTRACTOR with 0 internal projects/tasks received 2 projects, 2 tasks and 1 appointment through `/api/client/*`; an EMPLOYEE received tasks beyond assigned work. Root cause `ClientScopeService.resolve()` → null for every non-CLIENT role. **Fix** (`86e8d63`): EMPLOYEE and CONTRACTOR are refused (`403 portal_requires_client_scope`); OWNER and MANAGER keep the tenant-wide preview the gate protects; the web portal layout sends EMPLOYEE/CONTRACTOR to `/dashboard`. New gate cases in `security-gate-client-isolation`; invariant 2.10 in `docs/security/TENANT_ISOLATION_INVARIANTS.md`. Isolation gate + portal suites: 317/317.
+- **Suite** (`20cc96e`): one seeded world per run through the public API (plus a second company seeded directly, since bootstrap serves only the first); sessions taken once per person from distinct addresses behind `TRUST_PROXY_HOPS=1` (the 10/min login throttle stays in force); specs 01-auth … 06-isolation on Desktop Chrome and Pixel 7; in-memory S3 stub for uploads (MinIO is archived — downloads and images gone). Local: 28/28 in 20 s; API unit 572/572; web 372/372; typecheck clean. PR #154 description and evidence comment updated.
+- **Status:** A09 TESTED; DONE only after CI is green on `20cc96e` and the PR is merged and deployed (API + web change). #153: tabletop and Railway redeploy rehearsal remain **not done** (O52).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
@@ -439,4 +446,4 @@ The owner set a permanent rule for every remaining MAOS task: (1) review require
 | O50 | Release approval for PR #150 (B06 operational alerts) and the B08 dependency-fix PR together (API + web redeploy, no migration; B08 closes a critical Next.js advisory) — **APPROVED 2026-11-04** (owner message "Approve O50"); release in progress per docs/ops/RELEASE_ROLLBACK.md, order #151 → #152 → #150 — **DONE 2026-11-04 21:50Z** | B06, B08 |
 | O51 | Branch protection on `main`: require the CI checks `API - typecheck, build, tests`, `Isolation gate - tenant, client and role boundaries`, `Web - typecheck and build`, `Dependency audit`, `Secret scan` before merge (GitHub repository setting; owner only; recommended) | A09, B09 |
 | O52 | Tabletop review of `docs/ops/INCIDENTS.md` with the owner (R1, R3, R6, R7; ~45 min) and a window to rehearse a Railway redeploy of a previous deployment and forward again — or decide the staging service (`docs/deployment/maos-railway-staging-decision.md`) so the drill never touches production | B10, A08 |
-| O53 | Merge approval for #154 (A09 browser smoke, CI-only) and #153 (B10/A08 runbooks, docs-only); neither deploys anything | A09, B10, A08 |
+| O53 | Final merge approval for #154 (A09 + the portal security fix; API + web redeploy, no migration) and #153 (docs only; its tabletop and redeploy drill stay open under O52) — requested only after CI is green on the final head | A09, B10, A08 |
