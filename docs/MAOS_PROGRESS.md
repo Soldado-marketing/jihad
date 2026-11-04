@@ -390,6 +390,14 @@ Also confirmed: size limit checked before content; empty files refused; double e
 
 The owner set a permanent rule for every remaining MAOS task: (1) review requirements, existing code, GitHub history and Graphify dependencies; (2) verify the architecture is correct and compatible; (3) name security risks, missing requirements and integration conflicts before coding; (4) implement and test completely, edge cases and tenant isolation included; (5) fix root causes; (6) verify CI, integration tests and Graphify; (7) DONE only when all acceptance criteria hold, deployment and production verification included where authorized. Never build on a broken or incomplete dependency; do not rush or accumulate unfinished PRs; BLOCKED with one essential approval request when authorization is needed. Recorded in `docs/MAOS_RESUME.md` STANDING_RULES. First task under the rule: A09.
 
+## 2026-11-04 — A09 browser smoke (PR #154), first task under the quality-first rule
+
+- **Review before coding:** requirements (A09 row), sign-in and session code (`login/page.tsx`, `lib/auth.ts`, `lib/api.ts`, both layout guards), API startup/CORS/invite behaviour, CI structure, repository history (no earlier e2e), graph (auth path). Findings used in the design: login body is `{ email, passwordOrMagicCode }`; `inviteUrl` is returned only without a mail provider; login throttle allows the suite's three sign-ins; Next's route announcer is a second `role=alert`; `tsconfig` typechecks `e2e/*.ts`; static web suites scan `app/` and `src/` only. Side observation (not a defect, recorded): the client layout checks authentication only, so staff can open `/client`; the workspace layout does send CLIENTs away from internal routes.
+- **Built:** `apps/web/e2e/` (fixtures create a fictional company, OWNER, customer and CLIENT through the public API with per-run random credentials; 4 serial tests: unauthenticated redirect, wrong password refused, OWNER dashboard → projects → files with the stored company checked, CLIENT portal-only with no internal links and redirects from internal URLs), `playwright.config.ts` (retries 0, traces on failure), CI job `e2e-smoke` (API dist + production web build on the runner, Chromium, evidence artifact on failure), `@playwright/test` dev dependency, new `apps/web/.gitignore` for Playwright output.
+- **Verified locally** on a disposable PostgreSQL 16: migrate, API ready, production web build, 4/4 pass; typecheck clean; static web suite 372/372. The one failure during development was an ambiguous test locator, fixed in the test; the app behaved correctly.
+- Pushed over HTTPS with the GitHub CLI credentials because the SSH agent on this Mac had lost its key mid-session (no secret involved; `ssh -T` still authenticates).
+- TESTED; CI on #154 runs the new job. DONE only when the job is green on the PR and merged (CI-only, no deploy).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
