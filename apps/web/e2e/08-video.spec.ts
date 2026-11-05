@@ -77,8 +77,8 @@ test.describe('C05 video - client', () => {
     await page.getByRole('button', { name: 'Download' }).click();
     const saved = await download;
     const bytes = readFileSync(await saved.path());
-    expect(saved.suggestedFilename()).toMatch(/\.mp4$/);
-    expect(saved.suggestedFilename()).not.toContain('deliverable');
+    // Named after the deliverable title and version, never the uploaded file name.
+    expect(saved.suggestedFilename()).toBe(`${file.name.replace(/\.mp4$/, '')} v1.mp4`);
     // Same length and media data; only the encoder metadata box is blanked.
     expect(bytes.length).toBe(CLIP.length);
     expect(sha256(bytes)).not.toBe(sha256(CLIP));
