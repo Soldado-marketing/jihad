@@ -110,7 +110,8 @@ jobs:
             test/csv-transfer.test.mjs \
             test/rate-resolution.test.mjs \
             test/labour-profitability.test.mjs \
-            test/client-file-privacy.test.mjs
+            test/client-file-privacy.test.mjs \
+            test/byte-range.test.mjs
 
       # HTTP integration tests: boots the real app against the PostgreSQL
       # service above and drives it over HTTP. Green (398/398), so it blocks.
@@ -164,6 +165,9 @@ jobs:
       # rates proves OWNER-only rates, member -> role -> tenant freezing, unchanged history, re-rating (T73).
       # finance-labour proves stored labour in profitability and summary, unrated minutes flagged (T74).
       # customer-profitability proves per-customer revenue, cost and labour that reconcile with the summary (T75).
+      # video-large-files (C05) proves 25/100 MiB MP4 uploads at their limits, byte-identical
+      # staff downloads, the streamed client copy, HTTP ranges (206/416) on both content
+      # routes with unchanged authorisation, and bounded memory for a 100 MiB client download.
       # integration-api runs alone and first: it exercises the real one-time
       # /auth/bootstrap, which answers 403 once any OWNER exists. The two
       # security-gate suites seed OWNERs directly, so running them in parallel
@@ -209,7 +213,8 @@ jobs:
             test/scheduler.test.mjs \
             test/deadline-reminders.test.mjs \
             test/client-review-reminders.test.mjs \
-            test/ops-alerts.test.mjs
+            test/ops-alerts.test.mjs \
+            test/video-large-files.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
       # rewritten to the current code; features specified but never built are
@@ -354,7 +359,7 @@ jobs:
 
   # A09: browser smoke of the isolated stack. The real API (built dist) and the
   # real production web build run on this runner against the PostgreSQL
-  # service and an in-memory S3 stub (apps/web/e2e/support/s3-stub.mjs);
+  # service and an in-memory S3 stub (apps/api/test/support/s3-stub.mjs);
   # Playwright drives Chromium, desktop and mobile, through the OWNER, MANAGER,
   # EMPLOYEE and CLIENT paths, the project board, tasks, files with a delivery,
   # invoices, appointments, and the boundaries between roles, clients and
@@ -423,7 +428,7 @@ jobs:
       - name: Start the object-storage stub
         working-directory: apps/web
         run: |
-          nohup node e2e/support/s3-stub.mjs 9100 > "$RUNNER_TEMP/s3.log" 2>&1 &
+          nohup node ../api/test/support/s3-stub.mjs 9100 > "$RUNNER_TEMP/s3.log" 2>&1 &
           for i in $(seq 1 20); do
             curl -s -o /dev/null "http://127.0.0.1:9100/e2e?list-type=2" && exit 0
             sleep 1

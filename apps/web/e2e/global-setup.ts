@@ -115,12 +115,13 @@ export default async function globalSetup() {
 
   // One delivered file per viewport project (desktop, mobile): each project's
   // owner sees its file in review and its client approves it, independently.
-  async function deliverFile(label: string) {
-    const file = { id: '', name: `E2E-${label}-deliverable-${run}.png`, versionId: '', deliveryId: '' };
+  // `video` delivers the small H.264 clip (C05): both viewports only watch it.
+  async function deliverFile(label: string, content: { bytes: Buffer; type: string; extension: string } = { bytes: PNG, type: 'image/png', extension: 'png' }) {
+    const file = { id: '', name: `E2E-${label}-deliverable-${run}.${content.extension}`, versionId: '', deliveryId: '' };
     const f = await call<{ id: string }>('/files', { method: 'POST', token: ot, body: { name: file.name, projectId: project.id, visibility: 'CLIENT_VISIBLE' } });
     expectStatus('file', f, 201); file.id = f.body.id;
     const form = new FormData();
-    form.append('file', new Blob([PNG], { type: 'image/png' }), file.name);
+    form.append('file', new Blob([content.bytes], { type: content.type }), file.name);
     const v = await call<{ id?: string; version?: { id: string } }>(`/files/${file.id}/versions`, { method: 'POST', token: ot, form });
     expectStatus('upload', v, 201, 200);
     file.versionId = v.body.id ?? v.body.version?.id ?? '';
@@ -133,6 +134,7 @@ export default async function globalSetup() {
   const files = {
     desktop: await deliverFile('desktop'), mobile: await deliverFile('mobile'),
     desktopRevision: await deliverFile('desktop-revision'), mobileRevision: await deliverFile('mobile-revision'),
+    video: await deliverFile('video', { bytes: readFileSync(resolve(process.cwd(), 'e2e/fixtures/clip-h264.mp4')), type: 'video/mp4', extension: 'mp4' }),
   };
 
   const other = existing ? existing.other : JSON.parse(execFileSync(process.execPath, [resolve(process.cwd(), '../api/test/e2e-seed-company.mjs')], {

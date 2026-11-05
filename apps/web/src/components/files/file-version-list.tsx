@@ -13,8 +13,8 @@ export type FileVersionListItem = {
   createdAt?: string;
 };
 
-/** Only these come back from the server as inline-safe, so only these preview. */
-const PREVIEWABLE = /\.(png|jpe?g|gif|webp|pdf)$/i;
+/** Only these come back from the server as inline-safe, so only these preview (video since C05). */
+const PREVIEWABLE = /\.(png|jpe?g|gif|webp|pdf|mp4|mov)$/i;
 
 function formatSize(bytes?: number | null): string {
   if (typeof bytes !== 'number') return '';

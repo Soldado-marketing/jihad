@@ -13,13 +13,14 @@
  * bytes are streamed through the API exactly as on the internal route.
  */
 
-import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Headers, Param, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { DownloadFileVersionDto } from '../file-versions/dto/download-file-version.dto';
 import { FileVersionsService } from '../file-versions/file-versions.service';
+import { ClientScopeService } from '../memberships/client-scope.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
@@ -32,6 +33,7 @@ export class ClientFilesController {
   constructor(
     private readonly filesService: FilesService,
     private readonly versions: FileVersionsService,
+    private readonly clientScope: ClientScopeService,
   ) {}
 
   @Get()
@@ -55,13 +57,20 @@ export class ClientFilesController {
     @Param('id') id: string,
     @Param('versionId') versionId: string,
     @Query() query: DownloadFileVersionDto,
+    @Headers('range') range: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
+    // The portal is for clients and for the OWNER/MANAGER preview. The list
+    // route refuses work-scoped roles through the scope resolver; the content
+    // route applies the same rule (C05 found it answering an EMPLOYEE).
+    if (user.role !== 'CLIENT') await this.clientScope.resolve(user.tenantId, user.sub, user.role);
+
     const result = await this.versions.openDownload(
       toActor(user),
       id,
       versionId,
       query.disposition ?? 'attachment',
+      range,
     );
 
     writeDownloadResponse(res, result);

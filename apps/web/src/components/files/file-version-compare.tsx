@@ -120,8 +120,8 @@ function VersionPane({
   const [error, setError] = useState<string | null>(null);
   const selectId = `compare-${label.toLowerCase()}`;
 
-  // Load the bytes for images and PDFs only; revoke the object URL when the
-  // version changes or the pane goes away.
+  // Load the bytes for images, PDFs and videos only; revoke the object URL when
+  // the version changes or the pane goes away.
   useEffect(() => {
     setPreview(null);
     setError(null);
@@ -189,6 +189,9 @@ function VersionPane({
               : <p className="text-sm text-slate-500">Loading preview…</p>)}
             {!error && kind === 'pdf' && (preview
               ? <iframe src={preview.url} title={`Version ${version.versionNumber}`} className="h-[60vh] w-full rounded-lg border border-line" />
+              : <p className="text-sm text-slate-500">Loading preview…</p>)}
+            {!error && kind === 'video' && (preview
+              ? <video src={preview.url} controls playsInline preload="metadata" aria-label={`Version ${version.versionNumber} video`} className="max-h-[60vh] w-full rounded-lg border border-line bg-black" />
               : <p className="text-sm text-slate-500">Loading preview…</p>)}
             {kind === 'metadata' && (
               <p className="text-sm text-slate-600">This file type cannot be shown in the page, so its details are compared instead.</p>
