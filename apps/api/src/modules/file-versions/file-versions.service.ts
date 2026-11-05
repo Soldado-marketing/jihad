@@ -21,7 +21,8 @@ import {
 } from '@nestjs/common';
 import { Prisma, FileVersionStatus, MembershipRole } from '@prisma/client';
 import { Readable } from 'node:stream';
-import { prepareForClient, safeClientFilename } from './client-file-privacy';
+import { pipeline } from 'node:stream/promises';
+import { Mp4StructureError, mp4ClientCopyStream, prepareForClient, safeClientFilename } from './client-file-privacy';
 import { AuditService } from '../audit/audit.service';
 import { ClientScopeService } from '../memberships/client-scope.service';
 import { AuditOutcome, AuditPermissionResult } from '../audit/audit.types';
@@ -40,8 +41,37 @@ import {
   sanitizeOriginalName,
 } from '../storage/object-key';
 import { MAX_UPLOAD_BYTES_HARD_LIMIT } from '../storage/storage.config';
+import { ByteRange, parseByteRange } from '../storage/byte-range';
 
 /** Reads a stored object into memory for the client copy; uploads are capped, so this is bounded. */
+/**
+ * Reads at least `n` bytes from `stream` (fewer at end of input) and returns
+ * them together with a stream that replays them before the remaining bytes.
+ */
+async function peekStream(stream: Readable, n: number): Promise<{ head: Buffer; rest: Readable }> {
+  const iterator = stream[Symbol.asyncIterator]();
+  const chunks: Buffer[] = [];
+  let length = 0;
+  while (length < n) {
+    const next = await iterator.next();
+    if (next.done) break;
+    const chunk = Buffer.isBuffer(next.value) ? next.value : Buffer.from(next.value);
+    chunks.push(chunk);
+    length += chunk.length;
+  }
+  const head = Buffer.concat(chunks);
+  const rest = Readable.from((async function* replay() {
+    if (head.length > 0) yield head;
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) return;
+      yield next.value;
+    }
+  })(), { objectMode: false });
+  rest.once('close', () => { if (rest.destroyed) stream.destroy(); });
+  return { head, rest };
+}
+
 async function readAll(stream: Readable): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
@@ -75,12 +105,22 @@ export interface ActorInput {
 }
 
 export interface DownloadResult {
+  /** 200 whole file, 206 the `range` slice, 416 nothing (range outside the file). */
+  status: 200 | 206 | 416;
   stream: Readable;
   contentType: string;
+  /** Bytes in `stream`. */
   contentLength?: number;
+  /** Full size of the representation, when known (needed for Content-Range). */
+  totalLength?: number;
+  /** The slice served, for a 206. */
+  range?: { start: number; end: number };
   filename: string;
   disposition: 'inline' | 'attachment';
 }
+
+/** Client video copies are prepared on the fly for these stored extensions. */
+const STREAMED_CLIENT_VIDEO = new Set(['.mp4', '.mov']);
 
 /** Statuses a caller is allowed to download. */
 const DOWNLOADABLE_STATUSES: ReadonlySet<FileVersionStatus> = new Set([
@@ -284,6 +324,7 @@ export class FileVersionsService {
     fileAssetId: string,
     versionId: string,
     requestedDisposition: 'inline' | 'attachment',
+    rangeHeader?: string,
   ): Promise<DownloadResult> {
     const { tenantId } = actor;
     await this.requireFileAsset(tenantId, fileAssetId, actor.actorId);
@@ -330,14 +371,36 @@ export class FileVersionsService {
       await this.assertClientMayRead(actor, version.fileAsset, fileAssetId, versionId);
     }
 
-    const object = await this.storage.getObjectStream(version.storageKey);
-    const contentType = version.fileAsset.mimeType ?? object.contentType;
+    // The stored size is the authority for ranges: it was recorded from the
+    // validated upload, so a request is resolved before storage is consulted.
+    const totalLength = version.sizeBytes ?? undefined;
+    const byteRange: ByteRange = totalLength === undefined ? { kind: 'full' } : parseByteRange(rangeHeader, totalLength);
+    const contentType = version.fileAsset.mimeType ?? 'application/octet-stream';
     const disposition = resolveDisposition(contentType, requestedDisposition);
+    const extension = extensionOf(version.originalName ?? version.fileAsset.name);
+    const filename = actor.role === MembershipRole.CLIENT
+      ? contentDispositionFilename(safeClientFilename(version.fileAsset.name, version.versionNumber, extension))
+      : contentDispositionFilename(version.originalName ?? version.fileAsset.name);
+    const auditPayload = { disposition, fileVersionId: versionId, versionNumber: version.versionNumber, ...(rangeHeader ? { range: byteRange.kind } : {}) };
+
+    if (byteRange.kind === 'unsatisfiable') {
+      // Nothing is read; the response still tells the caller the real size.
+      await this.recordAudit(actor, 'file.version.download', fileAssetId, {
+        outcome: AuditOutcome.SUCCESS,
+        permissionResult: AuditPermissionResult.ALLOWED,
+        payload: auditPayload,
+      });
+      return { status: 416, contentLength: 0, contentType, disposition, filename, stream: Readable.from([]), totalLength };
+    }
+    const window = byteRange.kind === 'range' ? { start: byteRange.start, end: byteRange.end } : undefined;
 
     // A client gets a prepared copy (client-file-privacy.ts) under a neutral
     // name; the stored original is never changed.
     if (actor.role === MembershipRole.CLIENT) {
-      const extension = extensionOf(version.originalName ?? version.fileAsset.name);
+      if (STREAMED_CLIENT_VIDEO.has(extension) && totalLength !== undefined) {
+        return this.openClientVideo(actor, fileAssetId, version, { contentType, disposition, filename, totalLength, window, auditPayload });
+      }
+      const object = await this.storage.getObjectStream(version.storageKey);
       const copy = prepareForClient(await readAll(object.stream), extension);
       if (copy.action === 'block') {
         await this.recordAudit(actor, 'file.version.download', fileAssetId, {
@@ -350,33 +413,99 @@ export class FileVersionsService {
       await this.recordAudit(actor, 'file.version.download', fileAssetId, {
         outcome: AuditOutcome.SUCCESS,
         permissionResult: AuditPermissionResult.ALLOWED,
-        payload: { disposition, fileVersionId: versionId, versionNumber: version.versionNumber, metadataRemoved: copy.removed },
+        payload: { ...auditPayload, metadataRemoved: copy.removed },
       });
+      // The prepared copy keeps the stored length, so the stored size stays the
+      // authority for the slice; a copy of another length is served whole.
+      const slice = window && copy.buffer.length === totalLength ? copy.buffer.subarray(window.start, window.end + 1) : copy.buffer;
       return {
-        contentLength: copy.buffer.length,
+        status: window && slice !== copy.buffer ? 206 : 200,
+        contentLength: slice.length,
         contentType,
         disposition,
-        filename: contentDispositionFilename(safeClientFilename(version.fileAsset.name, version.versionNumber, extension)),
-        stream: Readable.from([copy.buffer]),
+        filename,
+        range: slice !== copy.buffer ? window : undefined,
+        stream: Readable.from([slice]),
+        totalLength: copy.buffer.length,
       };
     }
 
-    const filename = contentDispositionFilename(
-      version.originalName ?? version.fileAsset.name,
-    );
+    const object = await this.storage.getObjectStream(version.storageKey, window);
 
     await this.recordAudit(actor, 'file.version.download', fileAssetId, {
       outcome: AuditOutcome.SUCCESS,
       permissionResult: AuditPermissionResult.ALLOWED,
-      payload: { disposition, fileVersionId: versionId, versionNumber: version.versionNumber },
+      payload: auditPayload,
     });
 
     return {
+      status: object.contentRange ? 206 : 200,
       contentLength: object.contentLength,
       contentType,
       disposition,
       filename,
+      range: object.contentRange ? { start: object.contentRange.start, end: object.contentRange.end } : undefined,
       stream: object.stream,
+      totalLength: object.contentRange?.size ?? totalLength ?? object.contentLength,
+    };
+  }
+
+  /**
+   * Client copy of a video, prepared while it streams (C05).
+   *
+   * The whole object is read once from storage and passed through
+   * Mp4ClientCopyStream, which blanks the metadata boxes on the fly; a byte
+   * window keeps only the requested slice, so memory stays bounded by a box
+   * header whatever the file size. The first box is checked before any header
+   * is sent, so a file that is not a video is still refused as 409.
+   */
+  private async openClientVideo(
+    actor: ActorInput,
+    fileAssetId: string,
+    version: { id: string; storageKey: string | null; versionNumber: number },
+    out: {
+      contentType: string;
+      disposition: 'inline' | 'attachment';
+      filename: string;
+      totalLength: number;
+      window?: { start: number; end: number };
+      auditPayload: Record<string, unknown>;
+    },
+  ): Promise<DownloadResult> {
+    const object = await this.storage.getObjectStream(version.storageKey as string);
+    const { head, rest } = await peekStream(object.stream, 8);
+    const firstBox = head.toString('latin1', 4, 8);
+    if (head.length < 8 || !(firstBox === 'ftyp' || ['moov', 'wide', 'mdat', 'free'].includes(firstBox))) {
+      rest.destroy();
+      await this.recordAudit(actor, 'file.version.download', fileAssetId, {
+        outcome: AuditOutcome.BLOCKED,
+        permissionResult: AuditPermissionResult.DENIED,
+        payload: { fileVersionId: version.id, reason: 'not_cleared_for_client' },
+      });
+      throw new ConflictException({ code: 'FILE_NOT_CLEARED_FOR_CLIENT', reason: 'Not a valid MP4/MOV video.' });
+    }
+
+    const copy = mp4ClientCopyStream({ totalBytes: out.totalLength, window: out.window });
+    // Once the slice is complete the rest of the object is not needed.
+    copy.once('satisfied', () => rest.destroy());
+    rest.once('error', (error) => copy.destroy(error));
+    rest.pipe(copy);
+
+    await this.recordAudit(actor, 'file.version.download', fileAssetId, {
+      outcome: AuditOutcome.SUCCESS,
+      permissionResult: AuditPermissionResult.ALLOWED,
+      payload: { ...out.auditPayload, prepared: 'streamed' },
+    });
+
+    return {
+      status: out.window ? 206 : 200,
+      contentLength: out.window ? out.window.end - out.window.start + 1 : out.totalLength,
+      contentType: out.contentType,
+      disposition: out.disposition,
+      filename: out.filename,
+      range: out.window,
+      stream: copy,
+      totalLength: out.totalLength,
     };
   }
 
@@ -389,8 +518,20 @@ export class FileVersionsService {
     const version = await this.repo.getVersionWithKey(tenantId, fileAssetId, versionId);
     if (!version?.storageKey) throw new NotFoundException('File version not found');
     assertKeyBelongsToTenant(version.storageKey, this.storage.getKeyPrefix(), tenantId);
+    const extension = extensionOf(version.originalName ?? version.fileAsset.name);
     const object = await this.storage.getObjectStream(version.storageKey);
-    const copy = prepareForClient(await readAll(object.stream), extensionOf(version.originalName ?? version.fileAsset.name));
+    if (STREAMED_CLIENT_VIDEO.has(extension) && version.sizeBytes !== null) {
+      // Same walk the client download makes, without keeping any bytes.
+      const check = mp4ClientCopyStream({ totalBytes: version.sizeBytes, emit: false });
+      try {
+        await pipeline(object.stream, check);
+        return { ok: true };
+      } catch (error) {
+        if (error instanceof Mp4StructureError) return { ok: false, reason: error.message };
+        throw error;
+      }
+    }
+    const copy = prepareForClient(await readAll(object.stream), extension);
     return copy.action === 'serve' ? { ok: true } : { ok: false, reason: copy.reason };
   }
 

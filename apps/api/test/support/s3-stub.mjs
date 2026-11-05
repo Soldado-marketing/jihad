@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 /**
- * Minimal S3-compatible object store for the browser smoke (A09), in memory.
+ * Minimal S3-compatible object store, in memory, for the browser smoke (A09)
+ * and the API integration suites that need real bytes (C05).
  *
  * The API talks to object storage only through PutObject, HeadObject,
- * GetObject, DeleteObject and ListObjectsV2 (apps/api/src/modules/storage).
- * This server answers exactly those, path-style (/bucket/key), ignores request
- * signatures and keeps everything in memory. It is test tooling for an isolated
- * run and nothing else: no persistence, no auth, no TLS.
+ * GetObject (with Range), DeleteObject and ListObjectsV2
+ * (apps/api/src/modules/storage). This server answers exactly those,
+ * path-style (/bucket/key), ignores request signatures and keeps everything in
+ * memory. It is test tooling for an isolated run and nothing else: no
+ * persistence, no auth, no TLS.
  *
- *   node e2e/support/s3-stub.mjs [port]      default 9100
+ *   node test/support/s3-stub.mjs [port]      default 9100 (CLI)
+ *   import { createS3Stub } from './support/s3-stub.mjs'   (in-process)
  */
 import { createServer } from 'node:http';
-
-const port = Number(process.argv[2] ?? process.env.S3_STUB_PORT ?? 9100);
-const objects = new Map(); // "bucket/key" -> { body: Buffer, type: string, etag: string }
+import { pathToFileURL } from 'node:url';
 
 const escapeXml = (s) => s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 
@@ -42,7 +43,13 @@ function readBody(req) {
   });
 }
 
-const server = createServer(async (req, res) => {
+/**
+ * Builds a stub server and its object map. `listen(port)` resolves with the
+ * bound port (0 picks a free one); `close()` stops it.
+ */
+export function createS3Stub() {
+  const objects = new Map(); // "bucket/key" -> { body: Buffer, type: string, etag: string }
+  const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
   const [, bucket, ...rest] = url.pathname.split('/');
   const key = decodeURIComponent(rest.join('/'));
@@ -100,8 +107,21 @@ const server = createServer(async (req, res) => {
 
   res.writeHead(405);
   res.end();
-});
+  });
+  return {
+    objects,
+    server,
+    listen: (port = 0) => new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(port, '127.0.0.1', () => resolve(server.address().port));
+    }),
+    close: () => new Promise((resolve) => server.close(() => resolve())),
+  };
+}
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`s3-stub listening on http://127.0.0.1:${port} (in-memory, test only)`);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.argv[2] ?? process.env.S3_STUB_PORT ?? 9100);
+  createS3Stub().listen(port).then((bound) => {
+    console.log(`s3-stub listening on http://127.0.0.1:${bound} (in-memory, test only)`);
+  });
+}

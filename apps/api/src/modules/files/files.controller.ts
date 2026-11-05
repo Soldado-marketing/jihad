@@ -16,6 +16,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -41,6 +42,7 @@ import {
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
+import { contentRangeHeader, unsatisfiableRangeHeader } from '../storage/byte-range';
 import { allowedExtensions } from '../storage/file-type';
 import { extensionOf } from '../storage/object-key';
 import { MAX_UPLOAD_BYTES_HARD_LIMIT } from '../storage/storage.config';
@@ -149,7 +151,8 @@ export class FilesController {
    *
    * The response is written manually so the object is streamed rather than
    * buffered. Caching is disabled: the bytes are tenant-scoped and the URL
-   * carries no capability of its own.
+   * carries no capability of its own. A `Range` header is honoured (C05): the
+   * slice is read from storage and answered as 206, so video players can seek.
    */
   @Get(':id/versions/:versionId/content')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.FILE_VERSION })
@@ -158,6 +161,7 @@ export class FilesController {
     @Param('id') id: string,
     @Param('versionId') versionId: string,
     @Query() query: DownloadFileVersionDto,
+    @Headers('range') range: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
     const result = await this.versions.openDownload(
@@ -165,6 +169,7 @@ export class FilesController {
       id,
       versionId,
       query.disposition ?? 'attachment',
+      range,
     );
 
     writeDownloadResponse(res, result);
@@ -179,18 +184,33 @@ export class FilesController {
  * apart.
  */
 export function writeDownloadResponse(res: Response, result: DownloadResult): void {
+  res.status(result.status);
   res.setHeader('Content-Type', result.contentType);
   res.setHeader('Content-Disposition', `${result.disposition}; filename="${result.filename}"`);
   // Stops a browser from guessing a different (possibly executable) type.
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'private, no-store');
+  // Tells players and download managers that byte ranges work here.
+  res.setHeader('Accept-Ranges', 'bytes');
+
+  if (result.status === 416) {
+    if (result.totalLength !== undefined) res.setHeader('Content-Range', unsatisfiableRangeHeader(result.totalLength));
+    res.setHeader('Content-Length', '0');
+    res.end();
+    return;
+  }
+  if (result.status === 206 && result.range && result.totalLength !== undefined) {
+    res.setHeader('Content-Range', contentRangeHeader(result.range.start, result.range.end, result.totalLength));
+  }
   if (result.contentLength !== undefined) {
     res.setHeader('Content-Length', String(result.contentLength));
   }
 
   result.stream.on('error', () => {
     if (!res.headersSent) res.status(HttpStatus.BAD_GATEWAY);
-    res.end();
+    // A failure after the first byte cannot change the status: end the response
+    // short, so the client sees a truncated body rather than a false success.
+    res.destroy();
   });
 
   result.stream.pipe(res);

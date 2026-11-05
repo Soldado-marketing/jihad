@@ -19,6 +19,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import type { Readable } from 'node:stream';
+import { parseStoredContentRange } from './byte-range';
 import { assertSafeObjectKey } from './object-key';
 import {
   StorageConfig,
@@ -39,7 +40,16 @@ export interface PutObjectInput {
 export interface ObjectStream {
   stream: Readable;
   contentType: string;
+  /** Length of the bytes in `stream` (the slice, for a ranged read). */
   contentLength?: number;
+  /** Present for a ranged read: the slice served and the object's full size. */
+  contentRange?: { start: number; end: number; size: number };
+}
+
+/** Inclusive byte window to read instead of the whole object. */
+export interface ObjectByteRange {
+  start: number;
+  end: number;
 }
 
 @Injectable()
@@ -128,13 +138,27 @@ export class StorageService {
     this.logger.log(`object_stored bytes=${input.body.length}`);
   }
 
-  /** Opens a read stream for an object. The stream is piped straight to the response. */
-  async getObjectStream(key: string): Promise<ObjectStream> {
+  /**
+   * Opens a read stream for an object. The stream is piped straight to the
+   * response. With `range`, only that inclusive window is read (S3 `Range`);
+   * the store's `Content-Range` is parsed and must describe exactly the window
+   * asked for, so a store that ignored the range cannot make the API label a
+   * full body as a slice.
+   */
+  async getObjectStream(key: string, range?: ObjectByteRange): Promise<ObjectStream> {
     assertSafeObjectKey(key);
     const config = this.getConfig();
 
+    if (range && (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end) || range.start < 0 || range.end < range.start)) {
+      throw new RangeError('Invalid object byte range');
+    }
+
     const result = await this.getClient().send(
-      new GetObjectCommand({ Bucket: config.bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: config.bucket,
+        Key: key,
+        ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}),
+      }),
     );
 
     if (!result.Body) {
@@ -144,8 +168,22 @@ export class StorageService {
       });
     }
 
+    let contentRange: ObjectStream['contentRange'];
+    if (range) {
+      const parsed = parseStoredContentRange(result.ContentRange);
+      if (!parsed || parsed.start !== range.start || parsed.end !== range.end) {
+        (result.Body as Readable).destroy();
+        throw new ServiceUnavailableException({
+          code: 'STORAGE_RANGE_NOT_HONOURED',
+          reason: 'Object storage did not return the requested byte range.',
+        });
+      }
+      contentRange = parsed;
+    }
+
     return {
       contentLength: result.ContentLength,
+      contentRange,
       contentType: result.ContentType ?? 'application/octet-stream',
       stream: result.Body as Readable,
     };

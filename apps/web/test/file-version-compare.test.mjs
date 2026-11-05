@@ -45,7 +45,9 @@ describe('file version comparison helpers', () => {
     assert.equal(previewKind('Brief.PDF'), 'pdf');
     assert.equal(previewKind('photo.JPEG'), 'image');
     assert.equal(previewKind('cover.webp'), 'image');
-    assert.equal(previewKind('clip.mp4'), 'metadata');
+    assert.equal(previewKind('clip.mp4'), 'video');
+    assert.equal(previewKind('clip.MOV'), 'video');
+    assert.equal(previewKind('archive.zip'), 'metadata');
     assert.equal(previewKind('deck.pptx'), 'metadata');
     assert.equal(previewKind(null), 'metadata');
   });

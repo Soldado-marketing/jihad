@@ -1,3 +1,4 @@
+import { Transform, type TransformCallback } from 'node:stream';
 import { inflateSync, constants as zlibConstants } from 'node:zlib';
 
 /**
@@ -267,6 +268,220 @@ function neutraliseMp4(buf: Buffer): ClientCopy {
   if (buf.toString('latin1', 4, 8) === 'ftyp' || ['moov', 'wide', 'mdat', 'free'].includes(buf.toString('latin1', 4, 8))) walk(0, buf.length, 0);
   else return block('Not a valid MP4/MOV video.');
   return serve(out, [...removed]);
+}
+
+
+/**
+ * Streaming form of neutraliseMp4 (C05): the same bytes out as the buffered
+ * version, produced while the object flows from storage, with memory bounded
+ * by one box header rather than by the file. Needed because a client video is
+ * served through the API and a 100 MiB delivery buffered three times over
+ * (chunks, concat, copy) was measured at ~250 MiB per request.
+ *
+ * The walk is forward-only: a `udta`, `meta` or XMP `uuid` header is rewritten
+ * to `free` as it passes and its body is replaced by zeros of the same length;
+ * containers are descended; everything else passes through unchanged. Box
+ * sizes never change, so sample offsets stay valid.
+ *
+ * `window` keeps only the inclusive byte range [start, end] of the output
+ * (ranged downloads of the client copy). Once the window is complete the
+ * stream ends and `satisfied` is emitted so the caller can stop reading from
+ * storage. Later input is discarded.
+ *
+ * Errors (`Mp4StructureError`) are raised for a box that overruns its
+ * container or an unrecognised first box; the first-box check is the same the
+ * buffered version makes before serving anything.
+ */
+export class Mp4StructureError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'Mp4StructureError';
+  }
+}
+
+export interface Mp4ClientCopyOptions {
+  /** Size of the stored object: needed to resolve `size = 0` boxes at top level. */
+  totalBytes: number;
+  /** Inclusive output window; omit to emit everything. */
+  window?: { start: number; end: number };
+  /** When false, nothing is pushed: the stream only validates and records removals. */
+  emit?: boolean;
+}
+
+const MAX_HEADER = 32; // 16-byte large header + 16-byte uuid
+
+export class Mp4ClientCopyStream extends Transform {
+  /** Metadata box types that were blanked, as neutraliseMp4 reports them. */
+  readonly removed = new Set<string>();
+
+  private pos = 0;
+  private readonly stack: number[]; // container end offsets; [0] is the file end
+  private mode: 'header' | 'pass' | 'zero' = 'header';
+  private remaining = 0;
+  private header: Buffer = Buffer.alloc(0);
+  private need = 8;
+  private done = false;
+  private outPos = 0;
+  private readonly emitBytes: boolean;
+  private readonly window?: { start: number; end: number };
+
+  constructor(options: Mp4ClientCopyOptions) {
+    super();
+    if (!Number.isSafeInteger(options.totalBytes) || options.totalBytes < 0) {
+      throw new RangeError('totalBytes must be a non-negative integer');
+    }
+    this.stack = [options.totalBytes];
+    this.emitBytes = options.emit !== false;
+    this.window = options.window;
+  }
+
+  /** Emits `bytes` (or that many zeros) respecting the output window. */
+  private out(bytes: Buffer | null, length: number): void {
+    const start = this.outPos;
+    this.outPos += length;
+    if (!this.emitBytes || this.done || length === 0) return;
+    let from = 0;
+    let to = length;
+    if (this.window) {
+      from = Math.max(0, this.window.start - start);
+      to = Math.min(length, this.window.end + 1 - start);
+      if (to <= from) {
+        if (start > this.window.end) this.finishWindow();
+        return;
+      }
+    }
+    this.push(bytes ? bytes.subarray(from, to) : Buffer.alloc(to - from));
+    if (this.window && this.outPos > this.window.end) this.finishWindow();
+  }
+
+  private finishWindow(): void {
+    if (this.done) return;
+    this.done = true;
+    this.push(null);
+    super.emit('satisfied');
+  }
+
+  private popContainers(): void {
+    while (this.stack.length > 1 && this.pos >= this.stack[this.stack.length - 1]) this.stack.pop();
+  }
+
+  _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    try {
+      this.consume(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      callback();
+    } catch (error) {
+      callback(error as Error);
+    }
+  }
+
+  _flush(callback: TransformCallback): void {
+    // Fewer than 8 trailing bytes at the end of the file pass through untouched,
+    // exactly as the buffered walk leaves them.
+    if (this.header.length > 0 && this.header.length < 8) {
+      const tail = this.header;
+      this.header = Buffer.alloc(0);
+      this.out(tail, tail.length);
+    }
+    callback();
+  }
+
+  private consume(chunk: Buffer): void {
+    let i = 0;
+    while (i < chunk.length) {
+      if (this.done) return; // window complete: the rest is discarded
+      if (this.mode !== 'header') {
+        const n = Math.min(this.remaining, chunk.length - i);
+        this.out(this.mode === 'pass' ? chunk.subarray(i, i + n) : null, n);
+        i += n;
+        this.pos += n;
+        this.remaining -= n;
+        if (this.remaining === 0) {
+          this.mode = 'header';
+          this.popContainers();
+        }
+        continue;
+      }
+
+      const end = this.stack[this.stack.length - 1];
+      if (end - this.pos < 8) {
+        // Trailing bytes of this container (or file) too short for a box header.
+        this.remaining = end - this.pos;
+        if (this.remaining === 0) {
+          if (this.stack.length === 1) {
+            // Past the declared file end: pass whatever else arrives through.
+            this.out(chunk.subarray(i), chunk.length - i);
+            this.pos += chunk.length - i;
+            return;
+          }
+          this.popContainers();
+          continue;
+        }
+        this.mode = 'pass';
+        continue;
+      }
+
+      const take = Math.min(this.need - this.header.length, chunk.length - i);
+      this.header = this.header.length === 0 ? Buffer.from(chunk.subarray(i, i + take)) : Buffer.concat([this.header, chunk.subarray(i, i + take)]);
+      i += take;
+      if (this.header.length < this.need) continue;
+
+      let size = this.header.readUInt32BE(0);
+      let headerLength = 8;
+      if (size === 1) {
+        if (this.header.length < 16) { this.need = 16; continue; }
+        const big = this.header.readBigUInt64BE(8);
+        if (big > BigInt(Number.MAX_SAFE_INTEGER)) throw new Mp4StructureError('mp4 box too large');
+        size = Number(big);
+        headerLength = 16;
+      } else if (size === 0) {
+        size = end - this.pos;
+      }
+      const type = this.header.toString('latin1', 4, 8);
+      if (this.pos === 0 && !(type === 'ftyp' || ['moov', 'wide', 'mdat', 'free'].includes(type))) {
+        throw new Mp4StructureError('Not a valid MP4/MOV video.');
+      }
+      let isXmp = false;
+      if (type === 'uuid') {
+        if (this.header.length < headerLength + 16) { this.need = headerLength + 16; continue; }
+        isXmp = this.header.subarray(headerLength, headerLength + 16).toString('hex') === XMP_UUID;
+      }
+      if (size < headerLength || this.pos + size > end) throw new Mp4StructureError('mp4 box overruns');
+
+      const header = this.header;
+      this.header = Buffer.alloc(0);
+      this.need = 8;
+      if (type === 'udta' || type === 'meta' || isXmp) {
+        const renamed = Buffer.from(header.subarray(0, headerLength));
+        renamed.write('free', 4, 'latin1');
+        this.out(renamed, headerLength);
+        this.out(null, header.length - headerLength); // uuid bytes already read: blanked too
+        this.removed.add(isXmp ? 'XMP' : type);
+        this.pos += header.length;
+        this.remaining = size - header.length;
+        this.mode = 'zero';
+      } else if (MP4_CONTAINERS.has(type) && this.stack.length - 1 < 8) {
+        this.out(header, header.length);
+        const boxEnd = this.pos + size;
+        this.pos += header.length;
+        this.stack.push(boxEnd);
+        this.remaining = 0;
+      } else {
+        this.out(header, header.length);
+        this.pos += header.length;
+        this.remaining = size - header.length;
+        this.mode = 'pass';
+      }
+      if (this.mode !== 'header' && this.remaining === 0) {
+        this.mode = 'header';
+        this.popContainers();
+      }
+    }
+  }
+}
+
+/** Convenience constructor mirroring the other helpers. */
+export function mp4ClientCopyStream(options: Mp4ClientCopyOptions): Mp4ClientCopyStream {
+  return new Mp4ClientCopyStream(options);
 }
 
 // ── Shared link (.url) ───────────────────────────────────────────────────────

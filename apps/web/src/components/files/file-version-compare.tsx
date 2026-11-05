@@ -39,10 +39,18 @@ export function FileVersionCompare({
   }, [initial, options, olderId, newerId]);
 
   if (options.length < 2) {
+    // One openable version: show it in the page (image, PDF or video, C05) so
+    // the file can be checked without a second upload; nothing to compare yet.
+    const only = options[0] ?? null;
     return (
       <section aria-labelledby="compare-title" className="rounded-2xl border border-line bg-white p-6 shadow-lift">
-        <h3 id="compare-title" className="text-lg font-semibold text-ink">Compare versions</h3>
+        <h3 id="compare-title" className="text-lg font-semibold text-ink">{only ? 'Current version' : 'Compare versions'}</h3>
         <p className="mt-2 text-sm text-slate-600">Upload a second version to see the two side by side.</p>
+        {only && (
+          <div className="mt-4">
+            <VersionPane label="Current" fileAssetId={fileAssetId} options={options} selectedId={only.id} onSelect={() => undefined} version={only} />
+          </div>
+        )}
       </section>
     );
   }
@@ -57,7 +65,7 @@ export function FileVersionCompare({
         <div>
           <h3 id="compare-title" className="text-lg font-semibold text-ink">Compare versions</h3>
           <p className="mt-1 text-sm text-slate-600">
-            Pick two versions. Images and PDFs show side by side; other files are compared by their details.
+            Pick two versions. Images, PDFs and videos show side by side; other files are compared by their details.
           </p>
         </div>
         <button
@@ -120,8 +128,8 @@ function VersionPane({
   const [error, setError] = useState<string | null>(null);
   const selectId = `compare-${label.toLowerCase()}`;
 
-  // Load the bytes for images and PDFs only; revoke the object URL when the
-  // version changes or the pane goes away.
+  // Load the bytes for images, PDFs and videos only; revoke the object URL when
+  // the version changes or the pane goes away.
   useEffect(() => {
     setPreview(null);
     setError(null);
@@ -189,6 +197,9 @@ function VersionPane({
               : <p className="text-sm text-slate-500">Loading preview…</p>)}
             {!error && kind === 'pdf' && (preview
               ? <iframe src={preview.url} title={`Version ${version.versionNumber}`} className="h-[60vh] w-full rounded-lg border border-line" />
+              : <p className="text-sm text-slate-500">Loading preview…</p>)}
+            {!error && kind === 'video' && (preview
+              ? <video src={preview.url} controls playsInline preload="metadata" aria-label={`Version ${version.versionNumber} video`} className="max-h-[60vh] w-full rounded-lg border border-line bg-black" />
               : <p className="text-sm text-slate-500">Loading preview…</p>)}
             {kind === 'metadata' && (
               <p className="text-sm text-slate-600">This file type cannot be shown in the page, so its details are compared instead.</p>

@@ -36,16 +36,17 @@ export function defaultComparePair(
 }
 
 /**
- * How one version is shown. The API serves only images and PDFs inline
- * (everything else is attachment-only), so those two render in the page and
+ * How one version is shown. The API serves images, PDFs and MP4/MOV video
+ * inline (everything else is attachment-only), so those render in the page and
  * every other type is compared by its details.
  */
-export type PreviewKind = 'image' | 'pdf' | 'metadata';
+export type PreviewKind = 'image' | 'pdf' | 'video' | 'metadata';
 
 export function previewKind(originalName: string | null | undefined): PreviewKind {
   const name = originalName ?? '';
   if (/\.(png|jpe?g|gif|webp)$/i.test(name)) return 'image';
   if (/\.pdf$/i.test(name)) return 'pdf';
+  if (/\.(mp4|mov)$/i.test(name)) return 'video';
   return 'metadata';
 }
 
