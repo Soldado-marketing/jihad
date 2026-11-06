@@ -53,6 +53,8 @@ Filled from the final local run and the CI run on the final head.
 | Local API integration batch (portal, isolation, deliveries, complaints, foreign ids, authz, contractor scope) | 160/160 |
 | Local e2e, desktop + mobile (production web build, API dist, S3 stub, disposable PostgreSQL 16) | 90/90 (49.5 s), incl. `09-upload` 4 × 2 viewports, `02-owner` upload, `08-video` |
 | Typecheck | web `tsc --noEmit` clean; API build clean |
+| CI on code head `8622b02` | five jobs SUCCESS; `api` FAILURE in one case: `video-large-files` row 1 still pinned the old byte-count sentence ("maximum size of 26214400 bytes"); assertion updated to the new sentence (the code `FILE_TOO_LARGE` was asserted all along). Local rerun of that suite: the size case passes |
+| Observation outside this task | `video-large-files` "100 MiB client download is streamed" measured 56–72 MiB peak ArrayBuffer growth on the developer Mac today (threshold 48 MiB; 38 MiB during C05; green in CI on `8622b02`). C06 does not touch the download path; the measurement depends on garbage-collection timing. Follow-up for the C05 test: force a collection before sampling or widen the margin — recorded in PROGRESS, not fixed here |
 
 ## Scope notes
 

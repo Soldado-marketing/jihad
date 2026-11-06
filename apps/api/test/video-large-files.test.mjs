@@ -192,7 +192,7 @@ describe('C05 - upload limits for video', { skip }, () => {
     const refused = await upload(p.ownerToken, rec.small.assetId, over.file, 'too-big.mp4');
     assert.equal(refused.status, 400, JSON.stringify(refused.body));
     assert.equal(refused.body.code ?? refused.body.error?.code, 'FILE_TOO_LARGE');
-    assert.match(JSON.stringify(refused.body), /maximum size of 26214400 bytes/);
+    assert.match(JSON.stringify(refused.body), /This file is 25\.0 MiB; the upload limit is 25 MiB\./); // C06: sizes people read, no byte count
   });
 
   it('a fake .mp4 (wrong bytes) is still refused; MOV is accepted as video/quicktime', async () => {
