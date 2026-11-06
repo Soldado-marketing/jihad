@@ -95,7 +95,7 @@ describe('what people read', () => {
     assert.doesNotMatch(src, /HTTP \$\{/);
     assert.doesNotMatch(src, /body\.reason \?\? body\.message/);
     assert.equal((src.match(/throw new Error\(NETWORK_MESSAGE\)/g) ?? []).length, 2, 'fetch and blob network failures');
-    assert.match(src, /reject\(new Error\(NETWORK_MESSAGE\)\)/, 'upload network failure');
+    assert.match(src, /reject\(new UploadNetworkError\(NETWORK_MESSAGE\)\)/, 'upload network failure (typed, C06, same sentence)');
     assert.match(src, /export \{ FORBIDDEN_MESSAGE, NETWORK_MESSAGE, SESSION_EXPIRED_MESSAGE \} from '\.\/api-errors';/);
   });
 

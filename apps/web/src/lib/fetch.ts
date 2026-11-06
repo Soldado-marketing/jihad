@@ -19,6 +19,7 @@ import {
 import { apiBase } from './api';
 
 import { apiErrorMessage, NETWORK_MESSAGE, SESSION_EXPIRED_MESSAGE } from './api-errors';
+import { UploadCancelledError, UploadFailedError, UploadNetworkError } from './upload-state';
 
 // Every message a page shows after a failed request comes from api-errors (MAOS F02).
 export { FORBIDDEN_MESSAGE, NETWORK_MESSAGE, SESSION_EXPIRED_MESSAGE } from './api-errors';
@@ -131,14 +132,20 @@ export async function apiFetch<T = unknown>(
 export interface UploadOptions {
   /** 0-100, fired as the request body is written. */
   onProgress?: (percent: number) => void;
+  /** Fired once the whole body has been written; the server is now validating and storing it. */
+  onSent?: () => void;
+  /** Aborting it cancels the request; the promise rejects with UploadCancelledError. */
+  signal?: AbortSignal;
   method?: 'POST' | 'PATCH' | 'PUT';
 }
 
 /**
- * Multipart upload with progress.
+ * Multipart upload with progress and cancel (plan rows F02, C06).
  *
  * XMLHttpRequest rather than fetch: fetch still has no upload progress event,
  * and an upload with no feedback is the thing users report as "it froze".
+ * Rejections are typed (upload-state.ts) so the uploader can tell a lost
+ * connection, which is worth a retry, from a refusal, which is not.
  */
 export function apiUpload<T = unknown>(
   path: string,
@@ -147,23 +154,36 @@ export function apiUpload<T = unknown>(
 ): Promise<T> {
   const send = (token: string | null): Promise<{ status: number; body: string }> =>
     new Promise((resolve, reject) => {
+      if (options.signal?.aborted) {
+        reject(new UploadCancelledError());
+        return;
+      }
       const xhr = new XMLHttpRequest();
       xhr.open(options.method ?? 'POST', `${apiBase()}${path}`);
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       // Content-Type is deliberately NOT set: the browser must supply the
       // multipart boundary itself.
 
-      if (options.onProgress) {
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            options.onProgress?.(Math.round((event.loaded / event.total) * 100));
-          }
-        };
-      }
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          options.onProgress?.(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+      xhr.upload.onload = () => {
+        options.onProgress?.(100);
+        options.onSent?.();
+      };
 
-      xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
-      xhr.onerror = () => reject(new Error(NETWORK_MESSAGE));
-      xhr.onabort = () => reject(new Error('Upload cancelled.'));
+      const onAbortSignal = () => xhr.abort();
+      options.signal?.addEventListener('abort', onAbortSignal, { once: true });
+      const settle = <R>(fn: (value: R) => void) => (value: R) => {
+        options.signal?.removeEventListener('abort', onAbortSignal);
+        fn(value);
+      };
+
+      xhr.onload = settle(() => resolve({ status: xhr.status, body: xhr.responseText }));
+      xhr.onerror = settle(() => reject(new UploadNetworkError(NETWORK_MESSAGE)));
+      xhr.onabort = settle(() => reject(new UploadCancelledError()));
       xhr.send(formData);
     });
 
@@ -183,7 +203,7 @@ export function apiUpload<T = unknown>(
     } catch {
       parsed = undefined;
     }
-    return new Error(apiErrorMessage(status, parsed));
+    return new UploadFailedError(status, apiErrorMessage(status, parsed));
   };
 
   return (async () => {
@@ -201,7 +221,7 @@ export function apiUpload<T = unknown>(
           window.location.assign('/auth/login');
         }
       }
-      throw new Error(SESSION_EXPIRED_MESSAGE);
+      throw new UploadFailedError(401, SESSION_EXPIRED_MESSAGE);
     }
 
     if (res.status < 200 || res.status >= 300) throw failure(res.status, res.body);

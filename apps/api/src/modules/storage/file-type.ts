@@ -151,8 +151,10 @@ export function validateUpload(input: ValidateUploadInput): ValidatedUpload {
     throw new UnsupportedFileTypeError('Uploaded file is empty.');
   }
   if (buffer.length > maxBytes) {
+    // A sentence for the person who chose the file (shown as-is by the web app),
+    // with sizes they can read; the code FILE_TOO_LARGE stays on the response.
     throw new FileTooLargeError(
-      `Uploaded file exceeds the maximum size of ${maxBytes} bytes.`,
+      `This file is ${describeSize(buffer.length)}; the upload limit is ${describeSize(maxBytes)}.`,
     );
   }
 
@@ -219,4 +221,12 @@ export function resolveDisposition(
 export function contentDispositionFilename(name: string): string {
   const ascii = name.replace(/["\\]/g, '').replace(/[^\x20-\x7e]/g, '_');
   return ascii === '' ? 'file' : ascii;
+}
+
+/** "25 MiB", "3.2 MiB", "512.0 KiB" or "900 bytes" for size sentences shown to people. */
+export function describeSize(bytes: number): string {
+  const mib = bytes / (1024 * 1024);
+  if (mib >= 1) return Number.isInteger(mib) ? `${mib} MiB` : `${mib.toFixed(1)} MiB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${bytes} bytes`;
 }
