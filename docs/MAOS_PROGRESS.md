@@ -465,6 +465,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - Rollback if needed: Railway redeploy API `133b6238`-previous SUCCESS (`a6e7127c`) / web `26e59add`, or `git revert -m 1 d4a2a90` on main (no migration involved).
 - **C05 status: DEPLOYED — production verification pending.** Not DONE.
 
+## 2026-11-05 — C05 verified on production and closed DONE
+
+- Owner allowed the fictional seed in chat ("Allow seed, verify"). Through the private tunnel: two fictional companies (`c05-…`, `c05b-…`), OWNER/MANAGER/EMPLOYEE/two CLIENTs + the other company's OWNER (`@c05.fiktiv.test`, random passwords in a mode-600 file, never printed). The browser suite's existing-environment mode built the project, board, tasks, appointment, invoice, four PNG deliveries and the 22 KB H.264 clip through the production API.
+- Playwright `08-video` against the production web + API: **8/8** (desktop + Pixel 7, 1.1 min): staff plays the video inline on the file page and downloads identical bytes; `bytes=0-1` → 206 with `Content-Range` and `Accept-Ranges`; client watches the delivered video in the portal and downloads the prepared copy (same length, `udta` → `free` + zeros, titled `… v1.mp4`); second client 403 with and without `Range`, delivery 404.
+- HTTP probe, **33/33**: staff 200 (`Accept-Ranges`, exact length, identical sha256, `video/mp4`), ranges `0-1` / over the `udta` header / open-ended tail → 206 with exact bytes, malformed and multi-range → 200, `bytes=N-` → 416 `bytes */N`; client prepared copy (media bytes identical, metadata box blanked), `Content-Disposition` with the title, client ranges served from the prepared copy, 416; second client 403/403/404; EMPLOYEE 403 on the client route and 206 on the staff route; anonymous 401; other company's OWNER 404. API logs: no error lines during the run.
+- Cleanup: 5 files deleted through the API (no storage key left behind), then the two tenants and six users under the slug/domain guards, 50 audit + 12 login-history rows; every count equals the seed-time baseline (1 tenant / 4 users / 0 customers / 2 projects / 0 tasks / 1 invoice / 2 files / 1 approval); no leftovers. Disposable docker `maos-c05-pg` removed.
+- Acceptance record closed: row 20 PASS, run record extended — docs-only PR #157 from `docs/c05-closure` (nothing to deploy). **C05 DONE** — every row of `docs/MAOS_C05_ACCEPTANCE.md` PASS incl. production verification. Open outside the task: O6 (production stays at 25 MiB; 100 MiB verified on the isolated stack only), O51, O52, O22. Next task in order: C06, checklist first.
+- Note for future releases: the session's auto-mode permission layer refuses the Prisma seed write to production until the owner allows it in chat; asked once, not retried silently.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
