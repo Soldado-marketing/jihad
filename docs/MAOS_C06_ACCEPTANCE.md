@@ -2,6 +2,8 @@
 
 **Task (master task list, row C06):** Upload progress, cancel and error recovery in the browser. Notes: `apiUpload` already uses XHR progress; verify the UI shows progress, cancels, retries after a network error; add tests. Acceptance: progress bar, cancel, clear error and retry verified on the isolated stack.
 
+**Closure status (2026-11-05, PR #158 `97cde1f`):** rows 1–17 PASS (CI: all six jobs green on `97cde1f`, run record below). Row 18 — merge, deployment and production verification — needs the owner (O56). Task status: **BLOCKED — OWNER**, not DONE. Found and fixed on the way: no cancel path, no named retry, one wording for every failure, a byte-count size sentence, and the duplicate-version hazard on a retry after a lost response.
+
 Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, one task at a time, independent comparison before closure; functional tests, never page-load checks). Status values: PASS (test or measurement named, green locally and in CI) · OPEN · BLOCKED — OWNER.
 
 ## Audit before coding (2026-11-05, main `14d950a`)
@@ -38,7 +40,7 @@ Written before implementation (owner's rules of 2026-11-04: checklist from the o
 | 14 | Tests run in CI: new web unit test in the `web` job (`node --test test/*.test.mjs`), `09-upload` in `e2e-smoke` (desktop + mobile), API unit test in the `api` batch | `.github/workflows/ci.yml` (new files are picked up by the globs) | — | PASS (`test/upload-state.test.mjs` matches the `web` job glob; `test/file-formats-matrix.test.mjs` is already in the `api` unit batch; `e2e/09-upload.spec.ts` runs in `e2e-smoke` under both projects — no workflow change needed) |
 | 15 | Graphify: dependents of `apiUpload`, `FileUploader` and `validateUpload` reviewed after the change; `graphify update .` run | audit table above + post-change query | — | PASS (`graphify update .` after the change; `apiUpload` ← `file-uploader.tsx` only; `validateUpload` ← `FileVersionsService.upload` only; no other code relied on the old size sentence — grep over `src` and `test`) |
 | 16 | Security: cancel and retry call the same guarded endpoint with the same bearer token; nothing new is stored in the browser; no storage key or URL reaches the page; error sentences name no internals (`isPlainMessage`) | code review + existing F02 test | — | PASS (same endpoint, same bearer token for cancel/retry; the only new browser state is React state; `upload-state.ts` has no storage/URL concern — pinned by the wiring test (`storageKey|signedUrl|presigned` absent); every sentence passes `isPlainMessage` — unit test) |
-| 17 | CI fully green on the final head; PR with this matrix; planning files, panel and checkpoint updated | PR checks, `docs/master-plan` | — | OPEN |
+| 17 | CI fully green on the final head; PR with this matrix; planning files, panel and checkpoint updated | PR checks, `docs/master-plan` | — | PASS (CI run 42232847253 on `97cde1f`: Secret scan 8 s, API 4m07s (incl. `file-formats-matrix` size case and `video-large-files`), Isolation gate 58 s, Web 1m18s, Browser smoke 3m39s (90 tests, desktop + mobile, incl. `09-upload`), Dependency audit 12 s — all SUCCESS; PR #158 carries this matrix; planning files updated on `docs/master-plan`) |
 | 18 | Merge, deploy (web; API if row 8 changes it) and production verification when authorised: upload a small file as a fictional OWNER with progress visible, cancel one upload, retry one after a simulated loss (browser offline toggle), remove the data | release record | — | BLOCKED — OWNER (requested only after rows 1–17 are PASS) |
 
 ## Run record
@@ -53,6 +55,7 @@ Filled from the final local run and the CI run on the final head.
 | Local API integration batch (portal, isolation, deliveries, complaints, foreign ids, authz, contractor scope) | 160/160 |
 | Local e2e, desktop + mobile (production web build, API dist, S3 stub, disposable PostgreSQL 16) | 90/90 (49.5 s), incl. `09-upload` 4 × 2 viewports, `02-owner` upload, `08-video` |
 | Typecheck | web `tsc --noEmit` clean; API build clean |
+| CI on head `97cde1f` (final) | all six jobs SUCCESS: `secrets` 8 s, `api` 4m07s, `isolation-gate` 58 s, `web` 1m18s, `e2e-smoke` 3m39s (90 tests), `audit` 12 s. This closure commit changes only this file |
 | CI on code head `8622b02` | five jobs SUCCESS; `api` FAILURE in one case: `video-large-files` row 1 still pinned the old byte-count sentence ("maximum size of 26214400 bytes"); assertion updated to the new sentence (the code `FILE_TOO_LARGE` was asserted all along). Local rerun of that suite: the size case passes |
 | Observation outside this task | `video-large-files` "100 MiB client download is streamed" measured 56–72 MiB peak ArrayBuffer growth on the developer Mac today (threshold 48 MiB; 38 MiB during C05; green in CI on `8622b02`). C06 does not touch the download path; the measurement depends on garbage-collection timing. Follow-up for the C05 test: force a collection before sampling or widen the margin — recorded in PROGRESS, not fixed here |
 
