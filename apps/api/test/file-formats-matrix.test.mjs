@@ -146,3 +146,22 @@ describe('C03 — refused families', () => {
     assert.throws(() => validateUpload({ originalName: 'a.pdf', buffer: Buffer.alloc(0), maxBytes: 10 }), UnsupportedFileTypeError);
   });
 });
+
+describe('C06 — the size refusal is a sentence people can read', () => {
+  const { describeSize } = require(join(apiRoot, 'dist/modules/storage/file-type.js'));
+
+  it('names both sizes in MiB/KiB and keeps the FILE_TOO_LARGE class', () => {
+    const limit = 25 * 1024 * 1024;
+    const buffer = Buffer.alloc(limit + 1, 0x89);
+    assert.throws(
+      () => validateUpload({ originalName: 'big.png', buffer, maxBytes: limit }),
+      (err) => err instanceof FileTooLargeError && /^This file is 25\.0 MiB; the upload limit is 25 MiB\.$/.test(err.message),
+    );
+    assert.equal(describeSize(limit), '25 MiB');
+    assert.equal(describeSize(3.25 * 1024 * 1024), '3.3 MiB');
+    assert.equal(describeSize(512 * 1024), '512.0 KiB');
+    assert.equal(describeSize(900), '900 bytes');
+    // No byte counts, no internals: the web app shows this sentence as-is.
+    assert.doesNotMatch(describeSize(limit + 1), /\d{7,}/);
+  });
+});
