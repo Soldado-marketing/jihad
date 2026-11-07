@@ -46,6 +46,40 @@ Written before implementation (owner's rules of 2026-11-04: checklist from the o
 | 17 | CI fully green on the final head; PR with this matrix | PR checks | PR | PASS (CI run 42384883556 on code head `0d110b2`: Secret scan 7 s, Dependency audit 11 s, Isolation gate 1m15s, Web 1m14s, Browser smoke 2m46s, API 3m34s — all SUCCESS; PR #160 carries this matrix; this record commit changes only this file, the PR checks show the rerun on the newest head) |
 | 18 | Merge, deploy (API only, no migration) and production verification when authorised: the first round runs shortly after the deploy; its structured log line (`scheduled_job_succeeded job=storage-reconcile`) and `/health/ops` as a fictional OWNER show the counts — expected 0 orphans, 0 dangling on today's production (B05: 0 objects; C05/C06 fictional data removed) and therefore no notice; then remove the fictional data | release record | — | BLOCKED — OWNER (requested only after rows 1–17 are PASS) |
 
+## Release plan for O57 (owner's requirements of 2026-11-07)
+
+Ops company for notices: `MAOS_OPS_TENANT_SLUG=soldado-services` (set on Railway `jihad` on 2026-11-07 without a deploy; effective with this release). The slug was read by the owner from the production web app's Settings → Workspace field, not from the database.
+
+### Acceptance criteria for the release
+
+| # | Criterion | Evidence | Result |
+|---|---|---|---|
+| R1 | The six CI jobs succeed on the last commit of PR #160 | CI run on the final head | — |
+| R2 | Fresh backup through the private tunnel (sha256 verified) and isolated restore rehearsal succeed | `nightly-backup.sh`, `restore-rehearsal.sh` | — |
+| R3 | API deployment succeeds; the web service is not redeployed | Railway deployment list for `jihad` and `maos-web` | — |
+| R4 | `storage-reconcile` runs its first round within 10 minutes of boot and produces a correct report (counts consistent with the listing and the rows; no assumption that orphans are zero) | API structured log lines `scheduler_started`, `storage_reconcile`, `scheduled_job_succeeded`; `/health/ops.storageReconcile` | — |
+| R5 | No file or row is deleted or modified by the check (the job is read-only; verification data is fictional and removed afterwards; counts return to the seed-time baseline) | job source + tests; cleanup baseline comparison | — |
+| R6 | Notices reach the OWNERs of `soldado-services` only | ops company = configured slug; a fictional OWNER of another company receives nothing; if the report needs a review the owner confirms the notice in their inbox | — |
+| R7 | C07 closes only when R1–R6 and matrix rows 1–18 hold | this record | — |
+
+### Failure and rollback
+
+1. On a failed deployment or a failed health check: identify the failing service (Railway deployment status and build/deploy logs) and stop the release — no further step runs.
+2. Rollback when needed, after checking the plan: redeploy the last stable API deployment `566449f1` (code `ccbc3a1`; web `f7a405b5` is untouched by this release), or `git revert -m 1 <merge commit>` on main. No migration is involved, so no database step is part of the rollback.
+3. Verify the API is back: `/api/health` and `/api/health/ready` 200, protected routes 401, the scheduler's `scheduler_started` line present.
+4. Record the error and the rollback result in this run record; C07 stays open until the cause is fixed and verified.
+
+### Post-deployment verification
+
+1. Railway: `jihad` deployment SUCCESS on the merge commit; `maos-web` unchanged.
+2. Health checks and logs: `/api/health`, `/api/health/ready` 200; structured log shows `scheduler_started` with `storage-reconcile@86400000ms+first600000ms`; no `scheduled_job_failed`.
+3. First round within the deadline: `scheduled_job_succeeded job=storage-reconcile` within 10 minutes of the boot line, with the `storage_reconcile` count line.
+4. `/health/ops`: 401 anonymous; 200 for a fictional OWNER with `storageReconcile` populated (`at` after the deploy), counts only, no key.
+5. Report accuracy: the counts reported are compared with what is known — fictional data seeded for the check (one uploaded version = one matched object) and the pre-existing baseline; orphans and dangling rows are reported as found, not assumed zero; if any are found they are left in place (O38) and their numbers go to the owner.
+6. Notice routing: ops company is `soldado-services`; the fictional OWNER of another company has no ops notice; when `needsReview` is true the owner confirms the notice in the `soldado-services` inbox.
+7. Cleanup: fictional companies, people and files removed; every count equals the seed-time baseline; no leftovers.
+8. Evidence and results recorded in this file (row 18, run record, R1–R7).
+
 ## Run record
 
 Filled from the final local run and the CI run on the code head.
