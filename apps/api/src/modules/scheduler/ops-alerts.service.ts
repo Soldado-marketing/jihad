@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { MembershipRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import type { StorageReconciliation } from '../storage/storage-reconcile';
 
 export interface StorageCheck {
   at: string;
@@ -32,6 +33,7 @@ export interface WatchdogFinding {
 @Injectable()
 export class OpsAlertsService {
   lastStorageCheck: StorageCheck | null = null;
+  lastStorageReconcile: StorageReconciliation | null = null;
   lastWatchdogAt: string | null = null;
   lastFindings: WatchdogFinding[] = [];
 

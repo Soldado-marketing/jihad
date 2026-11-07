@@ -12,6 +12,12 @@ export interface ScheduledJob {
   readonly everyMs: number;
   /** Unique per job: the second key of the Postgres advisory lock. */
   readonly lockKey: number;
+  /**
+   * Delay before the first round after boot. Without it a job first runs after
+   * a whole interval — a daily job on a service redeployed daily would never
+   * run. Later rounds follow `everyMs` as for every other job.
+   */
+  readonly firstRunAfterMs?: number;
   run(tx: Prisma.TransactionClient): Promise<number>;
 }
 

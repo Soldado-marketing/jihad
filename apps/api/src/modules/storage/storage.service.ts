@@ -21,6 +21,7 @@ import {
 import type { Readable } from 'node:stream';
 import { parseStoredContentRange } from './byte-range';
 import { assertSafeObjectKey } from './object-key';
+import type { StoredObjectSummary } from './storage-reconcile';
 import {
   StorageConfig,
   isStorageConfigured,
@@ -189,16 +190,38 @@ export class StorageService {
     };
   }
 
-  /** True when the object exists. Used by health and integrity checks. */
   /**
    * Read-only inventory under the configured prefix: object count and total
    * bytes (B06 storage capacity alert). Pages through the bucket up to
    * `maxPages` × 1000 keys; `truncated` says whether the cap was reached.
    */
   async countObjects(maxPages = 200): Promise<{ objects: number; bytes: number; truncated: boolean }> {
-    const config = this.getConfig();
     let objects = 0;
     let bytes = 0;
+    const truncated = await this.walkObjects(maxPages, (item) => {
+      objects += 1;
+      bytes += item.size;
+    });
+    return { objects, bytes, truncated };
+  }
+
+  /**
+   * Read-only listing under the configured prefix (C07 reconciliation): key,
+   * size and last-modified of every object, in the store's key order. The
+   * result stays inside the API — it feeds a comparison with the database and
+   * is never serialised into a response or a notice.
+   */
+  async listObjects(maxPages = 200): Promise<{ objects: StoredObjectSummary[]; truncated: boolean }> {
+    const objects: StoredObjectSummary[] = [];
+    const truncated = await this.walkObjects(maxPages, (item) => {
+      objects.push(item);
+    });
+    return { objects, truncated };
+  }
+
+  /** Pages through ListObjectsV2 under the prefix; returns true when `maxPages` was reached before the end. */
+  private async walkObjects(maxPages: number, onItem: (item: StoredObjectSummary) => void): Promise<boolean> {
+    const config = this.getConfig();
     let token: string | undefined;
     for (let page = 0; page < maxPages; page += 1) {
       const out = await this.getClient().send(
@@ -209,15 +232,16 @@ export class StorageService {
         }),
       );
       for (const item of out.Contents ?? []) {
-        objects += 1;
-        bytes += item.Size ?? 0;
+        if (typeof item.Key !== 'string') continue;
+        onItem({ key: item.Key, size: item.Size ?? 0, lastModified: item.LastModified ?? null });
       }
-      if (!out.IsTruncated || !out.NextContinuationToken) return { objects, bytes, truncated: false };
+      if (!out.IsTruncated || !out.NextContinuationToken) return false;
       token = out.NextContinuationToken;
     }
-    return { objects, bytes, truncated: true };
+    return true;
   }
 
+  /** True when the object exists. Used by health and integrity checks. */
   async objectExists(key: string): Promise<boolean> {
     assertSafeObjectKey(key);
     const config = this.getConfig();
