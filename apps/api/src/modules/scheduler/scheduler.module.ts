@@ -9,6 +9,7 @@ import { AppointmentRemindersJob } from './jobs/appointment-reminders.job';
 import { ClientReviewRemindersJob } from './jobs/client-review-reminders.job';
 import { OpsWatchdogJob } from './jobs/ops-watchdog.job';
 import { StorageCapacityJob } from './jobs/storage-capacity.job';
+import { StorageReconcileJob } from './jobs/storage-reconcile.job';
 import { OpsAlertsService } from './ops-alerts.service';
 import { OpsController } from './ops.controller';
 import { SchedulerService } from './scheduler.service';
@@ -25,10 +26,11 @@ import { SCHEDULED_JOBS, ScheduledJob } from './scheduler.types';
     OpsAlertsService,
     OpsWatchdogJob,
     StorageCapacityJob,
+    StorageReconcileJob,
     {
       provide: SCHEDULED_JOBS,
       useFactory: (...jobs: ScheduledJob[]) => jobs,
-      inject: [InviteExpiryJob, DeadlineRemindersJob, AppointmentRemindersJob, ClientReviewRemindersJob, OpsWatchdogJob, StorageCapacityJob],
+      inject: [InviteExpiryJob, DeadlineRemindersJob, AppointmentRemindersJob, ClientReviewRemindersJob, OpsWatchdogJob, StorageCapacityJob, StorageReconcileJob],
     },
     SchedulerService,
   ],
