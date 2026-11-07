@@ -30,6 +30,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
   private readonly timers: NodeJS.Timeout[] = [];
   private readonly running = new Set<string>();
   private readonly statuses = new Map<string, JobStatus>();
+  private stopped = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -45,17 +46,43 @@ export class SchedulerService implements OnApplicationBootstrap, OnModuleDestroy
       logStructured('info', 'scheduler_disabled', { jobs: this.jobs.map((j) => j.name) });
       return;
     }
+    this.stopped = false;
     for (const job of this.jobs) {
-      const timer = setInterval(() => void this.runNow(job.name), job.everyMs);
-      // Never keep the process alive just for the scheduler.
-      timer.unref();
-      this.timers.push(timer);
+      if (job.firstRunAfterMs === undefined) {
+        this.startInterval(job);
+        continue;
+      }
+      // One early round, then the regular interval. The pending timeout counts
+      // as the job's timer until the interval replaces it.
+      const first = setTimeout(() => {
+        this.forget(first);
+        if (this.stopped) return;
+        void this.runNow(job.name);
+        this.startInterval(job);
+      }, job.firstRunAfterMs);
+      first.unref();
+      this.timers.push(first);
     }
-    logStructured('info', 'scheduler_started', { jobs: this.jobs.map((j) => `${j.name}@${j.everyMs}ms`) });
+    logStructured('info', 'scheduler_started', {
+      jobs: this.jobs.map((j) => `${j.name}@${j.everyMs}ms${j.firstRunAfterMs === undefined ? '' : `+first${j.firstRunAfterMs}ms`}`),
+    });
   }
 
   onModuleDestroy(): void {
+    this.stopped = true;
     for (const timer of this.timers.splice(0)) clearInterval(timer);
+  }
+
+  private startInterval(job: ScheduledJob): void {
+    const timer = setInterval(() => void this.runNow(job.name), job.everyMs);
+    // Never keep the process alive just for the scheduler.
+    timer.unref();
+    this.timers.push(timer);
+  }
+
+  private forget(timer: NodeJS.Timeout): void {
+    const index = this.timers.indexOf(timer);
+    if (index >= 0) this.timers.splice(index, 1);
   }
 
   /** Number of active interval timers (0 when disabled or stopped). */

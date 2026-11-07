@@ -105,7 +105,7 @@ describe('ops watchdog', { skip }, () => {
 
   it('is registered on the scheduler with the storage check', () => {
     const names = app.get(require(join(apiRoot, 'dist/modules/scheduler/scheduler.service.js')).SchedulerService).status().map((s) => s.name);
-    assert.ok(names.includes('ops-watchdog') && names.includes('storage-capacity'), names.join(','));
+    assert.ok(names.includes('ops-watchdog') && names.includes('storage-capacity') && names.includes('storage-reconcile'), names.join(','));
   });
 });
 

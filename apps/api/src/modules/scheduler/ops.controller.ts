@@ -9,7 +9,8 @@ import { SchedulerService, schedulerEnabled } from './scheduler.service';
 /**
  * B06 — operational status for the OWNER (same sensitive permission as the
  * audit log): scheduler on/off, every job's counters and last outcome, the
- * last storage inventory and the watchdog's findings. Status words and
+ * last storage inventory, the last store-versus-rows reconciliation (C07) and
+ * the watchdog's findings. Status words and
  * numbers only — never a key, a bucket name or a connection string.
  */
 @Controller('health/ops')
@@ -29,6 +30,7 @@ export class OpsController {
       activeTimers: this.scheduler.activeTimers,
       jobs: this.scheduler.status(),
       storage: this.ops.lastStorageCheck,
+      storageReconcile: this.ops.lastStorageReconcile,
       watchdog: { lastRunAt: this.ops.lastWatchdogAt, findings: this.ops.lastFindings },
     };
   }

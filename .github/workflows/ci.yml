@@ -90,6 +90,7 @@ jobs:
             test/runtime-hardening.test.mjs \
             test/no-store-cache.test.mjs \
             test/file-formats-matrix.test.mjs \
+            test/storage-reconcile.test.mjs \
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
@@ -214,6 +215,7 @@ jobs:
             test/deadline-reminders.test.mjs \
             test/client-review-reminders.test.mjs \
             test/ops-alerts.test.mjs \
+            test/storage-reconcile-job.test.mjs \
             test/video-large-files.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were

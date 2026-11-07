@@ -80,7 +80,7 @@ after(async () => {
 describe('scheduler (MAOS D8)', { skip }, () => {
   it('is off by default: the app boots with no timers', () => {
     assert.equal(scheduler.activeTimers, 0);
-    assert.deepEqual(scheduler.status().map((s) => s.name), ['invite-expiry', 'deadline-reminders', 'appointment-reminders', 'client-review-reminders', 'ops-watchdog', 'storage-capacity']);
+    assert.deepEqual(scheduler.status().map((s) => s.name), ['invite-expiry', 'deadline-reminders', 'appointment-reminders', 'client-review-reminders', 'ops-watchdog', 'storage-capacity', 'storage-reconcile']);
   });
 
   it('starts one timer per job only when MAOS_SCHEDULER_ENABLED=true, and stops them on shutdown', () => {
@@ -96,6 +96,34 @@ describe('scheduler (MAOS D8)', { skip }, () => {
       assert.equal(s.activeTimers, 2);
       s.onModuleDestroy();
       assert.equal(s.activeTimers, 0);
+    } finally {
+      delete process.env.MAOS_SCHEDULER_ENABLED;
+    }
+  });
+
+  it('a job with a first-run delay runs once early, then keeps one interval timer; shutdown cancels a pending first round', async () => {
+    process.env.MAOS_SCHEDULER_ENABLED = 'true';
+    try {
+      let runs = 0;
+      const early = { name: 'early', everyMs: HOUR, lockKey: 904, firstRunAfterMs: 20, run: async () => { runs += 1; return 0; } };
+      const s = new SchedulerService(prisma, [early]);
+      s.onApplicationBootstrap();
+      assert.equal(s.activeTimers, 1, 'the pending first round counts as the job\'s timer');
+      await new Promise((r) => setTimeout(r, 400));
+      assert.equal(runs, 1, 'one early round');
+      assert.equal(s.activeTimers, 1, 'replaced by the interval, not added to it');
+      assert.equal(s.status()[0].runs, 1);
+      s.onModuleDestroy();
+      assert.equal(s.activeTimers, 0);
+
+      let lateRuns = 0;
+      const late = { ...early, name: 'late', lockKey: 905, firstRunAfterMs: 50, run: async () => { lateRuns += 1; return 0; } };
+      const stopped = new SchedulerService(prisma, [late]);
+      stopped.onApplicationBootstrap();
+      stopped.onModuleDestroy();
+      await new Promise((r) => setTimeout(r, 200));
+      assert.equal(lateRuns, 0, 'a first round pending at shutdown never fires');
+      assert.equal(stopped.activeTimers, 0);
     } finally {
       delete process.env.MAOS_SCHEDULER_ENABLED;
     }
