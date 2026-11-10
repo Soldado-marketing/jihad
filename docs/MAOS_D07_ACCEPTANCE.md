@@ -2,7 +2,7 @@
 
 **Task (master task list, row D07):** Delivery history and communication history per customer. Deps: —. Notes: Customer 360 tab: deliveries, decisions, requests, problems, invoices, appointments in one timeline (reads existing rows). Acceptance: timeline shows every round and request for a customer; CLIENT never sees internal notes.
 
-**Closure status (2026-11-10):** IN PROGRESS. Checklist and audit written before any change; nothing is built yet.
+**Closure status (2026-11-10): READY FOR RELEASE — not DONE.** Rows 1–17 PASS (CI run 42827985239 on `90161b9`). Row 18 is the owner's decision: merge and deploy of API and web (no migration), then production verification. A verified backup must exist first; the nightly backup has been failing since 2026-11-08.
 
 Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, one task at a time, independent comparison before closure; functional tests, never page-load checks). Status values: PASS (test or measurement named) · OPEN · BLOCKED — OWNER.
 
@@ -34,25 +34,41 @@ Consistent with the Blueprint: Customer 360 is an approved TARGET workspace (§4
 
 | # | Criterion | Evidence | In CI | Status |
 |---|---|---|---|---|
-| 1 | The timeline shows every delivery round of the customer: sent, the client's decision with its note, the company's resubmission with its reply, in order | `customer-history` integration suite | yes | OPEN |
-| 2 | It shows every work request and every problem report of the customer: opened, each message, resolved / reopened | same suite | yes | OPEN |
-| 3 | It shows the customer's invoices (issued, status) and appointments (when, status) | same suite | yes | OPEN |
-| 4 | Internal notes: visible to OWNER and MANAGER only, flagged as internal; never to an EMPLOYEE or CONTRACTOR (the whole requests/problems section is absent for them) | same suite | yes | OPEN |
-| 5 | **A CLIENT never sees internal notes:** the route refuses a CLIENT (403); no client-portal route returns the history; the client's own request and problem views still return no internal note | same suite + existing `security-gate-client-complaints` | yes | OPEN |
-| 6 | Money: amounts and payments only for the OWNER; a MANAGER with invoice access sees invoices without amounts | same suite | yes | OPEN |
-| 7 | Scope: another customer's rows never appear; another company's customer id is 404; a contractor granted customer access sees only deliveries and appointments of assigned work; a default CONTRACTOR is refused | same suite | yes | OPEN |
-| 8 | No staff identity in any entry: no user id, name or e-mail; the speaker is `client` or `company` | same suite (payload scan) | yes | OPEN |
-| 9 | Paging: walking the pages with `before` returns every entry exactly once, newest first, also when entries share a timestamp; `limit` bounded | unit test of the merge + same suite | yes | OPEN |
-| 10 | Bad input: unknown `limit` / `before` values answer 400; `Cache-Control: no-store` | same suite | yes | OPEN |
-| 11 | Web: History tab lists the entries grouped by day, filter per kind, internal mark, link to the record, "Load more"; empty and error states; the tab is absent when the API offers no section | web unit tests + browser smoke case | yes | OPEN |
-| 12 | Web on a phone-width screen: the timeline is readable without sideways scrolling | browser smoke (mobile project) | yes | OPEN |
-| 13 | No schema change, no migration, no write path; client-portal routes untouched | diff of the branch | — | OPEN |
-| 14 | Regression: `customer-overview`, `customers`, `security-gate-client-complaints`, deliveries and appointments suites, full `npm test`, web tests, typecheck and build of both apps | local run | yes | OPEN |
-| 15 | CI: six jobs green on the code head | CI run | yes | OPEN |
-| 16 | Graphify refreshed; dependents of changed symbols reviewed | `graphify update .` | — | OPEN |
-| 17 | Security review of the diff: company and customer filters on every query, no key, token or secret, no raw message body beyond a bounded excerpt | review | — | OPEN |
+| 1 | The timeline shows every delivery round of the customer: sent, the client's decision with its note, the company's resubmission with its reply, in order | `customer-history` integration suite | yes | PASS — `customer-history-api` cases 1–2: round 1 sent → the client asks for a change (note) → the company replies (note) → round 2 sent → approved, plus an open round with its review-by time; exact order asserted |
+| 2 | It shows every work request and every problem report of the customer: opened, each message, resolved / reopened | same suite | yes | PASS — `customer-history-api` cases 1 and 3: problem report opened, client message, internal note, answer, resolved, reopened by the client; work request opened with its message; a note audit event is not a state change |
+| 3 | It shows the customer's invoices (issued, status) and appointments (when, status) | same suite | yes | PASS — `customer-history-api` case 1: the invoice (non-draft) and both appointments in order; a draft invoice and an ordinary task stay out (case 4) |
+| 4 | Internal notes: visible to OWNER and MANAGER only, flagged as internal; never to an EMPLOYEE or CONTRACTOR (the whole requests/problems section is absent for them) | same suite | yes | PASS — `customer-history-api` cases 3, 5, 6, 7: the note arrives flagged `internal` for OWNER and MANAGER; for EMPLOYEE and CONTRACTOR the conversations section is absent and the note text is nowhere in the payload |
+| 5 | **A CLIENT never sees internal notes:** the route refuses a CLIENT (403); no client-portal route returns the history; the client's own request and problem views still return no internal note | same suite + existing `security-gate-client-complaints` | yes | PASS — `customer-history-api` case 8: CLIENT 403 on the history, no session 401, and `GET /client/problems/:id` returns the conversation without the internal note; `security-gate-client-complaints` 10/10 and `security-gate-client-work-requests` 10/10 unchanged; browser spec case 3 |
+| 6 | Money: amounts and payments only for the OWNER; a MANAGER with invoice access sees invoices without amounts | same suite | yes | PASS — `customer-history-api` case 5: MANAGER with an invoice grant gets invoices, no money key and no payment; OWNER gets `totalCents` 10000 and the payment 2500 |
+| 7 | Scope: another customer's rows never appear; another company's customer id is 404; a contractor granted customer access sees only assigned work (appointments; deliveries only with approval access); a default CONTRACTOR is refused | same suite | yes | PASS — `customer-history-api` cases 4, 7, 9: other customer's and other company's rows absent (also with the same client key in another company); foreign id 404; a contractor with customer access sees the appointment of the member project only, and — with approval access — that project's delivery only; a default CONTRACTOR 403. An EMPLOYEE sees deliveries and only the appointments assigned to them (the task list's rule) |
+| 8 | No staff identity in any entry: no user id, name or e-mail; the speaker is `client` or `company` | same suite (payload scan) | yes | PASS — `customer-history-api` case 10: for OWNER, MANAGER, EMPLOYEE and both contractors no user id, e-mail or display name of any person in the payload; `from` is `client`, `company` or absent |
+| 9 | Paging: walking the pages with `before` returns every entry exactly once, newest first, also when entries share a timestamp; `limit` bounded | unit test of the merge + same suite | yes | PASS — unit `customer-history` (walk over five sources at seven page sizes; 198 entries on one instant) and `customer-history-api` cases 11–12 (page sizes 1, 2, 5, 17, 18 over the two entries sharing an instant; 130 invoices on one timestamp in pages of 50): every entry once, in order |
+| 10 | Bad input: unknown `limit` / `before` values answer 400; `Cache-Control: no-store` | same suite | yes | PASS — `customer-history-api` case 13: eight malformed `limit` / `before` values → 400 with `INVALID_LIMIT` / `INVALID_BEFORE`; `Cache-Control: no-store`; unknown customer 404; case 14: four reads write no audit event, notification, message or decision |
+| 11 | Web: History tab lists the entries grouped by day, filter per kind, internal mark, link to the record, "Load more"; empty and error states; the tab is absent when the API offers no section | web unit tests + browser smoke case | yes | PASS — web unit `customer-history` 9/9 (tab offered by the overview's sections, path and cursor encoding, one sentence per entry, links, amounts, filter, grouping by the reader's local day, component states) and browser spec `10-customer-history` case 1 on desktop: list, internal mark, link, filter |
+| 12 | Web on a phone-width screen: the timeline is readable without sideways scrolling | browser smoke (mobile project) | yes | PASS — browser spec case 1 on the phone-width project: page scroll width equals its client width; screenshots of both widths reviewed (local isolated run) |
+| 13 | No schema change, no migration, no write path; client-portal routes untouched | diff of the branch | — | PASS — branch diff: no file under `apps/api/prisma`, none under the client portal; the new API code has 10 read calls and 0 create / update / delete / raw calls |
+| 14 | Regression: `customer-overview`, `customers`, `security-gate-client-complaints`, deliveries and appointments suites, full `npm test`, web tests, typecheck and build of both apps | local run | yes | PASS — local: `customer-overview` 9, `customers` 9, `security-gate-client-complaints` 10, `security-gate-client-deliveries` 11, `security-gate-client-work-requests` 10, `security-gate-client-portal-v2` 14, `activity-timeline` 9; five parallel runs with the storage suites clean; full API `npm test` 620 tests: 610 pass, 0 fail, 10 todo; web `npm test` 390/390; both typechecks clean; whole browser suite locally 96/96 |
+| 15 | CI: six jobs green on the code head | CI run | yes | PASS — CI run 42827985239 on `90161b9`: six jobs SUCCESS (unit and integration batches with the two new API suites, web tests, browser smoke with the new spec) |
+| 16 | Graphify refreshed; dependents of changed symbols reviewed | `graphify update .` | — | PASS — `graphify update .`; `CustomerHistoryService` is referenced by `customers.controller.ts` and `customers.module.ts` only; the changed `tabsFor` is used by the customer page and its test |
+| 17 | Security review of the diff: company and customer filters on every query, no key, token or secret, no raw message body beyond a bounded excerpt | review | — | PASS — every query carries the company id and the customer link (customer id, or the customer's client key inside the company); the cursor is validated against an exact ISO instant and a known id shape before it reaches a query; notes and messages are cut to 280 characters; no key, token or secret in code, tests or logs (test passwords are fixtures of the disposable database) |
 | 18 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup must exist first (the nightly backup has been failing since 2026-11-08) | release record | — | BLOCKED — OWNER |
 
 ## Run record
 
-To be filled from the final local run and the CI run on the code head.
+| Where | Result |
+|---|---|
+| Before the change (main `82bc4e9`) | no history: `GET /customers/:id/history` did not exist; closed delivery rounds, decisions, work requests, problem reports and appointments were not visible on the customer |
+| API unit | `customer-history` 9/9 |
+| API integration (disposable PostgreSQL 16 `maos-d07-pg`) | `customer-history-api` 14/14. First run 11/14: the three failures were expectations of the test that contradicted existing access rules, not defects — an event five milliseconds later sorts first; an EMPLOYEE sees only appointments assigned to them; a CONTRACTOR has no approval access by default. The test was corrected to the rules, and a second contractor with approval access was added to exercise the file scope |
+| Web unit | `customer-history` 9/9, `customer-360` 6/6 (tab list updated); whole web suite 390/390 |
+| Browser, local isolated stack (private ports, disposable database, storage stub) | new spec 6/6 (3 cases × desktop and phone width); whole suite 96/96 in 50 s |
+| Visual check | screenshots of the tab at both widths: found and fixed two things — times were shown in UTC (now the reader's local day and time) and an internal note said "Internal note" twice (sentence now "Note for management" beside the mark) |
+| Local regression | suites of row 14; full API `npm test` 620 tests: 610 pass, 0 fail, 10 todo; CI typecheck config and build clean for the API; `tsc --noEmit` clean for the web |
+| CI on `90161b9` (run 42827985239) | six jobs SUCCESS |
+| Graphify | updated after the change; dependents reviewed (row 16) |
+
+## Notes for the release (row 18)
+
+- API and web both change; no migration. Rollback: redeploy API `7050a6e4` and web `f7a405b5`, or revert the merge commit.
+- Production verification needs a signed-in OWNER: open a customer, History tab. The platform's own company has two projects and one invoice; whether it has deliveries, requests or appointments decides how much the tab shows. Fictional production data is refused by the session's permission layer, so the check is the owner's own reading, as for C07.
+- Known limits, stated: requests and problem reports open their list page (they have no page of their own); sales meetings are not in the history because they are not linked to customers; an invoice appears at its creation time once it is no longer a draft.
