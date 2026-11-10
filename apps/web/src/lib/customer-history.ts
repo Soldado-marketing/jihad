@@ -55,7 +55,7 @@ export function entryLabel(e: HistoryEntry): string {
     case 'rejected': return `Rejected by the client${version(e)}`;
     case 'replied': return `The company replied and sent a new version`;
     case 'opened': return e.kind === 'request' ? 'The client requested new work' : 'The client reported a problem';
-    case 'message': return e.internal ? 'Internal note' : e.from === 'client' ? 'Message from the client' : 'Answer to the client';
+    case 'message': return e.internal ? 'Note for management' : e.from === 'client' ? 'Message from the client' : 'Answer to the client';
     case 'resolved': return `${subject} resolved`;
     case 'reopened': return `${subject} reopened by ${who(e.from)}`;
     case 'invoice': return 'Invoice created';
@@ -92,11 +92,25 @@ export function filterByKind(items: readonly HistoryEntry[], kind: HistoryKind |
   return kind === 'all' ? [...items] : items.filter((e) => e.kind === kind);
 }
 
-/** Groups consecutive entries by calendar day (UTC date of the entry); the order inside is the API's. */
+const two = (n: number) => String(n).padStart(2, '0');
+
+/** The calendar day of an entry where the reader is (the browser's time zone), as YYYY-MM-DD. */
+export function dayOf(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
+
+/** The time of day of an entry where the reader is, as HH:MM. */
+export function timeOf(iso: string): string {
+  const d = new Date(iso);
+  return `${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+/** Groups consecutive entries by the reader's calendar day; the order inside is the API's. */
 export function groupByDay(items: readonly HistoryEntry[]): { day: string; items: HistoryEntry[] }[] {
   const groups: { day: string; items: HistoryEntry[] }[] = [];
   for (const e of items) {
-    const day = e.at.slice(0, 10);
+    const day = dayOf(e.at);
     const last = groups[groups.length - 1];
     if (last && last.day === day) last.items.push(e);
     else groups.push({ day, items: [e] });
@@ -110,4 +124,3 @@ export function appendPage(shown: readonly HistoryEntry[], page: readonly Histor
   return [...shown, ...page.filter((e) => !seen.has(e.id))];
 }
 
-export const timeOf = (iso: string): string => iso.slice(11, 16);

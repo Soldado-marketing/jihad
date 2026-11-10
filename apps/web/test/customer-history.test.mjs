@@ -2,6 +2,9 @@
  * Customer history tab (D07) over GET /customers/:id/history.
  * Run: node --test test/customer-history.test.mjs
  */
+// Times are shown where the reader is; the tests fix that place.
+process.env.TZ = 'Europe/Berlin';
+
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -9,7 +12,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { offersHistory, tabsFor } from '../src/lib/customer-360.ts';
 import {
-  KIND_LABEL, appendPage, entryAmount, entryHref, entryLabel, filterByKind, groupByDay, historyPath, kindsIn, timeOf,
+  KIND_LABEL, appendPage, dayOf, entryAmount, entryHref, entryLabel, filterByKind, groupByDay, historyPath, kindsIn, timeOf,
 } from '../src/lib/customer-history.ts';
 
 const webRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -44,7 +47,7 @@ describe('customer history tab', () => {
     assert.equal(entryLabel(e({ kind: 'request', event: 'opened' })), 'The client requested new work');
     assert.equal(entryLabel(e({ kind: 'problem', event: 'message', from: 'client' })), 'Message from the client');
     assert.equal(entryLabel(e({ kind: 'problem', event: 'message', from: 'company' })), 'Answer to the client');
-    assert.equal(entryLabel(e({ kind: 'problem', event: 'message', from: 'company', internal: true })), 'Internal note');
+    assert.equal(entryLabel(e({ kind: 'problem', event: 'message', from: 'company', internal: true })), 'Note for management');
     assert.equal(entryLabel(e({ kind: 'problem', event: 'resolved' })), 'Problem report resolved');
     assert.equal(entryLabel(e({ kind: 'request', event: 'reopened', from: 'client' })), 'Work request reopened by the client');
     assert.equal(entryLabel(e({ kind: 'problem', event: 'reopened', from: 'company' })), 'Problem report reopened by the company');
@@ -79,11 +82,14 @@ describe('customer history tab', () => {
     for (const k of ['delivery', 'request', 'problem', 'appointment', 'invoice', 'payment']) assert.ok(KIND_LABEL[k]);
   });
 
-  it('groups by day without reordering, and appends a page without repeating an entry', () => {
-    const items = [e({ id: '1', at: '2026-11-05T09:30:00.000Z' }), e({ id: '2', at: '2026-11-05T08:00:00.000Z' }), e({ id: '3', at: '2026-11-04T23:59:00.000Z' })];
+  it('groups by the reader\'s calendar day without reordering, and appends a page without repeating an entry', () => {
+    // Berlin is one hour ahead of UTC in November: 23:30 UTC is already the next day there.
+    const items = [e({ id: '1', at: '2026-11-05T09:30:00.000Z' }), e({ id: '2', at: '2026-11-04T23:30:00.000Z' }), e({ id: '3', at: '2026-11-04T22:59:00.000Z' })];
     assert.deepEqual(groupByDay(items).map((g) => [g.day, g.items.map((x) => x.id)]), [['2026-11-05', ['1', '2']], ['2026-11-04', ['3']]]);
     assert.deepEqual(groupByDay([]), []);
-    assert.equal(timeOf('2026-11-05T09:30:00.000Z'), '09:30');
+    assert.equal(timeOf('2026-11-05T09:30:00.000Z'), '10:30');
+    assert.equal(dayOf('2026-11-04T23:30:00.000Z'), '2026-11-05');
+    assert.equal(timeOf('2026-07-01T12:05:00.000Z'), '14:05', 'summer time');
     assert.deepEqual(appendPage(items, [e({ id: '3' }), e({ id: '4' })]).map((x) => x.id), ['1', '2', '3', '4']);
   });
 
