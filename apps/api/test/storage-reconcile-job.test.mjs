@@ -143,7 +143,10 @@ describe('C07 — storage-reconcile job', { skip }, () => {
       select: { id: true },
     });
     const objectsBefore = stub.objects.size;
-    const rowsBefore = await prisma.fileVersion.count();
+    // Counted for this suite's companies only: other suites write and delete
+    // their own rows in the same database while this one runs.
+    const ownRows = { tenantId: { in: [co.a.id, co.b.id] } };
+    const rowsBefore = await prisma.fileVersion.count({ where: ownRows });
     const ownerBefore = await noticesFor(p.owner.id);
 
     const now = new Date();
@@ -168,7 +171,7 @@ describe('C07 — storage-reconcile job', { skip }, () => {
 
     assert.equal(stub.objects.size, objectsBefore, 'no object deleted');
     assert.ok(stub.objects.has(`${BUCKET}/${strayKey}`), 'the orphan is still there for the owner to decide on');
-    assert.equal(await prisma.fileVersion.count(), rowsBefore, 'no row deleted');
+    assert.equal(await prisma.fileVersion.count({ where: ownRows }), rowsBefore, 'no row deleted');
     assert.ok(await prisma.fileVersion.findUnique({ where: { id: lost.id } }));
     assert.ok(await prisma.fileVersion.findUnique({ where: { id: reserving.id } }));
 
