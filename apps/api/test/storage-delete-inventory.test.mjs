@@ -5,8 +5,9 @@
  * this suite proves the inventory: files uploaded through the HTTP API and
  * deleted through DELETE /api/files/:id leave the bucket with exactly the key
  * set it had before, the files that were not deleted keep their bytes (also
- * across an API restart), a failed delete is retryable, and nobody outside
- * the company or without the permission can remove anything.
+ * across an API restart), a failed delete is retryable, nobody outside the
+ * company or without the permission can remove anything, and a file whose
+ * project or task was deleted stays an ordinary, manageable file.
  * Run with MAOS_INTEGRATION=1, DATABASE_URL and JWT_SECRET, after `npm run build`.
  */
 import assert from 'node:assert/strict';
@@ -70,8 +71,8 @@ const call = (token, method, path, body) => {
   return body ? req.send(body) : req;
 };
 /** Creates a file with one uploaded version per label; returns ids and the bytes sent. */
-async function upload(token, projectId, name, labels) {
-  const asset = await call(token, 'post', '/api/files', { name: `${name} ${RUN}.txt`, projectId, visibility: 'INTERNAL' });
+async function upload(token, projectId, name, labels, extra = {}) {
+  const asset = await call(token, 'post', '/api/files', { name: `${name} ${RUN}.txt`, projectId, visibility: 'INTERNAL', ...extra });
   assert.equal(asset.status, 201, JSON.stringify(asset.body));
   const versions = [];
   for (const label of labels) {
@@ -215,7 +216,36 @@ describe('C08 — inventory and persistence after deletes', { skip }, () => {
     assert.equal(row?.projectId, null);
     assert.equal(await rowsOf([file.id]), 1);
     await assertIntact(p.ownerToken, file, 'after the project is gone');
+    // Not an unmanageable leftover: a file without a project is an ordinary
+    // state (the upload form offers "No project"), so it stays listed and editable.
+    const list = await call(p.ownerToken, 'get', '/api/files');
+    assert.equal(list.status, 200);
+    const listed = list.body.find((f) => f.id === file.id);
+    assert.ok(listed, 'the file stays in the company file list');
+    assert.equal(listed.project, null, 'shown without a project');
+    const renamed = await call(p.ownerToken, 'patch', `/api/files/${file.id}`, { name: `still managed ${RUN}.txt` });
+    assert.equal(renamed.status, 200, JSON.stringify(renamed.body));
     kept.orphanedProject = file;
+  });
+
+  it('deleting a task does not orphan either: its file stays listed, readable and deletable', async () => {
+    const task = await prisma.task.create({ data: { tenantId: co.a.id, title: `Doomed task ${RUN}`, projectId: co.project.id } });
+    const before = inventory();
+    const file = await upload(p.ownerToken, co.project.id, 'survives-task', ['v1'], { taskId: task.id });
+    const withFile = inventory();
+    assert.equal(withFile.length, before.length + 1);
+    const res = await call(p.ownerToken, 'delete', `/api/tasks/${task.id}`);
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.deepEqual(inventory(), withFile, 'no object removed, none left without a row');
+    const row = await prisma.fileAsset.findUnique({ where: { id: file.id }, select: { taskId: true, projectId: true } });
+    assert.equal(row?.taskId, null);
+    assert.equal(row?.projectId, co.project.id, 'still filed under its project');
+    const list = await call(p.ownerToken, 'get', '/api/files');
+    assert.ok(list.body.some((f) => f.id === file.id), 'still in the company file list');
+    await assertIntact(p.ownerToken, file, 'after the task is gone');
+    const removed = await call(p.ownerToken, 'delete', `/api/files/${file.id}`);
+    assert.equal(removed.status, 204, JSON.stringify(removed.body));
+    assert.deepEqual(inventory(), before, 'and it can be deleted like any other file');
   });
 
   it('bytes persist across an API restart: a second instance on the same database and store serves them unchanged', async () => {
