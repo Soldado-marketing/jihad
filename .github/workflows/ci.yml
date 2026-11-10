@@ -216,6 +216,7 @@ jobs:
             test/client-review-reminders.test.mjs \
             test/ops-alerts.test.mjs \
             test/storage-reconcile-job.test.mjs \
+            test/storage-delete-inventory.test.mjs \
             test/video-large-files.test.mjs
 
       # Blocking (MAOS-T39): every API suite. The stale sprint baselines were
