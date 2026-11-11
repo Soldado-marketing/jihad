@@ -2,7 +2,7 @@
 
 **Task (master task list, row D07):** Delivery history and communication history per customer. Deps: —. Notes: Customer 360 tab: deliveries, decisions, requests, problems, invoices, appointments in one timeline (reads existing rows). Acceptance: timeline shows every round and request for a customer; CLIENT never sees internal notes.
 
-**Closure status (2026-11-10): READY FOR RELEASE — not DONE.** Rows 1–17 PASS (CI run 42827985239 on `90161b9`). Row 18 is the owner's decision: merge and deploy of API and web (no migration), then production verification. A verified backup must exist first; the nightly backup has been failing since 2026-11-08.
+**Closure status (2026-11-11): DEPLOYED — not DONE.** Rows 1–17 PASS. Row 18: backup with restore rehearsal, merge and deployment of API and web are done under O59 (release record below). Open: the signed-in reading of the History tab on production. Production holds no customer (0 rows in the restored copy of the same day), so no Customer 360 page exists there to open; the OWNER's read-only check and the decision on that point are recorded as open, not as passed.
 
 Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, one task at a time, independent comparison before closure; functional tests, never page-load checks). Status values: PASS (test or measurement named) · OPEN · BLOCKED — OWNER.
 
@@ -51,7 +51,7 @@ Consistent with the Blueprint: Customer 360 is an approved TARGET workspace (§4
 | 15 | CI: six jobs green on the code head | CI run | yes | PASS — CI run 42827985239 on `90161b9`: six jobs SUCCESS (unit and integration batches with the two new API suites, web tests, browser smoke with the new spec) |
 | 16 | Graphify refreshed; dependents of changed symbols reviewed | `graphify update .` | — | PASS — `graphify update .`; `CustomerHistoryService` is referenced by `customers.controller.ts` and `customers.module.ts` only; the changed `tabsFor` is used by the customer page and its test |
 | 17 | Security review of the diff: company and customer filters on every query, no key, token or secret, no raw message body beyond a bounded excerpt | review | — | PASS — every query carries the company id and the customer link (customer id, or the customer's client key inside the company); the cursor is validated against an exact ISO instant and a known id shape before it reaches a query; notes and messages are cut to 280 characters; no key, token or secret in code, tests or logs (test passwords are fixtures of the disposable database) |
-| 18 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup must exist first (the nightly backup has been failing since 2026-11-08) | release record | — | BLOCKED — OWNER |
+| 18 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup must exist first | release record | — | OPEN — backup, restore rehearsal, merge, deployment, public checks PASS (release record). Signed-in History tab on production NOT VERIFIED: no customer exists on production and this session holds no production sign-in |
 
 ## Run record
 
@@ -66,6 +66,21 @@ Consistent with the Blueprint: Customer 360 is an approved TARGET workspace (§4
 | Local regression | suites of row 14; full API `npm test` 620 tests: 610 pass, 0 fail, 10 todo; CI typecheck config and build clean for the API; `tsc --noEmit` clean for the web |
 | CI on `90161b9` (run 42827985239) | six jobs SUCCESS |
 | Graphify | updated after the change; dependents reviewed (row 16) |
+
+## Release record (O59, approved 2026-11-11 with six conditions)
+
+| Step | Evidence |
+|---|---|
+| 1. New backup | Owner's backup job started from this session on the owner's instruction, 15:33:10Z: tunnel ready after 4 s, `maos-20261111T153317Z.dump`, `SUCCESS: exit 0`; checksum file matches (`shasum -a 256 -c` → OK). The nightly run of the same day had failed (02:42Z, "the listener on port 15432 does not belong to this run's tunnel") — maintenance task B11 |
+| 1. Restore test | Rehearsal job on that dump, 15:33:42Z, isolated network-less throwaway container (`postgres:18`): `REHEARSAL OK`, 49 tables restored, 16 migrations applied; `rehearsal.log`: `PASS maos-20261111T153317Z.dump`. Off-site copy not configured (owner gate D2) |
+| 2. Final CI on #164 | six jobs SUCCESS on head `f0a18ae`, MERGEABLE, CLEAN; diff 15 files, none under `apps/api/prisma` |
+| 3. #163 (docs only, one file) | six jobs SUCCESS on `03a2646`; merged 15:34:29Z → main `8b3592d`; Railway `jihad` `7b39aa29` and `maos-web` `9dd47add` SKIPPED. The main CI run on `8b3592d` (43049718367) was cancelled by the next push; its content is covered by the run on `ff7611a` |
+| 4. #164 | merged 15:35:05Z → main `ff7611a`; Railway `jihad` `61b395d6` SUCCESS and `maos-web` `9bb3a7d6` SUCCESS at 15:39Z, both on `ff7611a`. Rollback targets: API `7050a6e4`, web `f7a405b5` |
+| 4. Main CI on `ff7611a` | run 43049820757 — **five jobs SUCCESS; `Browser smoke` FAILED on three attempts (15:40–16:13Z), each time in the step `Install Chromium for Playwright`: the GitHub runner could not resolve `azure.archive.ubuntu.com`, so no browser test ran.** `ff7611a` differs from the CI-green head `f0a18ae` by one docs file (`docs/MAOS_C08_ACCEPTANCE.md`). Substitute evidence, same day: the whole browser suite on the isolated local stack at `ff7611a` — 95 of 96 passed, the D07 spec 6/6; the one failure was `09-upload.spec.ts` (C06 cancel case at phone width, a file D07 does not touch: the second upload answered "Uploaded as version 2" where version 1 was expected); that spec then passed 64/64 on eight repeats. Recorded as an intermittent C06 test finding to investigate separately; main CI is not green until the browser job runs |
+| 5. Public checks, before and after | identical: health and ready 200 (database up), `/health/ops`, `/projects`, `/files`, `/auth/me`, `/client/deliveries` 401, forged token 401, web `/` 307, `/auth/login` 200, security headers unchanged |
+| 5. New route | before the release `GET /api/customers/<id>/history` 404 (no such route); after: 401 without a session, 401 with a forged token, `POST` 404 (read only). API log: `Mapped {/api/customers/:id/history, GET}`, one start, scheduler started, no error line other than the 401/404 answers to these probes |
+| 5. Web | the live customer page bundle (`page-2824b32b9812f0b3.js`) contains the History panel (`customer-history`, "Note for management", "Load more"); a visit without a session to `/customers` lands on `/auth/login` |
+| 5. History tab and roles, signed in | **NOT VERIFIED on production.** The restored copy of the same day has `Customer 0` rows, so there is no customer page to open. This session has no production sign-in and enters no passwords. A read-only console check for the signed-in OWNER was handed over (customer count, 404 for an unknown customer, and — once a customer exists — sections, entry counts per kind and a scan for staff fields). Roles other than OWNER were not exercised on production; they are proven on the isolated stack only (rows 4–8, API integration 14/14, browser spec 6/6) |
 
 ## Notes for the release (row 18)
 
