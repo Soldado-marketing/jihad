@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { CustomerHistory } from '@/components/customers/customer-history';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { PageHeader } from '@/components/ui/page-header';
@@ -10,7 +11,7 @@ import { STATUS_LABEL } from '@/lib/customers';
 import { apiFetch } from '@/lib/fetch';
 import { formatCents } from '@/lib/money';
 
-const TAB_LABEL: Record<Tab, string> = { overview: 'Overview', projects: 'Projects', files: 'Files', notes: 'Notes' };
+const TAB_LABEL: Record<Tab, string> = { overview: 'Overview', projects: 'Projects', files: 'Files', history: 'History', notes: 'Notes' };
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : '—');
 
 /**
@@ -53,7 +54,7 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
         actions={<Link href="/customers" className="rounded-lg border border-line px-4 py-2 text-sm font-medium">All customers</Link>}
       />
 
-      <div role="tablist" aria-label="Customer sections" className="flex gap-1 border-b border-line">
+      <div role="tablist" aria-label="Customer sections" className="flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (
           <button
             key={t}
@@ -179,6 +180,12 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
           {data.files.total > data.files.recent.length && (
             <p className="border-t border-line px-5 py-2 text-xs text-muted">The {data.files.recent.length} newest of {data.files.total} files.</p>
           )}
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div role="tabpanel">
+          <CustomerHistory customerId={id} />
         </div>
       )}
 

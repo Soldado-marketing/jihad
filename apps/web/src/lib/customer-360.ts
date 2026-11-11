@@ -45,14 +45,23 @@ export interface CustomerOverview {
   };
 }
 
-export type Tab = 'overview' | 'projects' | 'files' | 'notes';
+export type Tab = 'overview' | 'projects' | 'files' | 'history' | 'notes';
 
-/** Overview and Notes always; Projects and Files only when the API sent them. */
+/** The History tab (D07) is offered when the overview shows the caller may read a source of it. */
+export function offersHistory(sections: readonly string[]): boolean {
+  return ['approvals', 'tasks', 'invoices'].some((s) => sections.includes(s));
+}
+
+/**
+ * Overview and Notes always; Projects and Files only when the API sent them;
+ * History (D07) when the caller may read at least one of its sources.
+ */
 export function tabsFor(o: Pick<CustomerOverview, 'sections'>): Tab[] {
   return [
     'overview',
     ...(o.sections.includes('projects') ? (['projects'] as const) : []),
     ...(o.sections.includes('files') ? (['files'] as const) : []),
+    ...(offersHistory(o.sections) ? (['history'] as const) : []),
     'notes',
   ];
 }

@@ -26,8 +26,8 @@ const full = {
 
 describe('customer 360 UI', () => {
   it('shows tabs only for sections the API sent', () => {
-    assert.deepEqual(tabsFor(full), ['overview', 'projects', 'files', 'notes']);
-    assert.deepEqual(tabsFor({ sections: ['tasks', 'approvals'] }), ['overview', 'notes']);
+    assert.deepEqual(tabsFor(full), ['overview', 'projects', 'files', 'history', 'notes']);
+    assert.deepEqual(tabsFor({ sections: ['tasks', 'approvals'] }), ['overview', 'history', 'notes']);
   });
 
   it('counts open work per section and never invents a missing section', () => {

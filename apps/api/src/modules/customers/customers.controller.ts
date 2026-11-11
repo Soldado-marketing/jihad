@@ -5,6 +5,7 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
+import { CustomerHistoryService } from './customer-history.service';
 import { CustomerOverviewService } from './customer-overview.service';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -21,6 +22,7 @@ export class CustomersController {
   constructor(
     private readonly customers: CustomersService,
     private readonly overviews: CustomerOverviewService,
+    private readonly histories: CustomerHistoryService,
   ) {}
 
   @Get()
@@ -46,6 +48,18 @@ export class CustomersController {
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CUSTOMER })
   overview(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.overviews.overview({ sub: user.sub, tenantId: user.tenantId, role: user.role }, id);
+  }
+
+  /**
+   * Customer history (D07): delivery rounds and decisions, requests and
+   * problem reports, appointments, invoices and payments in one list, newest
+   * first. Sections follow the caller's permissions; internal notes and
+   * conversations are for OWNER and MANAGER only; money only for the OWNER.
+   */
+  @Get(':id/history')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.CUSTOMER })
+  history(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Query('limit') limit?: string, @Query('before') before?: string) {
+    return this.histories.history({ sub: user.sub, tenantId: user.tenantId, role: user.role }, id, limit, before);
   }
 
   @Post()
