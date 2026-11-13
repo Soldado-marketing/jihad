@@ -281,6 +281,7 @@ describe('Gate 3 - list endpoints carry one client only', { skip }, () => {
     ['/api/client/files', SCOPE_A, SCOPE_B],
     ['/api/client/invoices', SCOPE_A, SCOPE_B],
     ['/api/client/payments', SCOPE_A, SCOPE_B],
+    ['/api/client/progress', SCOPE_A, SCOPE_B],
   ];
 
   for (const [path, mine, theirs] of cases) {
@@ -401,6 +402,7 @@ describe('Gate 3 - a client with no scope sees nothing', { skip }, () => {
     '/api/client/files',
     '/api/client/invoices',
     '/api/client/payments',
+    '/api/client/progress',
   ]) {
     it(`refuses ${path}`, async () => {
       const res = await auth(NOSCOPE.token, request(server).get(path));
@@ -457,7 +459,7 @@ describe('Gate 3 - internal roles are not narrowed', { skip }, () => {
 // company-wide, keep the tenant-wide preview the test above protects.
 
 describe('Gate 3 - work-scoped roles do not reach the portal', { skip }, () => {
-  const portalLists = ['/api/client/projects', '/api/client/tasks', '/api/client/appointments', '/api/client/files', '/api/client/deliveries'];
+  const portalLists = ['/api/client/projects', '/api/client/tasks', '/api/client/appointments', '/api/client/files', '/api/client/deliveries', '/api/client/progress'];
 
   for (const route of portalLists) {
     it(`refuses an EMPLOYEE on ${route}`, async () => {
