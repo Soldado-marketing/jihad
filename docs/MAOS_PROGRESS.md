@@ -599,6 +599,14 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Condition 6:** D07 NOT closed (row 18 OPEN). No new task started.
 - **Maintenance:** nightly backup recorded as B11 (failed 11-06, 11-08, 11-09, 11-10, 11-11; succeeded 11-07 and on every waking-hour run).
 
+## 2026-11-13 — GitHub checks finished; D07 recorded as deployed with the History check pending; D08 started
+
+- **Owner's instruction (2026-11-13):** finish the GitHub checks; record D07 as deployed with the History check pending because the customer list is empty; add no test customer; do not record D07 as DONE; start the next task if it does not depend on closing D07.
+- **GitHub checks:** the browser job was rerun on both runs after the runner mirror outage of 2026-11-11. Main `ff7611a` (run 43049820757, attempt 4): six jobs SUCCESS. PR #165 `82db13b` (run 43057433233, attempt 2): six jobs SUCCESS. A seventh, external check "Graphify Formal Verification" reports NEUTRAL on #165; it is not one of the six CI jobs.
+- **D07:** DEPLOYED — History check on production PENDING. Not DONE. No customer was added.
+- **D08 started:** no dependency in the plan; it touches the client portal only. Audit: the portal shows no project progress today; the client task views were removed on 2026-11-02 (tasks are internal) and a web test keeps task counters off the client dashboard. Design, stated in `docs/MAOS_D08_ACCEPTANCE.md`: numbers per stage only for shared work steps, shown per project in My Work; no task is listed or can be opened; a blockage counts as in progress. Whether clients should see these numbers is put to the owner with the release decision.
+- **D08 so far:** `GET /api/client/progress` — unit 6/6, integration 12/12 (three guards removed one at a time in the built service: the suite failed each time), isolation gate 53/53 with the route in its lists; web tests 403/403.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
