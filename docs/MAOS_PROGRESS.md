@@ -614,6 +614,7 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Two existing tests adjusted for a proven reason:** `sprint-4-baseline` counted four portal routes (five now); `05-client.spec.ts` took the first text match, which became the project filter's `<option>` once a client has several shared projects.
 - **Findings:** with `MAOS_INTEGRATION=1` a whole `npm test` runs `integration-api` out of CI's order and 19 of its cases fail; alone on a fresh database it is 39/39 (environmental, as before). The C06 upload-cancel browser case at phone width failed in one more whole-suite run and passed in the two after it — intermittent, not from D08, still not diagnosed.
 - **D07 record:** PR #165 updated (`dc48d24`): deployed, History check pending, main CI green on `ff7611a`.
+- **CI:** #166 six jobs SUCCESS on `7ab8be7` (run 43438634250); #165 six jobs SUCCESS on `dc48d24`.
 - **Gate:** O60 — merge and deploy of #166 and the decision whether clients see these numbers at all.
 
 ### Outstanding owner decisions (collected)
