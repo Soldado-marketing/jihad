@@ -13,7 +13,8 @@ test.describe('CLIENT', () => {
     await expect(page.getByRole('heading', { name: /welcome/i })).toBeVisible();
     await expect(page.locator(INTERNAL)).toHaveCount(0);
     await page.goto('/client/projects');
-    await expect(page.getByText(s.project.name).first()).toBeVisible();
+    // Shown text, not the project filter's <option> (the filter appears once a client has several shared projects, D08).
+    await expect(page.getByText(s.project.name).and(page.locator(':not(option)')).first()).toBeVisible();
     await expect(page.getByText(s.internalProject.name)).toHaveCount(0);
     for (const internal of ['/dashboard', '/projects', '/finance', '/files']) {
       await page.goto(internal);
