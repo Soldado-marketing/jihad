@@ -6,11 +6,22 @@ import { RequirePermission } from '../permissions/permission.decorator';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PermissionAction, PermissionResource } from '../permissions/permission.types';
 import { ClientPortalService } from './client-portal.service';
+import { ClientProgressService } from './client-progress.service';
 
 @Controller('client')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class ClientPortalController {
-  constructor(private readonly clientPortalService: ClientPortalService) {}
+  constructor(
+    private readonly clientPortalService: ClientPortalService,
+    private readonly clientProgress: ClientProgressService,
+  ) {}
+
+  /** D08: the caller's shared projects with the number of shared work steps per stage. */
+  @Get('progress')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT, scope: 'client-portal' })
+  progress(@CurrentUser() user: JwtPayload) {
+    return this.clientProgress.progress(user.tenantId, user.sub, user.role);
+  }
 
   @Get('projects')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.PROJECT, scope: 'client-portal' })

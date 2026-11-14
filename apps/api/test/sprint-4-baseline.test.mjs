@@ -41,6 +41,8 @@ describe('Sprint 4 client portal API boundary baseline', () => {
     assert.match(controller, /@Get\('projects\/:id'\)/);
     assert.match(controller, /@Get\('tasks'\)/);
     assert.match(controller, /@Get\('tasks\/:id'\)/);
+    // D08: project status, numbers per stage only.
+    assert.match(controller, /@Get\('progress'\)/);
   });
 
   it('uses permission guard and client-portal scoped read permissions', () => {
@@ -51,7 +53,7 @@ describe('Sprint 4 client portal API boundary baseline', () => {
     // a CLIENT is denied every non-portal route.
     assertGuardedController(assert, controller, 'client-portal.controller.ts');
     const routes = controller.match(/@RequirePermission\([^)]*\)/g) ?? [];
-    assert.equal(routes.length, 4);
+    assert.equal(routes.length, 5);
     for (const route of routes) assert.match(route, /scope: 'client-portal'/);
     assert.match(permissionService, /requirement\.scope === 'client-portal' && action === PermissionAction\.READ && !sensitive/);
     assert.match(permissionService, /client_non_portal_deny/);

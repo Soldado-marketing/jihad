@@ -8,6 +8,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { apiFetch } from '@/lib/fetch';
 import { DELIVERY_STATUS_LABEL, reviewByLine } from '@/lib/deliveries';
 import { type Delivery, KIND_LABEL } from '@/lib/client-portal';
+import { ClientProjectProgress } from '@/components/client-portal/client-project-progress';
+import { type ProjectProgress, forProject, projectChoices } from '@/lib/client-progress';
 
 const GROUPS: { status: string; title: string; empty: string }[] = [
   { status: 'REQUESTED', title: 'Waiting for your review', empty: 'Nothing is waiting for your review.' },
@@ -15,24 +17,30 @@ const GROUPS: { status: string; title: string; empty: string }[] = [
   { status: 'APPROVED', title: 'Approved', empty: 'Nothing approved yet.' },
 ];
 
-/** My Work: the client's deliveries by status, optionally for one project. */
+/** My Work: the client's deliveries by status and where each project stands, optionally for one project. */
 function MyWork() {
   const params = useSearchParams();
   const [items, setItems] = useState<Delivery[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState(params.get('project') ?? '');
+  const [progress, setProgress] = useState<ProjectProgress[]>([]);
+  const [progressFailed, setProgressFailed] = useState(false);
 
   useEffect(() => {
     apiFetch<Delivery[]>('/client/deliveries')
       .then(setItems)
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your work.'));
+    // The project status is an addition: the deliveries stay usable when it cannot be loaded.
+    apiFetch<ProjectProgress[]>('/client/progress')
+      .then(setProgress)
+      .catch(() => setProgressFailed(true));
   }, []);
 
   const projects = useMemo(() => {
     const map = new Map<string, string>();
     for (const d of items ?? []) if (d.project) map.set(d.project.id, d.project.name);
-    return [...map.entries()];
-  }, [items]);
+    return projectChoices([...map.entries()], progress);
+  }, [items, progress]);
   const shown = (items ?? []).filter((d) => !project || d.project?.id === project);
 
   return (
@@ -47,6 +55,8 @@ function MyWork() {
           </select>
         </label>
       )}
+      <ClientProjectProgress projects={forProject(progress, project)} />
+      {progressFailed && <p className="text-sm text-slate-500">The project status could not be loaded. Your deliveries are shown below.</p>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {items === null && !error && <p className="text-sm text-slate-500">Loading…</p>}
       {items !== null && GROUPS.map((g) => {

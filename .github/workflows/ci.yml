@@ -92,6 +92,7 @@ jobs:
             test/file-formats-matrix.test.mjs \
             test/storage-reconcile.test.mjs \
             test/customer-history.test.mjs \
+            test/client-progress.test.mjs \
             test/sprint-1a-baseline.test.mjs \
             test/sprint-13-auth-login-flow.test.mjs \
             test/phase-3-file-storage.test.mjs \
@@ -194,6 +195,7 @@ jobs:
             test/customers.test.mjs \
             test/customer-overview.test.mjs \
             test/customer-history-api.test.mjs \
+            test/client-progress-api.test.mjs \
             test/data-transfer.test.mjs \
             test/time-entry-schema.test.mjs \
             test/time-entries.test.mjs \
