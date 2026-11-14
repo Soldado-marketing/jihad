@@ -2,7 +2,7 @@
 
 **Task (master task list, row D08):** Client-facing status visibility for projects and tasks. Deps: —. Notes: client project page shows task progress by status with client-safe wording; no internal notes or assignees. Acceptance: client sees counts and statuses only; isolation tests.
 
-**Closure status (2026-11-13): READY FOR RELEASE — not DONE.** Rows 1–16 PASS (CI run 43438634250 on `7ab8be7`). Row 17 is the owner's decision (O60): whether clients see these numbers, then merge and deploy of API and web (no migration) and production verification. Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, independent comparison before closure, functional tests, never page-load checks). Status values: PASS (test or measurement named) · OPEN · BLOCKED — OWNER.
+**Closure status (2026-11-14): DEPLOYED — signed-in check on production PENDING, not DONE.** O60 approved by the owner on 2026-11-14; #166 merged (main `067b376`), API and web deployed, main CI six jobs SUCCESS, public production checks PASS (release record below). Open: nobody signed in has read the Project status panel on production yet — the session has no production sign-in and enters no passwords; the owner's read-only check is in the release record. Rows 1–16 PASS; row 17 PARTIAL. Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, independent comparison before closure).
 
 **Independence from D07:** D07 is deployed and its production reading of the History tab is pending (no customer on production; owner's instruction of 2026-11-13: no test customer, not DONE). D08 has no dependency in the plan and touches the client portal only (`client-portal` module, My Work page); it reads no D07 code. Started on the owner's instruction of 2026-11-13.
 
@@ -50,7 +50,7 @@ The row asks for task progress by status on the client's project view; the 2026-
 | 14 | CI: six jobs green on the code head | CI run | yes | PASS — CI run 43438634250 on `7ab8be7`: six jobs SUCCESS (unit and integration batches with the two new API suites, isolation gate with the new route, web tests, browser smoke with the new spec) |
 | 15 | Graphify refreshed; dependents of changed symbols reviewed | `graphify update .` | — | PASS — `graphify update .`; `ClientProgressService` is referenced by `client-portal.controller.ts` and `client-portal.module.ts` only; `SHOOTING_LABEL` is imported, not changed |
 | 16 | Security review of the diff: company filter and client scope on every query; nothing but numbers about tasks | review | — | PASS — both queries carry the company id; a CLIENT's queries carry the membership's scope key on projects and on tasks, resolved by `ClientScopeService` (never from the request); tasks are restricted to the caller's visible projects; the answer is built from counts only. Mutation check on the built service: without the task scope filter 1 case fails, without the appointment exclusion 2, without the project visibility filter 4 |
-| 17 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup of the same day first | release record | — | BLOCKED — OWNER |
+| 17 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup of the same day first | release record | — | PARTIAL — backup + restore rehearsal PASS, merged, deployed, main CI green, public checks PASS (release record). Signed-in reading of the panel on production: PENDING |
 
 ## Run record
 
@@ -65,6 +65,22 @@ The row asks for task progress by status on the client's project view; the 2026-
 | Visual check | screenshots at both widths reviewed; cards made compact so the deliveries stay near the top |
 | Local regression | row 13 |
 | CI on `7ab8be7` (run 43438634250) | six jobs SUCCESS |
+
+## Release record (O60, 2026-11-14)
+
+| Step | Evidence |
+|---|---|
+| Owner approval | "Approve O60" (2026-11-14); then, after the first backup attempt failed: backup again, test the restore, merge and deploy only if both succeed |
+| Backup, first attempt 00:35:58Z | FAILED after 10 s: "the listener on port 15432 does not belong to this run's tunnel". The run's own SSH tunnel stayed open on 127.0.0.1:15432; the session's attempt to stop it was refused by the permission layer and not repeated; the owner closed it. Release stopped before the merge. Cause recorded on task B11 |
+| Backup, second attempt 00:42:25Z | SUCCESS: tunnel ready after 3 s, `maos-20261114T004231Z.dump` (207 113 bytes, checksum file written), tunnel closed, port free afterwards. Off-site copy: not configured (owner gate D2) |
+| Restore rehearsal 00:43:06Z | PASS on `maos-20261114T004231Z.dump` in a separate `postgres:18` container: 49 tables, 16 migrations (Customer 0, Project 2, Invoice 1) |
+| Before the merge | #166 head `0cf90e7`: six jobs SUCCESS, MERGEABLE/CLEAN, 16 files, no migration. Production smoke 00:36Z: health 200, ready 200, protected routes 401, forged token 401, web 307/200/200, security headers present, `GET /api/client/progress` 404 |
+| Merge | #166 merged 00:43:48Z with a merge commit, pinned to head `0cf90e7` → main `067b376` |
+| Deployments | `jihad` `3ecfa054` SUCCESS and `maos-web` `9ab30751` SUCCESS on `067b376`. API log: one start, `Mapped {/api/client/progress, GET}`, "Nest application successfully started", no migration applied, no error line other than the refusals of this record's own requests |
+| Main CI (run 43536137406) | six jobs SUCCESS |
+| Public checks after 00:54Z | smoke identical to before except `GET /api/client/progress` 404 → 401; forged token 401; POST, PUT, PATCH, DELETE on the route 404; `cache-control: no-store`; readiness `ready`, database up. Web: `/client/deliveries` 200; its page bundle contains the `/client/progress` call and the Project status panel; the bundle is built with the production API address |
+| Signed-in check on production | NOT VERIFIED. Read-only check for a signed-in OWNER (browser console on the production web app; prints numbers only, no names): one line starting `MAOS project status check:` with the HTTP status, the number of shared projects, the totals per stage, the number of fields beyond the agreed ones (must be 0) and the number of projects whose stages do not add up to the total (must be 0) |
+| Rollback | redeploy API `61b395d6` and web `9bb3a7d6`, or revert `067b376`; no schema change |
 
 ## Notes for the release (row 17)
 
