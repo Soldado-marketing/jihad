@@ -10,7 +10,7 @@
  * 503 is a busy server; a wrong-content file is a refusal.
  */
 import { expect, test, type Page, type Route } from '@playwright/test';
-import { call } from './support/api';
+import { call, loginSession } from './support/api';
 import { readSeed } from './support/seed';
 import { PNG, useSession } from './support/ui';
 
@@ -172,5 +172,96 @@ test.describe('C06 upload', () => {
     await upload(page).click();
     await expect(page.getByText('Uploaded as version 2.')).toBeVisible();
     expect(await versions(asset.id)).toEqual([1, 2]);
+  });
+});
+
+/**
+ * C09 - an upload that starts with an expired access token. Access tokens live
+ * 15 minutes; a JSON request simply repeats after the renewal, but an upload
+ * would send the whole file twice. The token is therefore renewed before the
+ * file leaves the browser.
+ */
+test.describe('C09 upload and the access token', () => {
+  /**
+   * The same token with its end moved into the past. The server refuses it
+   * (the signature no longer fits the claims), exactly as it refuses a token
+   * that ran out, and the browser can read that it has ended.
+   */
+  const expired = (accessToken: string): string => {
+    const [header, payload, signature] = accessToken.split('.');
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
+    claims.exp = Math.floor(Date.now() / 1000) - 120;
+    return `${header}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.${signature}`;
+  };
+
+  /** What the page sends, in order: 'refresh' and 'upload'. */
+  const watch = (page: Page): string[] => {
+    const sent: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() !== 'POST') return;
+      const path = new URL(request.url()).pathname;
+      if (/\/auth\/refresh$/.test(path)) sent.push('refresh');
+      else if (/\/files\/[^/]+\/versions$/.test(path)) sent.push('upload');
+    });
+    return sent;
+  };
+
+  test('with an expired token the file is sent once, after the token was renewed', async ({ page }, info) => {
+    const asset = await newAsset('expired-token', info.project.name);
+    // Its own session: this test renews it, and the seeded one stays untouched for the other specs.
+    const session = await loginSession(s.owner, s.company.slug);
+    await useSession(page, session, `/files/${asset.id}`);
+    await expect(page.getByRole('heading', { name: 'Upload a new version' })).toBeVisible();
+    await choosePng(page, asset.name);
+
+    const sent = watch(page);
+    await page.evaluate((stale) => localStorage.setItem('maos_access_token', stale), expired(session.tokens.accessToken));
+    await upload(page).click();
+
+    await expect(page.getByText('Uploaded as version 1.')).toBeVisible();
+    expect(sent.filter((x) => x === 'upload'), `requests in order: ${sent.join(', ')}`).toHaveLength(1);
+    expect(sent.indexOf('refresh'), 'the token is renewed before the file is sent').toBeGreaterThanOrEqual(0);
+    expect(sent.indexOf('refresh')).toBeLessThan(sent.indexOf('upload'));
+    expect(await versions(asset.id)).toEqual([1]);
+    // The renewed token is the one the browser keeps.
+    const stored = await page.evaluate(() => localStorage.getItem('maos_access_token'));
+    expect(stored).not.toBe(expired(session.tokens.accessToken));
+    expect((await call('/auth/me', { token: stored ?? '' })).status).toBe(200);
+  });
+
+  test('with a valid token nothing is renewed and the file is sent once', async ({ page }, info) => {
+    const asset = await newAsset('valid-token', info.project.name);
+    const session = await loginSession(s.owner, s.company.slug);
+    await useSession(page, session, `/files/${asset.id}`);
+    await expect(page.getByRole('heading', { name: 'Upload a new version' })).toBeVisible();
+    await choosePng(page, asset.name);
+
+    const sent = watch(page);
+    await upload(page).click();
+
+    await expect(page.getByText('Uploaded as version 1.')).toBeVisible();
+    expect(sent).toEqual(['upload']);
+    expect(await versions(asset.id)).toEqual([1]);
+  });
+
+  test('when the session cannot be renewed the person is sent to sign in, as before, and nothing is saved', async ({ page }, info) => {
+    const asset = await newAsset('ended-session', info.project.name);
+    const session = await loginSession(s.owner, s.company.slug);
+    await useSession(page, session, `/files/${asset.id}`);
+    await expect(page.getByRole('heading', { name: 'Upload a new version' })).toBeVisible();
+    await choosePng(page, asset.name);
+
+    const sent = watch(page);
+    await page.evaluate(([stale, refresh]) => {
+      localStorage.setItem('maos_access_token', stale);
+      localStorage.setItem('maos_refresh_token', refresh);
+    }, [expired(session.tokens.accessToken), 'not-a-refresh-token']);
+    await upload(page).click();
+
+    await expect(page).toHaveURL(/\/auth\/login/);
+    // Unchanged by C09: the file still goes out once before the refusal ends the session.
+    expect(sent.filter((x) => x === 'upload').length, `requests in order: ${sent.join(', ')}`).toBeLessThanOrEqual(1);
+    expect(sent[0]).toBe('refresh');
+    expect(await versions(asset.id)).toEqual([]);
   });
 });

@@ -19,6 +19,7 @@ import {
 import { apiBase } from './api';
 
 import { apiErrorMessage, NETWORK_MESSAGE, SESSION_EXPIRED_MESSAGE } from './api-errors';
+import { accessTokenHasExpired } from './token-expiry';
 import { UploadCancelledError, UploadFailedError, UploadNetworkError } from './upload-state';
 
 // Every message a page shows after a failed request comes from api-errors (MAOS F02).
@@ -207,7 +208,16 @@ export function apiUpload<T = unknown>(
   };
 
   return (async () => {
-    let res = await send(getAccessToken());
+    // A JSON request that meets a 401 simply repeats after the renewal. An
+    // upload would send the whole file twice, and the second pass shows no
+    // progress. So a token that says it has ended is renewed before the file
+    // leaves the browser (C09). If the renewal gives nothing, the stored token
+    // is sent as before and the 401 path below decides.
+    let token = getAccessToken();
+    if (typeof window !== 'undefined' && accessTokenHasExpired(token)) {
+      token = (await refreshOnce()) ?? token;
+    }
+    let res = await send(token);
 
     if (res.status === 401 && typeof window !== 'undefined') {
       const newToken = await refreshOnce();
