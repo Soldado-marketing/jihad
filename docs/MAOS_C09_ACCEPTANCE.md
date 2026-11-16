@@ -33,7 +33,7 @@ In: `apiUpload` renews an expired access token before the first send. Out (uncha
 
 ## Run record (2026-11-16, local stack: disposable PostgreSQL 16, storage stub, API and web built from this branch, fictional people)
 
-- Before the fix (web built from `main`'s `fetch.ts`): the test with an expired token failed on desktop and phone with `requests in order: upload, refresh, upload`; the test with a valid token passed. The two unit tests that read `apiUpload`'s source failed, the nine helper tests passed.
+- Before the fix (web built from `main`'s `fetch.ts`): the test with an expired token failed on desktop and phone with `requests in order: upload, refresh, upload`; the test with a valid token passed. Of the eleven unit tests, the two that require the pre-check in `apiUpload`'s source failed; the other nine passed (seven on the helper, two on the unchanged 401 path).
 - The change: `apps/web/src/lib/token-expiry.ts` (new, pure) and eleven lines in `apiUpload` (`apps/web/src/lib/fetch.ts`): a token that says it has ended, or ends within 30 seconds, is renewed through the existing single-flight refresh before the first send; otherwise nothing changes.
 - After the fix: `e2e/09-upload.spec.ts` 14 passed; `npm test` 414/414; whole browser suite 114 passed; type-check clean.
 - The test's "expired" token is the session's own token with `exp` moved two minutes into the past: the server refuses it because the signature no longer fits, as it refuses a token that ran out, and the browser reads the past `exp`.
