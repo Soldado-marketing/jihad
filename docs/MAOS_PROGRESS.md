@@ -664,7 +664,8 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - Added, no application code changed: `apps/api/test/security-gate-access-revocation.test.mjs` (10 tests; in the isolation gate's list in `ci.yml`) and `apps/web/e2e/12-access-revocation.spec.ts` (removed / suspended employee lands on the sign-in page at the next step, session cleared, sign-in refused with the sentence that says why; desktop and phone).
 - Local evidence on a disposable PostgreSQL 16: new suite 10/10; with `security-gate-member-management` and `security-gate-session-revocation` 31/31; two mutations on the build output (removal / suspension no longer revoking sessions) make 4 tests fail each; whole browser suite 108 passed.
 - Findings recorded, not changed: suspension is account-wide while removal is per company; the removed person's sign-in sentence does not mention removal; an open page is refused at its next request, not pushed out.
-- Open: CI on #168, the owner's merge message (Railway rebuilds `maos-web` on merge because the spec lives under `apps/web/`; same application code), production walk-through (fictional people on production — needs a new owner approval).
+- CI on #168: six jobs SUCCESS on `d507b4c` (run 43859465102; the E08 groups `ok` in the isolation gate, spec 12 passed on both viewports, 108 passed). The run did not start on PR open; close and reopen started it. Auto-fix switched on for #168 at the owner's yes.
+- Open: the owner's merge message (Railway rebuilds `maos-web` on merge because the spec lives under `apps/web/`; same application code), production walk-through (fictional people on production — needs a new owner approval).
 
 ### Outstanding owner decisions (collected)
 
