@@ -676,6 +676,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - A comment by the graphify-labs bot on #168 (reviews paused for the workspace) asked for nothing in the PR; reported to the owner, nothing changed.
 - **Open:** production check of removal and suspension. The session cannot run the browser spec there (it signs fictional people in with passwords; the session types no password on production). Proposed under O62: one fictional company through the private tunnel with three invites (Owner, the employee to remove, the employee to suspend); the OWNER accepts and signs in as each in the browser pane; the session performs removal and suspension in that signed-in pane and reads the refusals and the database rows; cleanup to the seed-time baseline.
 
+## 2026-11-16 — C09 (new, owner's request): upload sends the file once when the access token has expired — PR #169
+
+- Origin: the owner asked for a trace of `apiFetch`, then of `apiUpload` / `apiBlob` / `saveBlob` at the end of a session (graph refreshed with `graphify update .`, code only, at the owner's choice). Finding: the three behave the same on a 401 (renew once, repeat once, sign out); the one tangible difference is the upload, which sends the whole file twice when the 15-minute access token has run out, the second pass without visible progress. Owner: "نعم، أصلحه".
+- Checklist first (`docs/MAOS_C09_ACCEPTANCE.md`), then the proof: against a web build without the fix the new browser test failed on desktop and phone with `requests in order: upload, refresh, upload`.
+- Fix (web only): `apps/web/src/lib/token-expiry.ts` (pure reader of `exp`, 30 s margin, unreadable → no change) and eleven lines in `apiUpload`: renew through the existing single-flight refresh before the first send. `apiFetch`, `apiBlob`, API and schema untouched.
+- Local evidence: unit 414/414 (11 new), `e2e/09-upload.spec.ts` 14 passed (C06's tests unchanged, three new), whole browser suite 114 passed, type-check clean.
+- Not changed, recorded: an upload whose session has really ended is still sent once before the sign-out; the sign-in page gives no reason and returns the person to the home page (F04).
+- Open: CI on #169, the owner's merge message (Railway rebuilds `maos-web`), production check.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
