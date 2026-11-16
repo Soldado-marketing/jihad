@@ -2,7 +2,7 @@
 
 **Task (master task list, row D08):** Client-facing status visibility for projects and tasks. Deps: —. Notes: client project page shows task progress by status with client-safe wording; no internal notes or assignees. Acceptance: client sees counts and statuses only; isolation tests.
 
-**Closure status (2026-11-14): DEPLOYED — signed-in check on production PENDING, not DONE.** O60 approved by the owner on 2026-11-14; #166 merged (main `067b376`), API and web deployed, main CI six jobs SUCCESS, public production checks PASS (release record below). Open: nobody signed in has read the Project status panel on production yet — the session has no production sign-in and enters no passwords; the owner's read-only check is in the release record. Rows 1–16 PASS; row 17 PARTIAL. Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, independent comparison before closure).
+**Closure status (2026-11-16): DONE.** O60 approved by the owner on 2026-11-14; #166 merged (main `067b376`), API and web deployed, main CI six jobs SUCCESS, public production checks PASS. Signed-in check on production on 2026-11-16 (O61, owner-approved): a fictional client in a separate fictional company read My Work → Project status; numbers and finished share equal the shared tasks, internal tasks and the other customer's project neither shown nor counted; the fictional data was removed and every count equals the seed-time baseline (signed-in record below). Rows 1–17 PASS. Written before implementation (owner's rules of 2026-11-04: checklist from the original specification first, independent comparison before closure).
 
 **Independence from D07:** D07 is deployed and its production reading of the History tab is pending (no customer on production; owner's instruction of 2026-11-13: no test customer, not DONE). D08 has no dependency in the plan and touches the client portal only (`client-portal` module, My Work page); it reads no D07 code. Started on the owner's instruction of 2026-11-13.
 
@@ -50,7 +50,7 @@ The row asks for task progress by status on the client's project view; the 2026-
 | 14 | CI: six jobs green on the code head | CI run | yes | PASS — CI run 43438634250 on `7ab8be7`: six jobs SUCCESS (unit and integration batches with the two new API suites, isolation gate with the new route, web tests, browser smoke with the new spec) |
 | 15 | Graphify refreshed; dependents of changed symbols reviewed | `graphify update .` | — | PASS — `graphify update .`; `ClientProgressService` is referenced by `client-portal.controller.ts` and `client-portal.module.ts` only; `SHOOTING_LABEL` is imported, not changed |
 | 16 | Security review of the diff: company filter and client scope on every query; nothing but numbers about tasks | review | — | PASS — both queries carry the company id; a CLIENT's queries carry the membership's scope key on projects and on tasks, resolved by `ClientScopeService` (never from the request); tasks are restricted to the caller's visible projects; the answer is built from counts only. Mutation check on the built service: without the task scope filter 1 case fails, without the appointment exclusion 2, without the project visibility filter 4 |
-| 17 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup of the same day first | release record | — | PARTIAL — backup + restore rehearsal PASS, merged, deployed, main CI green, public checks PASS (release record). Signed-in reading of the panel on production: PENDING |
+| 17 | Merge, deploy (API and web, no migration) and production verification when authorised; a verified backup of the same day first | release record | — | PASS — backup + restore rehearsal PASS, merged, deployed, main CI green, public checks PASS (release record). Signed-in reading of the panel on production as a fictional CLIENT: PASS on 2026-11-16, test data removed (signed-in record) |
 
 ## Run record
 
@@ -79,8 +79,32 @@ The row asks for task progress by status on the client's project view; the 2026-
 | Deployments | `jihad` `3ecfa054` SUCCESS and `maos-web` `9ab30751` SUCCESS on `067b376`. API log: one start, `Mapped {/api/client/progress, GET}`, "Nest application successfully started", no migration applied, no error line other than the refusals of this record's own requests |
 | Main CI (run 43536137406) | six jobs SUCCESS |
 | Public checks after 00:54Z | smoke identical to before except `GET /api/client/progress` 404 → 401; forged token 401; POST, PUT, PATCH, DELETE on the route 404; `cache-control: no-store`; readiness `ready`, database up. Web: `/client/deliveries` 200; its page bundle contains the `/client/progress` call and the Project status panel; the bundle is built with the production API address |
-| Signed-in check on production | NOT VERIFIED. Read-only check for a signed-in OWNER (browser console on the production web app; prints numbers only, no names): one line starting `MAOS project status check:` with the HTTP status, the number of shared projects, the totals per stage, the number of fields beyond the agreed ones (must be 0) and the number of projects whose stages do not add up to the total (must be 0) |
+| Signed-in check on production | PASS on 2026-11-16 as a fictional CLIENT (O61) — see "Signed-in record" below. The earlier plan (a read-only console check by the OWNER) was replaced at the owner's instruction: no owner account as a substitute, no console code for the owner |
 | Rollback | redeploy API `61b395d6` and web `9bb3a7d6`, or revert `067b376`; no schema change |
+
+## Signed-in record (O61, 2026-11-16)
+
+Owner's instruction: check on production from the client portal with a test account that has a shared project; isolated test data only after confirming it can be removed; not the owner's account; close only after the check and the cleanup. Approval in chat: "موافق، أنشئها", repeated in full with the conditions (local rehearsal first, the real company untouched, the owner accepts the invite personally, stop if the permission layer refuses).
+
+| Step | Result |
+|---|---|
+| Existing data | Not usable: production had 0 tasks and 0 customers (restore rehearsal of `maos-20261115T030638Z`); no test account existed |
+| Cleanup possible? | Through the application alone: no (only projects and tasks have a delete route). With a separate fictional company written and removed through the private tunnel: yes (method of A09, C05, C06) |
+| Local rehearsal (disposable database, API built from the same code) | invite preview 200, accept 200, second accept 400, sign-in 200, `GET /client/progress` 200 with exactly the expected projects and numbers; client `GET /projects`, `/tasks`, `/customers` 403; cleanup restored every count, no leftover row, a stand-in company untouched; second cleanup run a no-op |
+| Seed on production (one attempt, allowed by the permission layer) | company `d08-mwj5m3do7076`: 2 customers, 5 projects, 36 tasks, 1 CLIENT invite `@d08.fiktiv.test`; no user, no password. Seed-time baseline: tenants 1, users 4, memberships 4, customers 0, projects 2, tasks 0, invites 3, invoices 1, files 2, approvals 1 |
+| Sign-in | The OWNER accepted the invite and signed in as the fictional client in the browser pane, with a password of their own choice (the session typed no password); database state: invite ACCEPTED 11:18:19Z, one user, one membership, one session, one successful sign-in |
+| Panel: My Work → Project status (production web, signed in as the fictional client) | three projects, each "In progress": **Website relaunch** "4 of 10 work steps done", Planned 2 · In progress 3 · In review 1 · Done 4, bar at 40; **Spring campaign** "All 2 work steps are done.", 0 · 0 · 0 · 2, bar at 100; **Empty shared project** "No work steps have been shared yet." |
+| Numbers against the seeded shared tasks | Website relaunch: shared TODO 2, IN_PROGRESS 2 + BLOCKED 1, IN_REVIEW 1, DONE 4 → 2 / 3 / 1 / 4 of 10 — equal. Spring campaign: shared DONE 2 → 2 of 2 — equal |
+| Internal tasks not counted | Website relaunch also held 6 internal tasks (3 of them DONE) and 1 archived shared task; Spring campaign 3 internal (1 DONE); the empty project 2 internal: none counted (10, 2 and 0 would otherwise be 17, 5 and 2) |
+| Internal project not shown | "Internal planning" (same customer, not shared, with 3 tasks marked shared inside it): absent from the panel, from the project filter and from the API answer |
+| Other customer's project not shown, not counted | "Other client shop" (Customer Two, shared, 7 shared tasks): absent from the panel, from the project filter and from the API answer |
+| API answer behind the panel | `GET /api/client/progress` 200, `cache-control: no-store`, exactly three projects, fields `id, name, status, steps` only, steps `total, planned, inProgress, inReview, done` only, every total equals the sum of its stages |
+| Other routes as this client | `GET /projects`, `/tasks`, `/customers`, `/admin/invites`: 403 each |
+| Cleanup on production | deleted: 1 company (cascade), 1 user, 1 audit row, 1 sign-in row. After cleanup every count equals the seed-time baseline; leftovers 0 for companies, users, memberships, invites, customers, projects, tasks, sessions, devices, audit, sign-in history, notifications. The fictional client's token answers 401; tunnel closed; `/api/health/ready` 200 |
+| Real company | not read beyond table counts, not written |
+
+Not covered by this check: phone width on production (covered locally by the browser spec, row 15), and the OWNER/MANAGER preview on production (covered by API tests, rows 5 and 6).
+
 
 ## Notes for the release (row 17)
 
