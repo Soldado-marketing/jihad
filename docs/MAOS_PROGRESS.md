@@ -683,7 +683,8 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - Fix (web only): `apps/web/src/lib/token-expiry.ts` (pure reader of `exp`, 30 s margin, unreadable → no change) and eleven lines in `apiUpload`: renew through the existing single-flight refresh before the first send. `apiFetch`, `apiBlob`, API and schema untouched.
 - Local evidence: unit 414/414 (11 new), `e2e/09-upload.spec.ts` 14 passed (C06's tests unchanged, three new), whole browser suite 114 passed, type-check clean.
 - Not changed, recorded: an upload whose session has really ended is still sent once before the sign-out; the sign-in page gives no reason and returns the person to the home page (F04).
-- Open: CI on #169, the owner's merge message (Railway rebuilds `maos-web`), production check.
+- CI on #169: six jobs SUCCESS on `4d2a7f2` (run 43878178672; the three C09 browser tests passed on both viewports, 114 passed). Row 9 of the acceptance file is filled in the release record after the merge, so the PR head stays the commit that was checked.
+- Open: the owner's merge message (only `maos-web` is rebuilt: the PR touches `apps/web/` and `docs/` only), main CI, production check.
 
 ### Outstanding owner decisions (collected)
 
