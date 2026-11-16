@@ -136,6 +136,9 @@ jobs:
       # security-gate-session-revocation proves a suspended or non-active user
       # loses access immediately: existing access and refresh tokens stop working.
       # throttle-per-client proves rate limits apply per client behind the proxy.
+      # security-gate-access-revocation (E08) proves removal and suspension end every open
+      # session at once for every non-owner role, on that role's own routes, within the
+      # one-minute bound, with the session rows revoked and both actions recorded.
       # security-gate-sessions proves session list/revoke act on own sessions only.
       # security-gate-foreign-ids-content extends that to files, approvals, chat,
       # voice notes and internal notes; -crm-finance to leads, opportunities,
@@ -323,6 +326,7 @@ jobs:
             test/client-onboarding-scope.test.mjs \
             test/client-scope-inheritance.test.mjs \
             test/security-gate-session-revocation.test.mjs \
+            test/security-gate-access-revocation.test.mjs \
             test/security-gate-sessions.test.mjs
 
   web:
