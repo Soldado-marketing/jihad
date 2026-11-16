@@ -658,6 +658,14 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Cleanup:** 1 company (cascade), 1 user, 1 audit row, 1 sign-in row deleted; every count equals the seed-time baseline (tenants 1, users 4, memberships 4, customers 0, projects 2, tasks 0, invites 3, invoices 1, files 2, approvals 1); leftovers 0 in twelve tables; the client's token answers 401; tunnel closed; ready 200. The real company was not written.
 - Record: `docs/MAOS_D08_ACCEPTANCE.md` on `docs/d08-release-record` (`51b731c`, PR #167, docs only) — row 17 PASS, closure DONE. PR #167 still waits for a merge message.
 
+## 2026-11-16 — E08 started after D08: access revocation on removal and suspension, PR #168 (tests only)
+
+- Checklist first: `docs/MAOS_E08_ACCEPTANCE.md` on branch `test/e08-access-revocation`. Audit: removal (`AuthService.removeMember`) and suspension (`AdminUsersService.suspendUser`) already revoke sessions and write audit records (#126); the isolation gate asserted it for one EMPLOYEE on `/tasks` only. Missing: other roles on their own routes, a second open session, the session rows after removal, the one-minute bound, the suspension record, the browser side.
+- Added, no application code changed: `apps/api/test/security-gate-access-revocation.test.mjs` (10 tests; in the isolation gate's list in `ci.yml`) and `apps/web/e2e/12-access-revocation.spec.ts` (removed / suspended employee lands on the sign-in page at the next step, session cleared, sign-in refused with the sentence that says why; desktop and phone).
+- Local evidence on a disposable PostgreSQL 16: new suite 10/10; with `security-gate-member-management` and `security-gate-session-revocation` 31/31; two mutations on the build output (removal / suspension no longer revoking sessions) make 4 tests fail each; whole browser suite 108 passed.
+- Findings recorded, not changed: suspension is account-wide while removal is per company; the removed person's sign-in sentence does not mention removal; an open page is refused at its next request, not pushed out.
+- Open: CI on #168, the owner's merge message (Railway rebuilds `maos-web` on merge because the spec lives under `apps/web/`; same application code), production walk-through (fictional people on production — needs a new owner approval).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
