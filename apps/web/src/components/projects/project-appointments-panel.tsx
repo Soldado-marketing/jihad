@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
+import { ErrorState } from '@/components/states/error-state';
 import { type Appointment, when } from '@/lib/client-portal';
 
 type Form = { id: string | null; title: string; startsAt: string; location: string; preparation: string };
@@ -27,8 +28,12 @@ export function ProjectAppointmentsPanel({ projectId }: { projectId: string }) {
 
   const set = (key: keyof Form, value: string) => setForm((f) => (f ? { ...f, [key]: value } : f));
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(() => {
-    apiFetch<Appointment[]>(`/appointments?projectId=${encodeURIComponent(projectId)}`).then(setItems).catch(() => setItems([]));
+    setLoadError(null);
+    apiFetch<Appointment[]>(`/appointments?projectId=${encodeURIComponent(projectId)}`).then(setItems)
+      // A failed load is not "no appointments": say so and offer another try (F04).
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load the appointments.'));
   }, [projectId]);
   useEffect(() => { load(); }, [load]);
 
@@ -93,6 +98,7 @@ export function ProjectAppointmentsPanel({ projectId }: { projectId: string }) {
       )}
       {error && <p role="alert" className="px-5 pt-3 text-sm text-red-600">{error}</p>}
 
+      {loadError && <div className="px-5 py-3"><ErrorState title="The appointments could not be loaded" message={loadError} onRetry={load} /></div>}
       {items?.length === 0 && !form && <p className="py-6 text-center text-sm text-muted">No shooting scheduled.</p>}
       <ul className="divide-y divide-line">
         {items?.map((a) => (

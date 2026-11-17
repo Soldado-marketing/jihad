@@ -2,19 +2,23 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 
 type Note = { id: string; body: string; createdAt: string; author?: { displayName: string } };
 
 export default function CollaborationPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
 
   useEffect(() => { load(); }, []);
   async function load() {
+    setLoadError(null);
     try { setNotes(await apiFetch<Note[]>('/collaboration/notes')); }
-    catch { /* ignore */ }
+    // A failed load is not an empty list: say so and offer another try (F04).
+    catch (err) { setLoadError(err instanceof Error ? err.message : 'Could not load the list.'); }
     finally { setLoading(false); }
   }
 
@@ -47,7 +51,8 @@ export default function CollaborationPage() {
         </button>
       </form>
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {!loading && notes.length === 0 && <p className="text-center text-sm text-muted py-8">No notes yet.</p>}
+      {loadError && <ErrorState title="Notes could not be loaded" message={loadError} onRetry={load} />}
+      {!loading && !loadError && notes.length === 0 && <p className="text-center text-sm text-muted py-8">No notes yet.</p>}
       <div className="space-y-3">
         {notes.map(n => (
           <div key={n.id} className="rounded-xl border border-line bg-white p-4">

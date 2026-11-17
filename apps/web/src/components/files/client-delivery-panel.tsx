@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
+import { ErrorState } from '@/components/states/error-state';
 import { reviewByLine, reviewByToIso } from '@/lib/deliveries';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { type FileVersionListItem } from './file-version-list';
@@ -43,8 +44,12 @@ export function ClientDeliveryPanel({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(() => {
-    apiFetch<Round[]>(`/deliveries/file/${fileAssetId}`).then(setRounds).catch(() => setRounds([]));
+    setLoadError(null);
+    apiFetch<Round[]>(`/deliveries/file/${fileAssetId}`).then(setRounds)
+      // A failed load is not "never sent to the client": say so and offer another try (F04).
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load the review rounds.'));
   }, [fileAssetId]);
   useEffect(() => { load(); }, [load]);
 
@@ -130,6 +135,7 @@ export function ClientDeliveryPanel({
 
       {done && <p className="mt-3 text-sm text-green-700">{done}</p>}
       {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+      {loadError && <div className="mt-3"><ErrorState title="The review rounds could not be loaded" message={loadError} onRetry={load} /></div>}
 
       {!!rounds?.length && (
         <ol className="mt-5 space-y-3 border-t border-line pt-4 text-sm">

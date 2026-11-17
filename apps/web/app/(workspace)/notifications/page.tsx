@@ -2,17 +2,21 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 
 type Notification = { id: string; title: string; body: string; status: string; createdAt: string };
 
 export default function NotificationsPage() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
   async function load() {
+    setLoadError(null);
     try { setItems(await apiFetch<Notification[]>('/notifications')); }
-    catch { /* silently fail */ }
+    // A failed load is not "no notifications": say so and offer another try (F04).
+    catch (err) { setLoadError(err instanceof Error ? err.message : 'Could not load notifications.'); }
     finally { setLoading(false); }
   }
 
@@ -37,7 +41,8 @@ export default function NotificationsPage() {
         )}
       />
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="text-center text-sm text-muted py-12">No notifications.</p>}
+      {loadError && <ErrorState title="Notifications could not be loaded" message={loadError} onRetry={load} />}
+      {!loading && !loadError && items.length === 0 && <p className="text-center text-sm text-muted py-12">No notifications.</p>}
       <ul className="divide-y divide-line rounded-xl border border-line bg-white overflow-hidden">
         {items.map(n => (
           <li key={n.id} className={`flex items-start gap-4 p-4 ${n.status==='UNREAD' ? 'bg-blue-50/40' : ''}`}>

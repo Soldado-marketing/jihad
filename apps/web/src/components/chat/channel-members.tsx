@@ -31,7 +31,8 @@ export function ChannelMembers({ channelId }: { channelId: string }) {
     void load();
     apiFetch<CompanyMember[]>('/users/members')
       .then((rows) => setPeople(rows.filter((p) => p.role !== 'CLIENT')))
-      .catch(() => setPeople([]));
+      // Without the company's people nobody can be added: say so instead of an empty list (F04).
+      .catch(() => { setPeople([]); setError('Could not load the company members.'); });
   }, [load]);
 
   async function change(userId: string, add: boolean) {

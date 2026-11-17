@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 
 type CostRecord = { id: string; description?: string; amountCents: number; currency: string; recordedAt?: string; project?: { name: string } };
 
@@ -12,16 +13,23 @@ function fmt(cents: number, currency = 'EUR') {
 export default function CostsPage() {
   const [items, setItems] = useState<CostRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    apiFetch<CostRecord[]>('/finance/costs').then(setItems).catch(() => {}).finally(() => setLoading(false));
+  const load = useCallback(() => {
+    setLoading(true); setLoadError(null);
+    apiFetch<CostRecord[]>('/finance/costs').then(setItems)
+      // A failed load is not "no records": say so and offer another try (F04).
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load the records.'))
+      .finally(() => setLoading(false));
   }, []);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Finance" title="Cost Records" description="All cost entries." />
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {!loading && items.length === 0 && <p className="text-center text-sm text-muted py-8">No cost records yet.</p>}
+      {loadError && <ErrorState title="Cost records could not be loaded" message={loadError} onRetry={load} />}
+      {!loading && !loadError && items.length === 0 && <p className="text-center text-sm text-muted py-8">No cost records yet.</p>}
       {items.length > 0 && (
         <table className="w-full rounded-xl border border-line overflow-hidden bg-white">
           <thead className="bg-slate-50 text-xs font-semibold text-muted uppercase">

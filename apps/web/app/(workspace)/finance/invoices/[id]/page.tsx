@@ -5,6 +5,7 @@ import { InvoiceDetail, type InvoiceDetailData } from '@/components/finance/invo
 import { formatCents, toCents } from '@/components/finance/invoice-line-editor';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
 import { describeInvoiceSend, type InvoiceSendResponse } from '@/lib/invoice-send-result';
 import { createIdempotencyKeys } from '@/lib/idempotency';
@@ -67,11 +68,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const canEdit = role === 'OWNER' || grants['invoices-edit'] === true;
   const canRecord = role === 'OWNER' || grants['payments-record'] === true;
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(
     () =>
       apiFetch<RawInvoice>(`/invoices/${id}`)
-        .then(setInvoice)
-        .catch(() => setInvoice(null))
+        .then((i) => { setInvoice(i); setLoadError(null); })
+        // Any failure used to read "not found"; now the reason is shown and the load can be repeated (F04).
+        .catch((err) => { setInvoice(null); setLoadError(err instanceof Error ? err.message : 'Invoice not found.'); })
         .finally(() => setLoading(false)),
     [id],
   );
@@ -158,7 +161,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   }
 
   if (loading) return <p className="p-6 text-sm text-slate-500">Loading…</p>;
-  if (!invoice) return <p className="p-6 text-sm text-red-500">Invoice not found.</p>;
+  if (!invoice) return <div className="p-6"><ErrorState title="This invoice could not be opened" message={loadError ?? 'Invoice not found.'} onRetry={() => { setLoading(true); void load(); }} /></div>;
 
   const outstanding = Math.max(0, invoice.totalCents - invoice.paidCents);
 

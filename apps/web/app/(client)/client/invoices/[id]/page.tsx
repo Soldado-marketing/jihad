@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import { ClientSafeNotice } from '@/components/client-portal/client-safe-notice';
+import { ErrorState } from '@/components/states/error-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { apiBlob, apiFetch, saveBlob } from '@/lib/fetch';
@@ -21,12 +22,16 @@ export default function ClientInvoiceDetailPage({ params }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setLoading(true); setLoadError(null);
     apiFetch<Detail>(`/client/invoices/${id}`)
       .then(setInvoice)
-      .catch(() => setInvoice(null))
+      // Any failure used to read "not found"; now the reason is shown and the load can be repeated (F04).
+      .catch((err) => { setInvoice(null); setLoadError(err instanceof Error ? err.message : 'Invoice not found.'); })
       .finally(() => setLoading(false));
   }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   async function downloadPdf() {
     setDownloading(true);
@@ -44,7 +49,7 @@ export default function ClientInvoiceDetailPage({ params }: Props) {
   }
 
   if (loading) return <p className="text-sm text-slate-500">Loading…</p>;
-  if (!invoice) return <p className="text-sm text-red-600">Invoice not found.</p>;
+  if (!invoice) return <ErrorState title="This invoice could not be opened" message={loadError ?? 'Invoice not found.'} onRetry={load} />;
   const payments = (invoice.payments ?? []).filter((p) => countedPayment(p.status));
 
   return (
