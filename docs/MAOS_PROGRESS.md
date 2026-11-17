@@ -711,6 +711,14 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - Record: `docs/MAOS_E08_ACCEPTANCE.md` and `docs/MAOS_C09_ACCEPTANCE.md` on `docs/e08-c09-production-record` (`1f85cd2`, PR #170, docs only), both closure lines DONE. PR #170 waits for a merge message.
 - Not covered on production, covered in CI: the other roles and a second open session (E08); a large file and the phone width (C09).
 
+## 2026-11-17 — Docs records merged: #165 (D07), #167 (D08), #170 (E08 + C09)
+
+- **Owner message:** merge the docs PRs #165, #167 and #170 after each one's checks pass (2026-11-17).
+- Before the merges: each PR six jobs SUCCESS on its head (`dc48d24`, `51b731c`, `1f85cd2`), MERGEABLE/CLEAN, one or two files under `docs/` only. Merged 13:57:37Z, 13:57:42Z, 13:57:47Z with `--match-head-commit` → main `5ef895b`, `5a03590`, `60b1d3d`.
+- **Railway:** all six deployments (two services × three commits) SKIPPED — nothing rebuilt; `maos-web` stays `4fd4d138` (main `27821a0`), `jihad` stays `1ada64a5` (main `1c1eec5`). Production unchanged: readiness 200, `/api/client/progress` 401, sign-in page 200.
+- **Main CI:** run 44097995485 on `60b1d3d`, six jobs SUCCESS (the runs for the two earlier merge commits were cancelled by the concurrency rule, as designed).
+- State of the records on main: D07 "DEPLOYED — History check on production PENDING, not DONE" (unchanged, no customer); D08, E08, C09 DONE.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
