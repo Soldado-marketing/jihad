@@ -1,6 +1,7 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useCallback, use, useEffect, useState } from 'react';
+import { ErrorState } from '@/components/states/error-state';
 import { AIPlaceholderNotice } from '@/components/voice/ai-placeholder-notice';
 import { HumanConfirmationNotice } from '@/components/voice/human-confirmation-notice';
 import { apiFetch } from '@/lib/fetch';
@@ -18,15 +19,19 @@ export default function VoiceToTaskDraftDetailPage({ params }: { params: Promise
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setLoading(true); setLoadError(null);
     apiFetch<Draft>(`/voice-to-task-drafts/${id}`)
       .then(setDraft)
-      .catch(() => setDraft(null))
+      // Any failure used to read "not found"; now the reason is shown and the load can be repeated (F04).
+      .catch((err) => { setDraft(null); setLoadError(err instanceof Error ? err.message : 'Draft not found.'); })
       .finally(() => setLoading(false));
   }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <p className="text-sm text-slate-500 p-6">Loading…</p>;
-  if (!draft) return <p className="text-sm text-red-500 p-6">Draft not found.</p>;
+  if (!draft) return <div className="p-6"><ErrorState title="This draft could not be opened" message={loadError ?? 'Draft not found.'} onRetry={load} /></div>;
 
   return (
     <div className="grid gap-4">

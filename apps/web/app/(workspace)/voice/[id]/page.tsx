@@ -1,6 +1,7 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useCallback, use, useEffect, useState } from 'react';
+import { ErrorState } from '@/components/states/error-state';
 import { AIPlaceholderNotice } from '@/components/voice/ai-placeholder-notice';
 import { HumanConfirmationNotice } from '@/components/voice/human-confirmation-notice';
 import { VoiceRecorderPlaceholder } from '@/components/voice/voice-recorder-placeholder';
@@ -19,15 +20,19 @@ export default function VoiceNoteDetailPage({ params }: { params: Promise<{ id: 
   const [note, setNote] = useState<VoiceNote | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setLoading(true); setLoadError(null);
     apiFetch<VoiceNote>(`/voice-notes/${id}`)
       .then(setNote)
-      .catch(() => setNote(null))
+      // Any failure used to read "not found"; now the reason is shown and the load can be repeated (F04).
+      .catch((err) => { setNote(null); setLoadError(err instanceof Error ? err.message : 'Voice note not found.'); })
       .finally(() => setLoading(false));
   }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <p className="text-sm text-slate-500 p-6">Loading…</p>;
-  if (!note) return <p className="text-sm text-red-500 p-6">Voice note not found.</p>;
+  if (!note) return <div className="p-6"><ErrorState title="This voice note could not be opened" message={loadError ?? 'Voice note not found.'} onRetry={load} /></div>;
 
   return (
     <div className="grid gap-4">

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import { ErrorState } from '@/components/states/error-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { type ClientProblem, type Delivery, PROBLEM_STATUS_LABEL } from '@/lib/client-portal';
@@ -30,9 +31,13 @@ function ProblemsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    apiFetch<ClientProblem[]>('/client/problems').then(setItems).catch(() => setItems([]));
+    setLoadError(null);
+    apiFetch<ClientProblem[]>('/client/problems').then(setItems)
+      // A failed load is not "nothing sent yet": say so and offer another try (F04).
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load the list.'));
   }, []);
   useEffect(() => {
     load();
@@ -102,7 +107,8 @@ function ProblemsPage() {
 
       <section aria-labelledby="reported-title" className="rounded-xl border border-line bg-white p-5">
         <h2 id="reported-title" className="font-semibold text-ink">What you reported</h2>
-        {items === null && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
+        {loadError && <div className="mt-2"><ErrorState title="Your list could not be loaded" message={loadError} onRetry={load} /></div>}
+        {items === null && !loadError && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
         {items?.length === 0 && <p className="mt-2 text-sm text-slate-600">You have not reported anything yet.</p>}
         <ul className="mt-3 divide-y divide-line">
           {items?.map((r) => (

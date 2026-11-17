@@ -2,19 +2,23 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 
 type VoiceNote = { id: string; title: string; status: string; durationSeconds?: number; createdAt: string; project?: { name: string } };
 
 export default function VoicePage() {
   const [notes, setNotes] = useState<VoiceNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
 
   useEffect(() => { load(); }, []);
   async function load() {
+    setLoadError(null);
     try { setNotes(await apiFetch<VoiceNote[]>('/voice-notes')); }
-    catch { /* ignore */ }
+    // A failed load is not an empty list: say so and offer another try (F04).
+    catch (err) { setLoadError(err instanceof Error ? err.message : 'Could not load the list.'); }
     finally { setLoading(false); }
   }
 
@@ -47,7 +51,8 @@ export default function VoicePage() {
         </form>
       )}
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {!loading && notes.length === 0 && <p className="text-center text-sm text-muted py-8">No voice notes yet.</p>}
+      {loadError && <ErrorState title="Voice notes could not be loaded" message={loadError} onRetry={load} />}
+      {!loading && !loadError && notes.length === 0 && <p className="text-center text-sm text-muted py-8">No voice notes yet.</p>}
       <ul className="divide-y divide-line rounded-xl border border-line bg-white overflow-hidden">
         {notes.map(n => (
           <li key={n.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50">

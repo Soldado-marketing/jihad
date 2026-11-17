@@ -204,6 +204,7 @@ export function TaskModal({
   // ── Subtasks ──
   const [subtasks, setSubtasks]       = useState<Subtask[]>([]);
   const [subLoading, setSubLoading]   = useState(true);
+  const [subError, setSubError]       = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState('');
   const [addingSub, setAddingSub]     = useState(false);
   const [subTitleError, setSubTitleError] = useState('');
@@ -257,9 +258,11 @@ export function TaskModal({
   // ── Load subtasks ──
   useEffect(() => {
     setSubLoading(true);
+    setSubError(null);
     apiFetch<Subtask[]>(`/tasks/${task.id}/subtasks`)
       .then((data) => setSubtasks(Array.isArray(data) ? data : []))
-      .catch(() => setSubtasks([]))
+      // A failed load is not "no subtasks": say so (F04).
+      .catch((err) => { setSubtasks([]); setSubError(err instanceof Error ? err.message : 'Could not load the subtasks.'); })
       .finally(() => setSubLoading(false));
   }, [task.id]);
 
@@ -834,6 +837,8 @@ export function TaskModal({
 
                   {subLoading ? (
                     <p className="text-xs text-muted">Loading…</p>
+                  ) : subError ? (
+                    <p role="alert" className="mb-3 text-xs text-danger">The subtasks could not be loaded. {subError}</p>
                   ) : (
                     <div className="space-y-0.5 mb-3">
                       {subtasks.map((sub) => (

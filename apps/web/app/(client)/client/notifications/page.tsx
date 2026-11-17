@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { ErrorState } from '@/components/states/error-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { apiFetch } from '@/lib/fetch';
 import { NOTIFICATIONS_CHANGED, notificationHref } from '@/lib/notifications';
@@ -11,8 +12,12 @@ type Item = { id: string; title: string; body?: string | null; status: string; c
 /** All of the client's own notifications; each opens what it is about. */
 export default function ClientNotificationsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(() => {
-    apiFetch<Item[]>('/notifications').then(setItems).catch(() => setItems([]));
+    setLoadError(null);
+    apiFetch<Item[]>('/notifications').then(setItems)
+      // A failed load is not "no notifications": say so and offer another try (F04).
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load your notifications.'));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -30,7 +35,8 @@ export default function ClientNotificationsPage() {
       {items?.some((n) => n.status === 'UNREAD') && (
         <div><button type="button" onClick={() => void readAll()} className="rounded-lg border border-line px-3 py-1.5 text-sm">Mark all as read</button></div>
       )}
-      {items === null && <p className="text-sm text-slate-500">Loading…</p>}
+      {loadError && <ErrorState title="Your notifications could not be loaded" message={loadError} onRetry={load} />}
+      {items === null && !loadError && <p className="text-sm text-slate-500">Loading…</p>}
       {items?.length === 0 && <p className="rounded-xl border border-line bg-white p-8 text-center text-sm text-muted">No notifications yet.</p>}
       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
         {items?.map((n) => {

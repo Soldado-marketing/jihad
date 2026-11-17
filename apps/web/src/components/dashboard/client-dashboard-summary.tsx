@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ErrorState } from '@/components/states/error-state';
 import { apiFetch } from '@/lib/fetch';
 import { type Appointment, type ClientInvoice, type ClientProblem, type Delivery, KIND_LABEL, money, remainingCents, when } from '@/lib/client-portal';
 
 type Action = { key: string; label: string; detail: string; href: string; cta: string };
+type Part = 'deliveries' | 'appointments' | 'invoices' | 'problems';
+const NOT_LOADED = 'could not be loaded';
 
 /**
  * The client's starting point: everything that waits for them, then three
@@ -18,14 +21,22 @@ export function ClientDashboardSummary() {
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [problems, setProblems] = useState<ClientProblem[]>([]);
 
-  useEffect(() => {
+  // Which parts could not be loaded. Each part loads on its own, so one
+  // failure does not blank the rest - but a failed part is never shown as
+  // "nothing waiting" or "all invoices are paid" (F04).
+  const [failed, setFailed] = useState<Set<Part>>(new Set());
+
+  const load = useCallback(() => {
+    const missed = new Set<Part>();
+    const without = <T,>(name: Part) => (): T[] => { missed.add(name); return []; };
     void Promise.all([
-      apiFetch<Delivery[]>('/client/deliveries').catch(() => []),
-      apiFetch<Appointment[]>('/client/appointments').catch(() => []),
-      apiFetch<ClientInvoice[]>('/client/invoices').catch(() => []),
-      apiFetch<ClientProblem[]>('/client/problems').catch(() => []),
-    ]).then(([d, a, i, r]) => { setDeliveries(d); setAppointments(a); setInvoices(i); setProblems(r); });
+      apiFetch<Delivery[]>('/client/deliveries').catch(without<Delivery>('deliveries')),
+      apiFetch<Appointment[]>('/client/appointments').catch(without<Appointment>('appointments')),
+      apiFetch<ClientInvoice[]>('/client/invoices').catch(without<ClientInvoice>('invoices')),
+      apiFetch<ClientProblem[]>('/client/problems').catch(without<ClientProblem>('problems')),
+    ]).then(([d, a, i, r]) => { setDeliveries(d); setAppointments(a); setInvoices(i); setProblems(r); setFailed(missed); });
   }, []);
+  useEffect(() => { load(); }, [load]);
 
   const now = Date.now();
   const toReview = (deliveries ?? []).filter((d) => d.status === 'REQUESTED');
@@ -48,7 +59,8 @@ export function ClientDashboardSummary() {
       <section aria-labelledby="waiting-title" className="rounded-2xl border border-line bg-white p-5 shadow-card">
         <h3 id="waiting-title" className="font-semibold text-ink">Waiting for you</h3>
         {deliveries === null && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
-        {deliveries !== null && actions.length === 0 && <p className="mt-2 text-sm text-slate-600">You are all set. Nothing needs your attention right now.</p>}
+        {failed.size > 0 && <div className="mt-2"><ErrorState title="Part of your overview could not be loaded" message="What you see below may be incomplete." onRetry={load} /></div>}
+        {deliveries !== null && failed.size === 0 && actions.length === 0 && <p className="mt-2 text-sm text-slate-600">You are all set. Nothing needs your attention right now.</p>}
         <ul className="mt-3 divide-y divide-line">
           {actions.map((a) => (
             <li key={a.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -63,9 +75,9 @@ export function ClientDashboardSummary() {
       </section>
 
       <section aria-label="Overview" className="grid gap-3 md:grid-cols-3">
-        <Card href="/client/deliveries" label="My Work" value={deliveries ? String(toReview.length) : '…'} detail="deliveries waiting for your review" />
-        <Card href="/client/appointments" label="Next shooting" value={next ? when(next.startsAt) : '—'} detail={next ? next.location : 'No appointment planned'} />
-        <Card href="/client/invoices" label="Open balance" value={money(balance, currency)} detail={open.length ? `${open.length} open invoice${open.length > 1 ? 's' : ''}` : 'All invoices are paid'} />
+        <Card href="/client/deliveries" label="My Work" value={failed.has('deliveries') ? '—' : deliveries ? String(toReview.length) : '…'} detail={failed.has('deliveries') ? NOT_LOADED : 'deliveries waiting for your review'} />
+        <Card href="/client/appointments" label="Next shooting" value={next ? when(next.startsAt) : '—'} detail={failed.has('appointments') ? NOT_LOADED : next ? next.location : 'No appointment planned'} />
+        <Card href="/client/invoices" label="Open balance" value={failed.has('invoices') ? '—' : money(balance, currency)} detail={failed.has('invoices') ? NOT_LOADED : open.length ? `${open.length} open invoice${open.length > 1 ? 's' : ''}` : 'All invoices are paid'} />
       </section>
     </div>
   );

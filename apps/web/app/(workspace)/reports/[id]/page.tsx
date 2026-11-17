@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 import { HiddenDataNotice } from '@/components/dashboard/hidden-data-notice';
 import { apiFetch } from '@/lib/fetch';
 
@@ -17,24 +18,28 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setLoading(true); setLoadError(null);
     apiFetch<Report>(`/reports/${id}`)
       .then(setReport)
-      .catch(() => setReport(null))
+      // Any failure used to read "not found"; now the reason is shown and the load can be repeated (F04).
+      .catch((err) => { setReport(null); setLoadError(err instanceof Error ? err.message : 'Report not found.'); })
       .finally(() => setLoading(false));
   }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="grid gap-6">
       <PageHeader
         eyebrow="Permission-filtered reporting"
-        title={loading ? 'Report detail' : (report?.name ?? 'Report not found')}
+        title={loading ? 'Report detail' : (report?.name ?? 'Report')}
         description="Report output is intentionally filtered by role. Hidden totals stay suppressed for users who should not see them."
       />
       {loading ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : !report ? (
-        <p className="text-sm text-red-500">Report not found.</p>
+        <ErrorState title="This report could not be opened" message={loadError ?? 'Report not found.'} onRetry={load} />
       ) : (
         <section aria-label="Report detail" className="grid gap-4">
           <div className="rounded-2xl border border-line bg-white p-6 shadow-lift">
