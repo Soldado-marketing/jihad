@@ -728,6 +728,16 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **CI:** run 44110292388 on `6a285f5`, six jobs SUCCESS.
 - **Not done:** part 2 (about 55 pages of working presentation, 20 `alert()` uses) — conflicts with the owner's rule against changing sound code without a proven reason, so it waits for a decision (O63). Merge of #171 waits for the owner's message.
 
+## 2026-11-17 — F04 part 1 merged and deployed (#171 → main `5676602`); main CI green on the second attempt
+
+- **Owner message:** "نعم، ادمجه" for PR #171.
+- Before the merge: six jobs SUCCESS on `6a285f5`, MERGEABLE/CLEAN, files under `apps/web/` and `docs/` only. Merged 15:15:46Z with `--match-head-commit` → main `5676602`.
+- **Railway:** `maos-web` `1f7f6274` SUCCESS on `5676602`; the API deployment was SKIPPED (`jihad` stays `1ada64a5`). Rollback for the web: `4fd4d138`.
+- **Deployed code:** the three new error titles checked are in the production bundles of `/finance/revenue`, `/client` and `/tasks/[id]`. Smoke identical before and after (readiness 200, `/api/client/progress` 401, sign-in page, `/client/deliveries` and `/finance/revenue` 200).
+- **Main CI (run 44112290252):** first attempt FAILED in the API job, step "Unit and contract tests", 510 of 511: `offsite-backup.test.mjs:172` "rehearsal fails on a tampered download or the wrong key" — with the wrong key the script failed closed (exit 1) but with "decrypted dump checksum mismatch" instead of the "decryption failed" the test expects. Not related to this merge (web and docs only); the script still refused the copy. Rerun of the failed job: six jobs SUCCESS on the same commit.
+- **New finding:** that test is intermittent — a wrong key can occasionally decrypt without an error from the tool, and the second guard (the checksum) then catches it. Proposed fix (test only, not done): accept either alert for the wrong-key case. A change under `apps/api/test/` redeploys the API on merge.
+- **Open for F04:** a signed-in look at one failed-load case on production (owner-gated; needs a way to make a load fail there, so it may stay covered by CI only — owner's call); part 2 (O63).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
