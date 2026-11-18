@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
+import { ErrorState } from '@/components/states/error-state';
 
 type FileAsset = {
   id: string;
@@ -31,11 +32,14 @@ export default function FilesPage() {
     apiFetch<Option[]>('/tasks').then(setTasks).catch(() => setTasks([]));
   }, []);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   async function load() {
+    setLoadError(null);
     try {
       setFiles(await apiFetch<FileAsset[]>('/files'));
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // A failed load is not "no files": say so and offer another try (F04).
+      setLoadError(err instanceof Error ? err.message : 'Could not load the files.');
     } finally {
       setLoading(false);
     }
@@ -163,7 +167,8 @@ export default function FilesPage() {
       )}
 
       {loading && <p className="text-sm text-muted">Loading…</p>}
-      {!loading && files.length === 0 && (
+      {loadError && <ErrorState title="The files could not be loaded" message={loadError} onRetry={() => void load()} />}
+      {!loading && !loadError && files.length === 0 && (
         <p className="py-8 text-center text-sm text-muted">No files yet.</p>
       )}
       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">

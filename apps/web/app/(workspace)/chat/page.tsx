@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import { ErrorState } from '@/components/states/error-state';
+import { LoadingState } from '@/components/states/loading-state';
 import { ChannelMembers } from '@/components/chat/channel-members';
 import { getStoredUser } from '@/lib/auth';
 
@@ -28,17 +29,23 @@ export default function ChatPage() {
   // A failed load is not "no channels" or "no messages": say so and offer another try (F04).
   const [channelsError, setChannelsError] = useState<string | null>(null);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+  // Until the first answer arrives the lists are unknown, not empty (F04).
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   async function loadChannels() {
     setChannelsError(null);
     try { const c = await apiFetch<Channel[]>('/chat/channels'); setChannels(c); if (c.length && !activeChannel) setActiveChannel(c[0]); }
     catch (err) { setChannelsError(err instanceof Error ? err.message : 'Could not load the channels.'); }
+    finally { setChannelsLoading(false); }
   }
 
   async function loadMessages(channelId: string) {
     setMessagesError(null);
+    setMessagesLoading(true);
     try { setMessages(await apiFetch<Message[]>(`/chat/channels/${channelId}/messages`)); }
     catch (err) { setMessagesError(err instanceof Error ? err.message : 'Could not load the messages.'); }
+    finally { setMessagesLoading(false); }
   }
 
   async function createChannel(e: React.FormEvent) {
@@ -81,7 +88,8 @@ export default function ChatPage() {
             </button>
           ))}
           {channelsError && <div className="p-2"><ErrorState title="Channels could not be loaded" message={channelsError} onRetry={() => void loadChannels()} /></div>}
-          {!channelsError && channels.length === 0 && <p className="p-3 text-xs text-muted">No channels yet.</p>}
+          {channelsLoading && <div className="p-2"><LoadingState label="Loading channels" /></div>}
+          {!channelsLoading && !channelsError && channels.length === 0 && <p className="p-3 text-xs text-muted">No channels yet.</p>}
         </div>
         <div className="flex-1 flex flex-col rounded-xl border border-line bg-white overflow-hidden">
           {activeChannel ? (
@@ -103,7 +111,8 @@ export default function ChatPage() {
                   </div>
                 ))}
                 {messagesError && <ErrorState title="Messages could not be loaded" message={messagesError} onRetry={() => void loadMessages(activeChannel.id)} />}
-                {!messagesError && messages.length === 0 && <p className="text-center text-sm text-muted py-8">No messages yet.</p>}
+                {messagesLoading && messages.length === 0 && <LoadingState label="Loading messages" />}
+                {!messagesLoading && !messagesError && messages.length === 0 && <p className="text-center text-sm text-muted py-8">No messages yet.</p>}
                 <div ref={bottomRef} />
               </div>
               <form onSubmit={sendMessage} className="border-t border-line p-3 flex gap-3">
