@@ -92,7 +92,7 @@ function Complaints() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <section aria-label="Reports" className="rounded-xl border border-line bg-white">
-          {items === null && <p className="p-5 text-sm text-slate-500">Loading…</p>}
+          {items === null && !error && <p className="p-5 text-sm text-slate-500">Loading…</p>}
           {items !== null && shown.length === 0 && <p className="p-8 text-center text-sm text-muted">{tab === 'open' ? 'No open reports.' : 'No resolved reports yet.'}</p>}
           <ul className="divide-y divide-line">
             {shown.map((r) => (

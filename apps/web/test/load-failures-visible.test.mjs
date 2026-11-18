@@ -16,7 +16,8 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SWALLOWED = /\.catch\(\(\)\s*=>\s*(\{\s*\}|undefined|null|set[A-Za-z]+\(\[\]\)|set[A-Za-z]+\(null\)|\[\]|void 0)\)|catch\s*\{\s*(\/\*[^*]*\*\/)?\s*\}|catch\s*\([a-z_]*\)\s*\{\s*\}/;
+// Across lines too: an empty catch that only holds a comment is still a swallowed failure.
+const SWALLOWED = /\.catch\(\s*\(\s*\)\s*=>\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}|undefined|null|set[A-Za-z]+\(\[\]\)|set[A-Za-z]+\(null\)|\[\]|void 0)\s*\)|catch\s*(\([^)]*\))?\s*\{\s*(\/\*[\s\S]*?\*\/|\/\/[^\n]*\n)?\s*\}/g;
 
 function tsx(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -25,7 +26,7 @@ function tsx(dir) {
   });
 }
 const files = [...tsx(join(root, 'app')), ...tsx(join(root, 'src/components'))];
-const swallowedIn = (path) => readFileSync(path, 'utf8').split('\n').filter((line) => SWALLOWED.test(line)).length;
+const swallowedIn = (path) => (readFileSync(path, 'utf8').match(SWALLOWED) ?? []).length;
 
 /**
  * The swallowed failures that are allowed to stay, with how many per file and why.
@@ -51,7 +52,10 @@ const ALLOWED = {
   'app/(workspace)/time/page.tsx': [2, 'options', 'projects and tasks to book time on'],
   'src/components/client-portal/client-project-detail.tsx': [1, 'unused', 'not rendered since the client project pages redirect'],
   'src/components/dashboard/workspace-summary-grid.tsx': [1, 'unused', 'not rendered; the dashboard page loads the summary itself and reports a failure'],
+  'src/components/files/file-uploader.tsx': [1, 'fallback', 'the duplicate check before Try again; sending again is still what the person asked for'],
+  'src/components/notifications/notification-bell.tsx': [2, 'action', 'marking as read from the bell; the full page offers it again'],
   'src/components/tasks/project-board.tsx': [4, 'options', 'members, projects, files and labels for the card editor'],
+  'src/components/tasks/task-modal.tsx': [2, 'action', 'adding and deleting a subtask; the list stays as it was'],
   'src/components/team/company-access-panel.tsx': [1, 'options', 'customers for a client membership'],
   'src/components/team/invitations-panel.tsx': [1, 'options', 'customers for a client invitation'],
 };
@@ -87,7 +91,7 @@ describe('F04 — failed loads are visible', () => {
     'app/(workspace)/finance/costs/page.tsx', 'app/(workspace)/finance/invoices/[id]/page.tsx', 'app/(workspace)/crm/page.tsx',
     'app/(workspace)/crm/leads/[id]/page.tsx', 'app/(workspace)/crm/opportunities/[id]/page.tsx', 'app/(workspace)/collaboration/page.tsx',
     'app/(workspace)/voice/page.tsx', 'app/(workspace)/voice/[id]/page.tsx', 'app/(workspace)/voice/task-drafts/[id]/page.tsx',
-    'app/(workspace)/chat/page.tsx', 'app/(workspace)/approvals/[id]/page.tsx', 'app/(workspace)/files/[id]/page.tsx',
+    'app/(workspace)/chat/page.tsx', 'app/(workspace)/approvals/[id]/page.tsx', 'app/(workspace)/files/[id]/page.tsx', 'app/(workspace)/files/page.tsx',
     'app/(workspace)/reports/[id]/page.tsx', 'app/(workspace)/tasks/[id]/page.tsx',
     'src/components/dashboard/client-dashboard-summary.tsx',
     'src/components/files/client-delivery-panel.tsx', 'src/components/projects/project-appointments-panel.tsx',

@@ -214,7 +214,7 @@ export default function InvitesPage() {
 
       {loading ? (
         <LoadingState />
-      ) : invites.length === 0 ? (
+      ) : pageError ? null : invites.length === 0 ? (
         <p className="text-sm text-muted">No invitations yet.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line">
