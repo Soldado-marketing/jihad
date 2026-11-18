@@ -758,6 +758,14 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Main CI:** run 44291274351 on `91eb0eb`, six jobs SUCCESS on the first attempt.
 - **F04 closed as DONE** on the terms agreed with the owner: the four states on every page, proven on screen in CI; no restyling. Not done: a signed-in check on production (a load cannot be made to fail there without touching it). Closure record: `docs/MAOS_F04_ACCEPTANCE.md` on `docs/f04-closure-record` (`bfde1af`, PR #173, docs only) — waits for a merge message.
 
+## 2026-11-18 — F04 closure record merged (#173 → main `1dd287b`); main CI green on the second attempt
+
+- **Owner message:** "نعم، ادمجه" for docs PR #173.
+- Before the merge: six jobs SUCCESS on `bfde1af`, MERGEABLE/CLEAN, one file under `docs/`. Merged 11:21:51Z with `--match-head-commit` → main `1dd287b`. Railway SKIPPED both deployments; production unchanged (`maos-web` `3b336286`, `jihad` `1ada64a5`; readiness 200).
+- **Main CI (run 44294015975):** first attempt FAILED in the Browser job, 134 of 135: `[mobile] e2e/11-client-project-status.spec.ts:38` — the page's horizontal overflow was measured once as 6 px (limit 1 px). Not related to this merge (one docs file; the same code passed on `91eb0eb` and on the PR). Rerun of the failed job: 135 passed, six jobs SUCCESS on the same commit.
+- **New finding:** that D08 case measures the overflow once, right after a heading appears; at phone width the layout can still be settling. Proposed fix (test only, not done): poll the measurement until it is at most 1 px. A change under `apps/web/e2e/` rebuilds the web on merge.
+- Intermittent tests seen so far: `offsite-backup.test.mjs:172` (API job), C06 "Cancel while sending" at phone width, and this one. Three reruns in two days: worth one small tests-only task.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
