@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLabelDto } from './dto/create-label.dto';
 import { UpdateLabelDto } from './dto/update-label.dto';
@@ -73,36 +74,41 @@ export class LabelsRepository {
    * before writing — cross-tenant linking is structurally impossible.
    * The operation is idempotent (upsert).
    */
-  async assignLabel(tenantId: string, taskId: string, labelId: string) {
+  async assignLabel(tenantId: string, taskId: string, labelId: string, taskScope: Prisma.TaskWhereInput = {}) {
     const [task, label] = await Promise.all([
-      this.prisma.task.findFirst({ where: { id: taskId, tenantId } }),
+      this.prisma.task.findFirst({ where: { id: taskId, tenantId, ...taskScope }, select: { id: true } }),
       this.prisma.label.findFirst({ where: { id: labelId, tenantId } }),
     ]);
     if (!task) throw new NotFoundException('Task not found');
     if (!label) throw new NotFoundException('Label not found');
 
-    return this.prisma.taskLabel.upsert({
+    const existing = await this.prisma.taskLabel.findFirst({ where: { taskId, labelId, tenantId }, select: { taskId: true } });
+    const row = await this.prisma.taskLabel.upsert({
       where: { taskId_labelId: { taskId, labelId } },
       create: { taskId, labelId, tenantId },
       update: {},
     });
+    // `added` tells the service whether anything changed, so a repeat is not recorded again.
+    return { row, added: existing === null };
   }
 
   /**
    * Remove a label from a task.
-   * Verifies the task and label both belong to the tenant before deleting.
-   * Returns silently if the assignment did not exist.
+   * Verifies the task (within the caller's task scope) and the label both
+   * belong to the tenant before deleting. Returns how many assignments were
+   * removed: 0 when the label was not on the task.
    */
-  async removeLabel(tenantId: string, taskId: string, labelId: string) {
+  async removeLabel(tenantId: string, taskId: string, labelId: string, taskScope: Prisma.TaskWhereInput = {}) {
     const [task, label] = await Promise.all([
-      this.prisma.task.findFirst({ where: { id: taskId, tenantId } }),
+      this.prisma.task.findFirst({ where: { id: taskId, tenantId, ...taskScope }, select: { id: true } }),
       this.prisma.label.findFirst({ where: { id: labelId, tenantId } }),
     ]);
     if (!task) throw new NotFoundException('Task not found');
     if (!label) throw new NotFoundException('Label not found');
 
-    await this.prisma.taskLabel.deleteMany({
+    const { count } = await this.prisma.taskLabel.deleteMany({
       where: { taskId, labelId, tenantId },
     });
+    return count;
   }
 }

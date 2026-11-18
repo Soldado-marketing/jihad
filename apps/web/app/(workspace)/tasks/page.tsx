@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
 import { reorderItems, sortByOrder } from '@/components/tasks/board-order';
 import { ListView } from '@/components/tasks/list-view';
+import { BulkBar, type BulkOutcome } from '@/components/tasks/bulk-bar';
+import { shownSelection, toggleAllShown, toggleSelected } from '@/lib/bulk-tasks';
 import { CalendarView } from '@/components/tasks/calendar-view';
 import { TaskModal } from '@/components/tasks/task-modal';
 import {
@@ -327,6 +329,28 @@ function TasksBoard() {
   // Filtered tasks
   const active = useMemo(() => ({ ...filters, search }), [filters, search]);
   const filteredTasks = useMemo(() => filterTasks(tasks, active), [tasks, active]);
+  // Bulk actions (G10): the selection lives here, cut down to what the list shows —
+  // a task that a filter has hidden is no longer selected, so nothing unseen is changed.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [bulkResult, setBulkResult] = useState<BulkOutcome | null>(null);
+  const shownIds = useMemo(() => filteredTasks.map((t) => t.id), [filteredTasks]);
+  const pickedIds = useMemo(() => (view === 'list' ? shownSelection(selected, shownIds) : []), [view, selected, shownIds]);
+  const pickedTasks = useMemo(() => filteredTasks.filter((t) => pickedIds.includes(t.id)), [filteredTasks, pickedIds]);
+  useEffect(() => {
+    if (pickedIds.length !== selected.size) setSelected(new Set(pickedIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedIds]);
+  const selection = useMemo(() => ({
+    selected,
+    onToggle: (id: string) => { setBulkResult(null); setSelected((s) => toggleSelected(s, id)); },
+    onToggleAll: () => { setBulkResult(null); setSelected((s) => toggleAllShown(s, shownIds)); },
+  }), [selected, shownIds]);
+  // After an action the list is read again; on a partial failure only the failed tasks stay selected.
+  const bulkApplied = useCallback(async (failedIds: string[]) => {
+    await loadTasks();
+    if (failedIds.length > 0) setSelected(new Set(failedIds));
+  }, [loadTasks]);
+
   // A project filter turns the page into that project's own board.
   const boardProject = projects.find((p) => p.id === filters.project) ?? null;
   const projectTaskCount = boardProject ? tasks.filter((t) => t.projectId === boardProject.id).length : 0;
@@ -585,7 +609,21 @@ function TasksBoard() {
           />
         )}
         {view === 'list' && (
-          <ListView tasks={filteredTasks} onTaskOpen={setSelectedTask} />
+          <div className="flex min-w-0 flex-col gap-3">
+            {(pickedTasks.length > 0 || bulkResult) && (
+              <BulkBar
+                tasks={pickedTasks}
+                members={members}
+                projects={projects}
+                labels={labels}
+                result={bulkResult}
+                onResult={setBulkResult}
+                onClear={() => { setSelected(new Set()); setBulkResult(null); }}
+                onApplied={bulkApplied}
+              />
+            )}
+            <ListView tasks={filteredTasks} onTaskOpen={setSelectedTask} selection={selection} />
+          </div>
         )}
         {view === 'calendar' && <CalendarView />}
       </motion.div>
