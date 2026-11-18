@@ -749,6 +749,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **CI:** run 44283282500 on `79bf46c`, six jobs SUCCESS; browser suite 135 passed, 5 skipped (the sweeps skip the phone project by design).
 - Open: the owner's merge message for #172, then main CI and the `maos-web` rebuild; F04 can be closed after that.
 
+## 2026-11-18 — F04 DONE: #172 merged and deployed; main CI green
+
+- **Owner message:** "نعم، ادمجه" for PR #172 (asked as: merge, then close F04 after main CI and the web rebuild).
+- Before the merge: six jobs SUCCESS on `79bf46c`, MERGEABLE/CLEAN, files under `apps/web/` and `docs/` only. Merged 11:04:14Z with `--match-head-commit` → main `91eb0eb`.
+- **Railway:** `maos-web` `3b336286` SUCCESS on `91eb0eb`; API deployment SKIPPED (`jihad` stays `1ada64a5`). Rollback for the web: `1f7f6274`.
+- **Deployed code:** "The files could not be loaded" and "Loading channels" are in the production bundles of `/files` and `/chat`. Smoke identical before and after (readiness 200, `/api/client/progress` 401, sign-in page, `/client/deliveries`, `/files`, `/chat` 200).
+- **Main CI:** run 44291274351 on `91eb0eb`, six jobs SUCCESS on the first attempt.
+- **F04 closed as DONE** on the terms agreed with the owner: the four states on every page, proven on screen in CI; no restyling. Not done: a signed-in check on production (a load cannot be made to fail there without touching it). Closure record: `docs/MAOS_F04_ACCEPTANCE.md` on `docs/f04-closure-record` (`bfde1af`, PR #173, docs only) — waits for a merge message.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
