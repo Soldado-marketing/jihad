@@ -60,8 +60,9 @@ test.describe('Client project status', () => {
 
     // The deliveries of My Work are still there, and the page fits the screen.
     await expect(page.getByRole('heading', { name: /Waiting for your review/ })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+    // Measured until it holds: right after the heading appears the layout can still be
+    // settling at phone width, and a single reading then catches a few pixels in passing.
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   });
 
   test('without a chosen project every shared project is listed, and the project can be chosen', async ({ page }) => {
