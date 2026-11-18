@@ -47,9 +47,11 @@ function MyWork() {
     <div className="grid gap-6">
       <PageHeader eyebrow="My Work" title="Your deliveries" description="Open a delivery to view it, download it, approve it or ask for a revision." />
       {projects.length > 1 && (
-        <label className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+        // A select is as wide as its longest option. The label may shrink (min-w-0) and the
+        // select is capped to it, so a long project name cannot push the page past a phone screen.
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-700">
           Project
-          <select value={project} onChange={(e) => setProject(e.target.value)} className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink">
+          <select value={project} onChange={(e) => setProject(e.target.value)} className="min-w-0 max-w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink">
             <option value="">All projects</option>
             {projects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>

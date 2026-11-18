@@ -23,6 +23,13 @@ test.describe('Client project status', () => {
     made.id = p.body.id;
     expect((await call(`/projects/${made.id}`, { method: 'PATCH', token: owner, body: { clientVisible: true } })).status).toBe(200);
 
+    // A second shared project with a long name: the project filter lists it, and a
+    // select is as wide as its longest option. With short names the page fitted a
+    // phone by a pixel or two, so the width check below failed only now and then.
+    const long = await call<{ id: string }>('/projects', { method: 'POST', token: owner, body: { name: `Status film for the spring campaign of a customer with a long name (${tag})`, customerId: s.customerOne.id } });
+    expect(long.status, JSON.stringify(long.body)).toBe(201);
+    expect((await call(`/projects/${long.body.id}`, { method: 'PATCH', token: owner, body: { clientVisible: true } })).status).toBe(200);
+
     // Shared: one planned, one in progress, one blocked (shown as in progress), one in review, one done.
     // Not counted: a finished step that was not shared, and a shared step that was archived.
     const steps: [string, boolean][] = [['TODO', true], ['IN_PROGRESS', true], ['BLOCKED', true], ['IN_REVIEW', true], ['DONE', true], ['DONE', false], ['ARCHIVED', true]];
@@ -60,9 +67,10 @@ test.describe('Client project status', () => {
 
     // The deliveries of My Work are still there, and the page fits the screen.
     await expect(page.getByRole('heading', { name: /Waiting for your review/ })).toBeVisible();
-    // Measured until it holds: right after the heading appears the layout can still be
-    // settling at phone width, and a single reading then catches a few pixels in passing.
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    // With the long project name in the filter (see beforeAll) this is a real check of the layout.
+    await expect(page.getByRole('combobox')).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
   });
 
   test('without a chosen project every shared project is listed, and the project can be chosen', async ({ page }) => {
