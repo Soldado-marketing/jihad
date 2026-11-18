@@ -121,7 +121,7 @@ test.describe('Every page fits a phone screen', () => {
     expect((await call('/collaboration/notes', { method: 'POST', token: owner, body: { body: `See https://example.test/${'averylongpathsegment'.repeat(12)} ${s.run}` } })).status).toBe(201);
 
     const tooWide: string[] = [];
-    for (const [who, routes] of [['owner', [...WORKSPACE, 'data', ...withIds(s).workspace]], ['clientOne', [...CLIENT, ...withIds(s).client]]] as const) {
+    for (const [who, routes] of [['owner', [...WORKSPACE, 'data', 'tasks?view=list', ...withIds(s).workspace]], ['clientOne', [...CLIENT, ...withIds(s).client]]] as const) {
       for (const route of routes) {
         await useSession(page, s.sessions[who], `/${route}`);
         const by = await overflow(page);

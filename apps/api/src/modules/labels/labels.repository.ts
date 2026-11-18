@@ -82,7 +82,7 @@ export class LabelsRepository {
     if (!task) throw new NotFoundException('Task not found');
     if (!label) throw new NotFoundException('Label not found');
 
-    const existing = await this.prisma.taskLabel.findUnique({ where: { taskId_labelId: { taskId, labelId } } });
+    const existing = await this.prisma.taskLabel.findFirst({ where: { taskId, labelId, tenantId }, select: { taskId: true } });
     const row = await this.prisma.taskLabel.upsert({
       where: { taskId_labelId: { taskId, labelId } },
       create: { taskId, labelId, tenantId },
