@@ -787,6 +787,16 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Not verified:** the affected pages on a phone-sized screen on production. They all need a signed-in person; the app's browser pane held no session and the session types no password on production. F08 therefore stays DEPLOYED, not DONE, until the owner signs in in the pane (then the pages are measured there, reading only) or rules that the sweep on the merge commit is enough.
 - Release record on docs PR #175 (docs only). G07 started next: the gate does not block it, and the code it builds on is now on main.
 
+## 2026-11-18 — G07: task comments with @mentions and notifications — PR #176, CI green, not merged
+
+- **Checklist first:** `docs/MAOS_G07_ACCEPTANCE.md`, from the plan row (mention notifies the member; thread persists; isolation test; CLIENT never sees internal comments; no schema). Blueprint check: no conflict; contractors keep having no internal-note permission (§2.1) — recorded as a finding.
+- **Audit:** the notes API checked the permission and the company only: an employee limited to their own tasks could read every task's notes; anyone with the permission could change or delete anyone's note; the task editor's notes block was hidden until added; no mention existed.
+- **Built:** API — a comment follows its task on list, read, write, change, delete and the general list; mention tokens `@[Name](user:id)` checked against the people who may read the thread, real name written by the server, one notice per comment and person through `notify`; route `notes/mentionable`; deleting a task deletes its comments. Web — `task-comments.tsx` (thread, name list after `@`, edit, delete, states), `lib/mentions.ts`, a task notice opens the task, plain "@Name" on the general notes page.
+- **Evidence:** `security-gate-task-comments` 23/23 and five mutations each caught; API unit 616 pass / 10 todo; twelve related integration suites green; web unit 440/440; browser spec 30 of 30 in five rounds; whole browser suite locally 142 passed; CI run 44327994547 on `9f2018d` six jobs SUCCESS, browser 142 passed / 6 skipped by design; screenshots at desktop and phone size looked at.
+- **Found and fixed on the way:** the caret jumped back under fast typing after a name was chosen (set in the same commit now); `/collaboration` 1,103 px too wide at phone size with one long word in a note (class names; the F08 sweep now carries such a note); comments were left behind when a task was deleted.
+- **Findings for the owner:** contractors take no part in task comments; notes that are not on a task stay open to every member with the permission; the general notes page never shows the author; mentions are in-app only; not tried on a real phone.
+- Open: owner's merge decision for #176 (rebuilds both services, no database change), then the production check. F08's phone view on production still pending the owner's sign-in.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
