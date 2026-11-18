@@ -823,6 +823,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Findings for the owner:** compact rows between 1024 and 1279 px; only the Owner gets a member list, so only the Owner can assign in bulk (as in the editor); the bar cannot unassign or remove the project.
 - Open: owner's merge decision for #178; G07's production check (row 18) and its record PR #177.
 
+## 2026-11-18 — #177 and #178 merged on the owner's message; G10 deployed, not DONE; one check prepared for G07 and G10
+
+- **Owner message:** merge #177 and #178 after the checks of each last commit are green; verify main CI and both deployments; prepare the G07 and G10 check in one session; create no data on production before the owner approves the test and the clean-up.
+- **#177** (G07 record): six checks SUCCESS on `3eb7c50` → merged, main `82931cd`; Railway skipped both services. **#178** (G10): six checks SUCCESS on `71f5937` (run 44342370410) → merged with `--match-head-commit`, main `41cfcf1` (16:16:06Z).
+- **After the merge:** main CI run 44345234697 six jobs SUCCESS, browser 148 passed / 6 skipped. Railway `jihad` `d1c44f5d`, `maos-web` `f0031f65` SUCCESS. Health 200; the bar's texts are in the production chunks of `/tasks`, the comment thread still there. Rollback: API `4fa017ef`, web `498a9e46`.
+- **Check prepared, nothing written to production:** scripts in the session notes folder `g0710-prod-check/` (seed, read-only state report, clean-up, tunnel runner). One fictional company (`g0710-`, `@g0710.fiktiv.test`): one customer, three projects, one label, 22 tasks, three invitations (Owner, employee, client); no user, no password.
+- **Rehearsed on a disposable local database** next to an unrelated company with rows in every table concerned: seed (second seed refuses); the whole check through the API — four bulk actions 20 of 20 with 20 records each, 20 assignment notices, one mention notice naming the task without the text, client 403 on the notes routes, employee 404 on the hidden task; clean-up — every count back to the count before the seed, no leftovers in 18 tables, the unrelated company identical, a second clean-up harmless. Rehearsal database and its output removed.
+- G10 is DEPLOYED, not DONE; record on PR #179. Gate: the owner's approval of the test and the clean-up (proposed number O63).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
