@@ -804,6 +804,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - Recorded as it is in row 13 of `docs/MAOS_F08_ACCEPTANCE.md` (commit `c8918ca` on docs PR #175): closed by the owner's reading on a real phone; the long-name case is proven by the sweep on the merge commit, not on production (production has only short names today).
 - G10 (bulk actions on tasks) is next in the plan; it changes the task list page that G07 (#176, not merged) also changes, so it starts from main once #176 is merged.
 
+## 2026-11-18 — #175 and #176 merged on the owner's message; G07 deployed, not DONE; G10 started
+
+- **Owner message:** merge #175 after its checks; merge #176 after confirming the comment, mention and permission checks on the last commit; verify main CI and both deployments; G07 is not DONE before the acceptance conditions are complete; start G10 from main after #176 without a new approval.
+- **#175** (F08 closure record): six checks SUCCESS on `c8918ca` → merged, main `1aa8e3b`; Railway skipped both services.
+- **#176** (G07): read again on `9f2018d` from the CI logs before merging — isolation gate: the six G07 groups ok; browser: the six `15-task-comments` cases passed on desktop and phone; web unit: the four G07 groups. Merged with `--match-head-commit` → main `1b20472` (15:41:58Z).
+- **After the merge:** main CI run 44338643782 six jobs SUCCESS, browser 142 passed / 6 skipped. Railway `jihad` `4fa017ef`, `maos-web` `498a9e46` SUCCESS. Health 200; the new route answers 401 without a session (an unknown route 404); the thread's texts are in the production chunks of `/tasks`, the old notes block is gone. Rollback: API `a166bd4f`, web `afe5e169`.
+- **G07 is DEPLOYED, not DONE:** the production check (row 18) needs two signed-in members of staff. Record on PR #177.
+- **G10 started** on `feat/g10-bulk-task-actions`: checklist first; audit found the label routes outside the task scope and without an audit record — closed and tested (`79dda4a`).
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
