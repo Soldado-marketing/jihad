@@ -56,8 +56,8 @@ Original acceptance: "Every workspace and client page has the four states; test 
 
 How it was checked (local stack, fictional people, before any change of part 2):
 
-- **Error:** every workspace and client page (47 routes, among them 8 with a record id) was opened while every API read answered 500, and what the page showed was recorded.
-- **Access denied:** a manager and an employee opened all 33 workspace routes without an id; every 403 from the API and what the page said were recorded.
+- **Error:** every workspace and client page (48 routes, among them 8 with a record id) was opened while every API read answered 500, and what the page showed was recorded.
+- **Access denied:** a manager and an employee opened all 34 workspace routes without an id; every 403 from the API and what the page said were recorded.
 - **Loading / empty:** read from the source of each page and the components it renders; unhandled requests searched with the TypeScript compiler (none left: the four reads flagged are caught by their callers).
 
 | Gap found | Where | Fix |
@@ -91,7 +91,7 @@ Nothing else was changed. The other pages already had the four states in their o
 
 ### Part 2 (2026-11-17/18)
 
-- Discovery sweeps (temporary spec, not committed): failure sweep — 45 of 47 routes said that the load failed; `/files` showed "No files yet."; `/team/members` was a false alarm of the sweep itself (its read lives under `/api/auth/`, which the first sweep did not fail); `/complaints` and `/requests` kept "Loading…"; `/team/invitations` kept "No invitations yet.". Refusal sweep — every refused page said so; `/complaints` and `/requests` kept "Loading…" for the employee; `/tasks` gets one refused option list (members) and works.
+- Discovery sweeps (temporary spec, not committed): failure sweep — 46 of 48 routes said that the load failed; `/files` showed "No files yet."; `/team/members` was a false alarm of the sweep itself (its read lives under `/api/auth/`, which the first sweep did not fail); `/complaints` and `/requests` kept "Loading…"; `/team/invitations` kept "No invitations yet.". Refusal sweep — every refused page said so; `/complaints` and `/requests` kept "Loading…" for the employee; `/tasks` gets one refused option list (members) and works.
 - After the fixes: `npm test` 427/427 (8 new in `page-states`, guard widened), type-check clean. `e2e/14-page-states.spec.ts` on desktop: both error sweeps passed (twice, 3.4 s / 3.1 s and 0.8 s / 0.7 s), the chat loading case passed (three times), the two refusal sweeps passed (1.1 s and 1.4 s) in the first run.
 - Later local runs are not evidence: the Mac suspended the processes for long stretches (single tests "took" 2 to 15 minutes, a whole run 21 minutes), the 15-minute sessions of the seeded people ran out and the pages went to the sign-in page. `caffeinate` did not help. The whole browser suite with the final code is therefore left to CI.
 
