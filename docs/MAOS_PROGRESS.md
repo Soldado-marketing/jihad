@@ -766,6 +766,17 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **New finding:** that D08 case measures the overflow once, right after a heading appears; at phone width the layout can still be settling. Proposed fix (test only, not done): poll the measurement until it is at most 1 px. A change under `apps/web/e2e/` rebuilds the web on merge.
 - Intermittent tests seen so far: `offsite-backup.test.mjs:172` (API job), C06 "Cancel while sending" at phone width, and this one. Three reruns in two days: worth one small tests-only task.
 
+## 2026-11-18 — F08 (new, owner's request): the three intermittent tests — PR #174, CI green, not merged
+
+- **Owner message:** fix the off-site backup test and the D08 width test, investigate the C06 upload-cancel test; if its cause does not show in a short investigation, record it and start G07; show the maintenance results before a merge that rebuilds both services.
+- **Off-site backup test:** cause shown with openssl itself — a wrong private key is reported as a failure 1,490 times in 1,500 and as "success" 10 times, never with the original bytes; the script's checksum guard then refuses the copy. Test widened to either guard's alert; script untouched. 25 of 25 runs.
+- **C06 cancel test:** reproduced 2 times in 40 repeats at phone width; the page read "Uploaded as version 2." Trace: the test switched interception off before the held request was ended, and Chromium then sent the request the page had cancelled. Ordering fixed in the test; 80 of 80 and 40 of 40 afterwards.
+- **D08 width test — first diagnosis wrong:** taken for a reading during layout and given a retry; CI failed the same way (2 px) with the retry in place. Then measured: a single-column grid is as wide as its widest child and a select as wide as its longest option; with the test's names the client's My Work page fitted a 412 px screen by zero pixels, with a long project name it was 322–366 px too wide. A long-named project in the test data then broke the employee's task editor at phone width (CI and locally), and a sweep of all 49 routes found `/time` 436 px, `/finance/invoices/:id` 102 px, `/client/deliveries` 49 px, `/client` 11 px, later `/client/problems` 11 px and `/complaints` 3 px.
+- **Fixed (class names only, eleven files):** `grid-cols-1` on single-column grids, `min-w-0` on cells, `max-w-full` on selects. Phone-width sweep of every page and the task editor added to `e2e/14-page-states.spec.ts`.
+- **Evidence:** web unit 427/427; whole browser suite locally 136 passed; CI run 44305987343 on `4637c66`: six jobs SUCCESS, browser 136 passed and 6 skipped by design.
+- **Findings, not changed:** after Cancel the uploader always says "Nothing was saved", also when the file had already reached the server (proposed C10); `npm run typecheck` in `apps/api` fails locally on three old Jest-style spec files while CI's build type-check is green.
+- Open: the owner's merge decision for #174 (rebuilds `jihad` with identical code and `maos-web` with the layout fixes). G07 not started: the cause of the C06 case was found, so the turn ends with the results as asked.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
