@@ -813,6 +813,16 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **G07 is DEPLOYED, not DONE:** the production check (row 18) needs two signed-in members of staff. Record on PR #177.
 - **G10 started** on `feat/g10-bulk-task-actions`: checklist first; audit found the label routes outside the task scope and without an audit record — closed and tested (`79dda4a`).
 
+## 2026-11-18 — G10: bulk actions on tasks — PR #178, CI green, not merged
+
+- **Checklist first:** `docs/MAOS_G10_ACCEPTANCE.md`. "Move" is read as move to another project (status is its own action). Blueprint check: no conflict; no model, no migration, no bulk route — a bulk action is the single-task request once per task.
+- **Audit:** the label routes checked the company only (an employee limited to their own tasks, or a contractor, could label any task) and recorded nothing. Closed: task scope and a record per real change.
+- **Built:** `lib/bulk-tasks.ts`, `components/tasks/bulk-bar.tsx`, checkboxes in `list-view.tsx`, wiring in the tasks page. Question first, count while running, result sentence; after a partial failure only the failed tasks stay selected.
+- **Found on the first phone screenshot:** the task list showed no task names on a phone (five fixed columns). Below 1280 px a row is now title + details line + status; full columns unchanged from 1280 px.
+- **Evidence:** API suite 10/10 with twenty tasks, three mutations caught; API unit 616 pass / 10 todo (the tenant-access guard test caught one lookup, fixed); web unit 452/452; browser spec on both viewports; whole browser suite locally 148 passed; CI run 44342370410 on `71f5937` six jobs SUCCESS. CI did not start when the PR was opened (as with #168); closing and reopening started it, the first of the two runs was cancelled by the workflow's concurrency rule.
+- **Findings for the owner:** compact rows between 1024 and 1279 px; only the Owner gets a member list, so only the Owner can assign in bulk (as in the editor); the bar cannot unassign or remove the project.
+- Open: owner's merge decision for #178; G07's production check (row 18) and its record PR #177.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
