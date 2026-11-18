@@ -19,6 +19,8 @@ const KNOWN: Record<string, string> = {
   'task.assigned': 'Assignee changed',
   'task.updated': 'Card details edited',
   'task.deleted': 'Card deleted',
+  'task.label.added': 'Label added',
+  'task.label.removed': 'Label removed',
   'role.assigned': 'Role assigned',
   'permissions.assigned': 'Permissions assigned',
   'scope.assigned': 'Scope assigned',

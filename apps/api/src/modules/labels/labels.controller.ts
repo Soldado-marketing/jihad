@@ -78,7 +78,7 @@ export class LabelsController {
     @Param('taskId') taskId: string,
     @Param('labelId') labelId: string,
   ) {
-    return this.labelsService.assignLabel(user.tenantId, taskId, labelId);
+    return this.labelsService.assignLabel(user.tenantId, user.sub, taskId, labelId);
   }
 
   @Delete('tasks/:taskId/labels/:labelId')
@@ -89,6 +89,6 @@ export class LabelsController {
     @Param('taskId') taskId: string,
     @Param('labelId') labelId: string,
   ) {
-    await this.labelsService.removeLabel(user.tenantId, taskId, labelId);
+    await this.labelsService.removeLabel(user.tenantId, user.sub, taskId, labelId);
   }
 }

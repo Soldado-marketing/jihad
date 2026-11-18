@@ -142,6 +142,9 @@ jobs:
       # security-gate-task-comments (G07) proves a task's comment thread follows the task:
       # no CLIENT or CONTRACTOR, no employee who may not see the task, no other company;
       # a mention reaches only people who may read the thread, once, without the text.
+      # security-gate-task-bulk-actions (G10) proves the single-task routes a bulk action
+      # calls: twenty tasks stored and recorded one by one, and the task scope respected by
+      # status, assignee, project and label changes alike.
       # security-gate-sessions proves session list/revoke act on own sessions only.
       # security-gate-foreign-ids-content extends that to files, approvals, chat,
       # voice notes and internal notes; -crm-finance to leads, opportunities,
@@ -331,6 +334,7 @@ jobs:
             test/security-gate-session-revocation.test.mjs \
             test/security-gate-access-revocation.test.mjs \
             test/security-gate-task-comments.test.mjs \
+            test/security-gate-task-bulk-actions.test.mjs \
             test/security-gate-sessions.test.mjs
 
   web:
