@@ -1,6 +1,6 @@
 # MAOS-G10 — Bulk actions on tasks (move, assign, label, status)
 
-**Closure status (2026-11-18): IN PROGRESS — built and tested locally; CI, the owner's merge decision and the production check are open. Not DONE.** The checklist below was written before any code.
+**Closure status (2026-11-18): DEPLOYED — the check on production is PENDING; not DONE.** Built, tested, merged as #178 on the owner's message, main CI green, both services rebuilt and healthy, the bar is in what production serves. Open: nobody has yet selected tasks and run a bulk action on production. That check is prepared together with G07's and rehearsed locally; it writes fictional data to production and therefore waits for the owner's approval of the test and the clean-up. The checklist below was written before any code.
 
 Task row: "Bulk actions on tasks (move, assign, label, status). Multi-select on list view; uses existing reorder/update endpoints; audit per task. Acceptance: bulk move of 20 tasks persists and audits; scope respected."
 
@@ -46,8 +46,34 @@ The row names four actions: move, assign, label, status. Status is its own actio
 | 13 | No schema change, no migration, no new task write route | diff: `apps/api/prisma/` untouched; the bar calls `PATCH /tasks/:id` and `POST /tasks/:id/labels/:labelId` only (unit test) | PASS |
 | 14 | Single-task editing, the board and the existing suites are unchanged | whole browser suite locally 148 passed, 6 skipped by design; API unit 616 pass / 10 todo / 0 fail; eleven related integration suites green; web unit 452/452 | PASS locally |
 | 14a | The tests catch what they claim | three temporary changes to the label service: scope ignored → 2 cases fail; change not recorded → 2; repeat recorded again → 1. Code restored, 10/10 | PASS |
-| 15 | CI six jobs green | on the PR | OPEN |
-| 16 | Merge and deployment on the owner's message; then the check on production | — | OPEN — owner |
+| 15 | CI six jobs green | PR head `71f5937`, run 44342370410: six jobs SUCCESS — isolation gate with both G10 groups ok, browser 148 passed / 6 skipped by design with the three `16-task-bulk-actions` cases on desktop and phone and the phone-width sweep. CI did not start when the PR was opened; closing and reopening started it, and the first of the two runs was cancelled by the workflow's concurrency rule | PASS |
+| 16 | Merge and deployment on the owner's message | owner's message 2026-11-18 ("موافق على دمج #177 التوثيقي و#178 بعد التأكد إن فحوص آخر التزام بكل طلب خضراء"); six checks SUCCESS read on `71f5937` before the merge; merged with `--match-head-commit` → main `41cfcf1` (16:16:06Z). Main CI run 44345234697: six jobs SUCCESS, browser 148 passed / 6 skipped. Railway: `jihad` `d1c44f5d` and `maos-web` `f0031f65` SUCCESS on `41cfcf1`; `/api/health/ready` 200 (database up); the label route answers 401 without a session; API log: started, scheduler started, no error line. Rollback: API `4fa017ef`, web `498a9e46`. No database change | PASS |
+| 17 | The bar is in what production serves | the script chunks of `/tasks` fetched from production (14 files): "Bulk actions", "Select all tasks shown" and "could not be changed" are present, and the comment thread of G07 is still there | PASS |
+| 18 | The check on production: twenty tasks selected in the list, the four actions run, stored and recorded per task; an employee cannot change a task that is not theirs | prepared and rehearsed, **not run** — see the next section | **PENDING — owner's approval of test and clean-up** |
+
+## The check on production — prepared for one session with G07, not run
+
+Nothing has been written to production for it. It runs only after the owner approves the test and the clean-up.
+
+**What it would write (fictional, one separate company, slug prefix `g0710-`, addresses `@g0710.fiktiv.test`):** one customer, three projects, one label, 22 tasks (twenty for the bulk actions, one for the comment thread, one the employee may not see) and three invitations (Owner, employee, client). No user and no password: the owner accepts the three invitations in the app's browser pane and signs in there; the session types no password on production.
+
+**What is then done in the browser, with those three sessions:**
+
+| Step | As | Proves |
+|---|---|---|
+| Select the twenty tasks in the list, set status, move to the other project, assign to the employee, add the label | Owner | G10 rows 2–6, 8 on production |
+| Open the thread task, give it to the employee, write a comment mentioning the employee by picking the name | Owner | G07 rows 1–3 |
+| Find the notice in the bell, follow it to the task, answer, change the own comment; no control on the Owner's comment | employee | G07 rows 4, 6, 11 |
+| A task that is not theirs: not in the list; the single-task routes refuse it | employee | G10 row 7, G07 row 10 |
+| The notes routes refuse; the portal shows the project and no comment | client | G07 row 8 |
+| The list and the thread at phone size | Owner | F08 |
+
+A read-only report then counts, in the database, tasks by status, project and assignee, labels, audit records per action and task, comments and notices — counts and roles only, no text.
+
+**Clean-up:** the one company by its id and slug prefix (everything in it goes with it), the three users by the fictional address, their audit and sign-in records; it refuses when anything is not what the seed wrote, and ends with every count compared to the count taken before the seed.
+
+**Rehearsed on a disposable local database (2026-11-18)** next to an unrelated company that held rows in every table concerned: seed (a second seed refuses), the whole check through the API — 20 of 20 for each of the four actions with 20 records each, 20 assignment notices, one mention notice naming the task without the text, 403 for the client on the notes routes, 404 for the employee on the hidden task — then the clean-up: every count back to the count before the seed, no leftovers in 18 tables, the unrelated company identical before and after, a second clean-up harmless. Scripts: session notes folder `g0710-prod-check/` (seed, state, clean-up, tunnel runner), outside the repository.
+
 
 ## What was built
 
