@@ -139,8 +139,18 @@ export class TasksRepository {
     });
   }
 
-  delete(tenantId: string, id: string) {
-    return this.prisma.task.delete({ where: { id, tenantId } });
+  /**
+   * A task takes its comment thread with it (G07). The comments are internal
+   * notes that point at the task by id, with no foreign key to clean them up:
+   * left behind, they would stay in the general notes list for good and could
+   * not be reached through any task.
+   */
+  async delete(tenantId: string, id: string) {
+    const [, task] = await this.prisma.$transaction([
+      this.prisma.internalNote.deleteMany({ where: { tenantId, resourceType: 'task', resourceId: id } }),
+      this.prisma.task.delete({ where: { id, tenantId } }),
+    ]);
+    return task;
   }
 
   /**

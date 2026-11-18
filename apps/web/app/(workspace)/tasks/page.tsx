@@ -289,6 +289,20 @@ function TasksBoard() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // A notice about a task leads here with ?open=<id>: open that task once and
+  // drop the parameter, so closing the editor or reloading does not open it again.
+  const openId = params.get('open');
+  useEffect(() => {
+    if (!openId || loading) return;
+    const target = tasks.find((t) => t.id === openId);
+    if (target) setSelectedTask(target);
+    const rest = new URLSearchParams(params.toString());
+    rest.delete('open');
+    const query = rest.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, loading]);
+
   const loadTasks = useCallback(async () => {
     try {
       const t = await apiFetch<Task[]>('/tasks');

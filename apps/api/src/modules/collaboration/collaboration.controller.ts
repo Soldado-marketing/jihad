@@ -16,7 +16,7 @@ export class CollaborationController {
   @Get()
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INTERNAL_NOTE })
   list(@CurrentUser() user: JwtPayload, @Query('resourceType') rt?: string, @Query('resourceId') rid?: string) {
-    return this.svc.listNotes(user.tenantId, rt, rid);
+    return this.svc.listNotes(user.tenantId, user.sub, rt, rid);
   }
 
   @Post()
@@ -25,18 +25,25 @@ export class CollaborationController {
     return this.svc.createNote(user.tenantId, user.sub, dto.body, dto.resourceType, dto.resourceId, dto.threadKey);
   }
 
+  /** Who may be mentioned in the comments of a task (G07). Declared before ':id'. */
+  @Get('mentionable')
+  @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INTERNAL_NOTE })
+  mentionable(@CurrentUser() user: JwtPayload, @Query('resourceType') rt?: string, @Query('resourceId') rid?: string) {
+    return this.svc.mentionableMembers(user.tenantId, user.sub, rt, rid);
+  }
+
   @Get(':id')
   @RequirePermission({ action: PermissionAction.READ, resource: PermissionResource.INTERNAL_NOTE })
-  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.getNote(user.tenantId, id); }
+  get(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.getNote(user.tenantId, user.sub, id); }
 
   @Patch(':id')
   @RequirePermission({ action: PermissionAction.UPDATE, resource: PermissionResource.INTERNAL_NOTE })
   update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() dto: UpdateInternalNoteDto) {
-    return this.svc.updateNote(user.tenantId, id, dto.body);
+    return this.svc.updateNote(user.tenantId, user.sub, id, dto.body);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission({ action: PermissionAction.DELETE, resource: PermissionResource.INTERNAL_NOTE })
-  delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.deleteNote(user.tenantId, id); }
+  delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) { return this.svc.deleteNote(user.tenantId, user.sub, id); }
 }
