@@ -777,6 +777,16 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Findings, not changed:** after Cancel the uploader always says "Nothing was saved", also when the file had already reached the server (proposed C10); `npm run typecheck` in `apps/api` fails locally on three old Jest-style spec files while CI's build type-check is green.
 - Open: the owner's merge decision for #174 (rebuilds `jihad` with identical code and `maos-web` with the layout fixes). G07 not started: the cause of the C06 case was found, so the turn ends with the results as asked.
 
+## 2026-11-18 — F08 released: #174 merged, main CI green, both services rebuilt; phone view on production pending
+
+- **Owner message:** approve the merge of #174 after the checks of the last commit are confirmed green; then verify main CI, both builds and the affected pages on a phone; close F08 after that and start G07.
+- **Before the merge:** six checks SUCCESS read again on `4637c66`, state CLEAN. Merged with `--match-head-commit` → main `04a4b82` (14:14:35Z).
+- **Main CI:** run 44322114503 six jobs SUCCESS; browser 136 passed, 6 skipped by design; `Every page fits a phone screen` passed at phone size.
+- **Railway:** `jihad` `a166bd4f` SUCCESS, `maos-web` `afe5e169` SUCCESS. `/api/health/ready` 200 (database up), sign-in page 200, API log clean. Rollback: API `1ada64a5`, web `3b336286`.
+- **Production bundle:** the new class strings are in the chunks of the affected pages (21 files fetched).
+- **Not verified:** the affected pages on a phone-sized screen on production. They all need a signed-in person; the app's browser pane held no session and the session types no password on production. F08 therefore stays DEPLOYED, not DONE, until the owner signs in in the pane (then the pages are measured there, reading only) or rules that the sweep on the merge commit is enough.
+- Release record on docs PR #175 (docs only). G07 started next: the gate does not block it, and the code it builds on is now on main.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
