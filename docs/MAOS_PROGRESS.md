@@ -797,6 +797,13 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Findings for the owner:** contractors take no part in task comments; notes that are not on a task stay open to every member with the permission; the general notes page never shows the author; mentions are in-app only; not tried on a real phone.
 - Open: owner's merge decision for #176 (rebuilds both services, no database change), then the production check. F08's phone view on production still pending the owner's sign-in.
 
+## 2026-11-18 — F08 DONE on the owner's own phone reading
+
+- The app's browser pane never held a session (checked twice), so the session measured no signed-in page on production.
+- **Owner's messages:** "مشي الحال", then "فتحتو ع تلفوني" — the owner opened the production site on their own phone and reports it fine. Which pages were opened was not listed.
+- Recorded as it is in row 13 of `docs/MAOS_F08_ACCEPTANCE.md` (commit `c8918ca` on docs PR #175): closed by the owner's reading on a real phone; the long-name case is proven by the sweep on the merge commit, not on production (production has only short names today).
+- G10 (bulk actions on tasks) is next in the plan; it changes the task list page that G07 (#176, not merged) also changes, so it starts from main once #176 is merged.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
