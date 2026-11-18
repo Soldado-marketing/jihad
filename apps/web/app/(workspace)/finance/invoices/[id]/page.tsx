@@ -166,7 +166,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const outstanding = Math.max(0, invoice.totalCents - invoice.paidCents);
 
   return (
-    <div className="grid gap-6">
+    // grid-cols-1: one column that may shrink; otherwise the widest child sets the page width on a phone.
+    <div className="grid grid-cols-1 gap-6">
       <PageHeader
         eyebrow="Owner-only finance"
         title="Invoice detail"

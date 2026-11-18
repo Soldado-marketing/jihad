@@ -64,7 +64,7 @@ function ProblemsPage() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <Link href="/client" className="text-sm text-brand hover:underline">← Home</Link>
       <PageHeader eyebrow="Help" title="Report a problem"
         description="Something went wrong, or you are not happy with how things went? Tell our management directly. This is separate from asking for changes to a delivery."
@@ -73,7 +73,7 @@ function ProblemsPage() {
         )} />
 
       {open && (
-        <form onSubmit={(e) => void submit(e)} aria-labelledby="report-title" className="grid gap-4 rounded-xl border border-line bg-white p-5">
+        <form onSubmit={(e) => void submit(e)} aria-labelledby="report-title" className="grid grid-cols-1 gap-4 rounded-xl border border-line bg-white p-5">
           <h2 id="report-title" className="font-semibold text-ink">Report a problem</h2>
           <label className="block text-sm">
             <span className="mb-1 block text-slate-700">What is it about?</span>

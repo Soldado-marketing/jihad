@@ -76,7 +76,7 @@ function WorkRequests() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <PageHeader eyebrow="Clients" title="Work requests"
         description="What clients asked the company for. Answers go to the client in the company's name; internal notes stay here. Only management sees internal notes." />
       {error && <ErrorState message={error} onRetry={() => void load()} />}
@@ -90,7 +90,7 @@ function WorkRequests() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <section aria-label="Requests" className="rounded-xl border border-line bg-white">
           {items === null && !error && <p className="p-5 text-sm text-slate-500">Loading…</p>}
           {items !== null && shown.length === 0 && <p className="p-8 text-center text-sm text-muted">{tab === 'open' ? 'No open requests.' : 'No closed requests yet.'}</p>}
@@ -113,7 +113,7 @@ function WorkRequests() {
         <section aria-label="Request" className="rounded-xl border border-line bg-white p-5">
           {!selected && <p className="text-sm text-muted">Choose a request to read it and answer the client.</p>}
           {selected && (
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="font-semibold text-ink">{selected.subject}</h2>
@@ -134,7 +134,7 @@ function WorkRequests() {
                 ))}
               </ol>
 
-              <div className="grid gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <label className="block text-sm">
                   <span className="mb-1 block text-slate-700">{internal ? 'Internal note (management only)' : 'Answer to the client (sent in the company’s name)'}</span>
                   <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={4000} rows={4} aria-label="Message"

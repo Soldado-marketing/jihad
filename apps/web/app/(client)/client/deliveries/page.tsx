@@ -44,7 +44,8 @@ function MyWork() {
   const shown = (items ?? []).filter((d) => !project || d.project?.id === project);
 
   return (
-    <div className="grid gap-6">
+    // grid-cols-1: one column that may shrink; otherwise a long name widens the page on a phone.
+    <div className="grid grid-cols-1 gap-6">
       <PageHeader eyebrow="My Work" title="Your deliveries" description="Open a delivery to view it, download it, approve it or ask for a revision." />
       {projects.length > 1 && (
         // A select is as wide as its longest option. The label may shrink (min-w-0) and the
@@ -64,10 +65,10 @@ function MyWork() {
       {items !== null && GROUPS.map((g) => {
         const rows = shown.filter((d) => d.status === g.status);
         return (
-          <section key={g.status} aria-labelledby={`group-${g.status}`} className="grid gap-2">
+          <section key={g.status} aria-labelledby={`group-${g.status}`} className="grid grid-cols-1 gap-2">
             <h2 id={`group-${g.status}`} className="text-sm font-semibold uppercase tracking-wide text-muted">{g.title} ({rows.length})</h2>
             {rows.length === 0 && <p className="text-sm text-slate-500">{g.empty}</p>}
-            <ul className="grid gap-2">
+            <ul className="grid grid-cols-1 gap-2">
               {rows.map((d) => (
                 <li key={d.id}>
                   <Link href={`/client/deliveries/${d.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-4 hover:bg-slate-50">

@@ -176,26 +176,26 @@ function Timesheet() {
       />
 
       {canLogTime(role) && (
-        <form onSubmit={save} className={`grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-6 ${editing ? 'border-accent/40' : 'border-line'}`} aria-label={editing ? 'Edit time entry' : 'Log time'}>
-          <label className="flex flex-col gap-1 text-xs text-muted">Date
+        <form onSubmit={save} className={`grid grid-cols-1 gap-3 rounded-xl border bg-white p-4 sm:grid-cols-6 ${editing ? 'border-accent/40' : 'border-line'}`} aria-label={editing ? 'Edit time entry' : 'Log time'}>
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Date
             <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} required />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">Duration (h:mm or minutes)
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">Duration (h:mm or minutes)
             <input value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="1:30" inputMode="decimal" className={inputCls} required />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted sm:col-span-2">Project
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted sm:col-span-2">Project
             <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value, taskId: '' })} className={inputCls} required>
               <option value="">— choose —</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.projectNumber ? `${p.projectNumber} · ` : ''}{p.name}</option>)}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted sm:col-span-2">Task (optional)
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted sm:col-span-2">Task (optional)
             <select value={form.taskId} onChange={(e) => setForm({ ...form, taskId: e.target.value })} className={inputCls} disabled={!form.projectId}>
               <option value="">— none —</option>
               {tasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted sm:col-span-4">Note (optional)
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted sm:col-span-4">Note (optional)
             <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} maxLength={2000} className={inputCls} />
           </label>
           <label className="flex items-center gap-2 text-sm text-ink sm:col-span-1">
@@ -210,10 +210,10 @@ function Timesheet() {
       )}
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">From
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">From
           <input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} className={inputCls} />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">To
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">To
           <input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} className={inputCls} />
         </label>
       </div>

@@ -1092,7 +1092,9 @@ export function TaskModal({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    // min-w-0: a grid cell is otherwise at least as wide as its content, and a select is as wide
+    // as its longest option - one long project name made the whole editor wider than a phone.
+    <div className="min-w-0">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted mb-1">{label}</p>
       {children}
     </div>

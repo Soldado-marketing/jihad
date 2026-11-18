@@ -55,7 +55,8 @@ export function ClientDashboardSummary() {
   const currency = open[0]?.currency ?? invoices[0]?.currency ?? 'EUR';
 
   return (
-    <div className="grid gap-6">
+    // grid-cols-1: one column that may shrink; otherwise a long file name widens the page on a phone.
+    <div className="grid grid-cols-1 gap-6">
       <section aria-labelledby="waiting-title" className="rounded-2xl border border-line bg-white p-5 shadow-card">
         <h3 id="waiting-title" className="font-semibold text-ink">Waiting for you</h3>
         {deliveries === null && <p className="mt-2 text-sm text-slate-500">Loading…</p>}
