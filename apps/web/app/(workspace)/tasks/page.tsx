@@ -479,7 +479,7 @@ function TasksBoard() {
             value={filters.project}
             onChange={(e) => setFilter({ project: e.target.value })}
             aria-label="Project"
-            className="text-sm border border-line rounded-xl bg-soft px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
+            className="min-w-0 max-w-full text-sm border border-line rounded-xl bg-soft px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
           >
             <option value="">All projects</option>
             {projects.map((p) => (

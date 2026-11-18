@@ -54,11 +54,14 @@ test.describe('C06 upload', () => {
 
     let release: () => void = () => undefined;
     const held = new Promise<void>((r) => { release = r; });
+    let settled: () => void = () => undefined;
+    const aborted = new Promise<void>((r) => { settled = r; });
     await page.route('**/*', async (route) => {
       if (!isUpload(route)) return route.continue();
       await held;
-      // Cancel already tore the request down in the browser; nothing left to abort then.
+      // Cancel already tore the request down in the page; here it is ended in the browser too.
       await route.abort('aborted').catch(() => undefined);
+      settled();
     });
 
     await choosePng(page, asset.name);
@@ -83,6 +86,10 @@ test.describe('C06 upload', () => {
     await expect(upload(page)).toBeEnabled();
     await expect(page.getByTestId('chosen-file')).toContainText(asset.name);
     release();
+    // The held request must be ended before interception is switched off. Switching it off
+    // first lets Chromium send the held request although the page cancelled it; the server
+    // then stores it as version 1 and the upload below becomes version 2 (seen 2 times in 40).
+    await aborted;
     await page.unroute('**/*');
     expect(await versions(asset.id)).toEqual([]);
 

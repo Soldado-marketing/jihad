@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { call } from './support/api';
 import { readSeed, type Seed } from './support/seed';
 import { useSession } from './support/ui';
 
@@ -90,5 +91,47 @@ test.describe('The four states on every page', () => {
     await expect(page.getByText('No channels yet.')).toHaveCount(0);
     release();
     await expect(page.getByText('Loading channels')).toHaveCount(0);
+  });
+});
+
+/**
+ * F08 - every page fits a phone screen, also with long names. A page's single
+ * column is as wide as its widest child unless it may shrink, and a select is as
+ * wide as its longest option: one long project name made the client's My Work
+ * page, the time form and the task editor wider than the screen, and a long file
+ * name did the same to the client overview. The sweep opens every page at phone
+ * width with such a project shared to the client and measures the overflow.
+ */
+test.describe('Every page fits a phone screen', () => {
+  test.beforeEach(({}, info) => { test.skip(info.project.name !== 'mobile', 'Measured on the phone project.'); });
+
+  const overflow = async (page: Page) => {
+    await page.waitForLoadState('networkidle').catch(() => undefined);
+    return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  };
+
+  test('with a long project name, no workspace or client page and not the task editor is wider than the screen', async ({ page }) => {
+    test.setTimeout(240_000);
+    const owner = s.sessions.owner.tokens.accessToken;
+    const long = await call<{ id: string }>('/projects', { method: 'POST', token: owner, body: { name: `Phone width check for a customer with a long company name and a long campaign title ${s.run}`, customerId: s.customerOne.id } });
+    expect(long.status, JSON.stringify(long.body)).toBe(201);
+    expect((await call(`/projects/${long.body.id}`, { method: 'PATCH', token: owner, body: { clientVisible: true } })).status).toBe(200);
+
+    const tooWide: string[] = [];
+    for (const [who, routes] of [['owner', [...WORKSPACE, 'data', ...withIds(s).workspace]], ['clientOne', [...CLIENT, ...withIds(s).client]]] as const) {
+      for (const route of routes) {
+        await useSession(page, s.sessions[who], `/${route}`);
+        const by = await overflow(page);
+        if (by > 1) tooWide.push(`/${route} by ${by}px`);
+      }
+    }
+    // The task editor lists every project in a select.
+    await useSession(page, s.sessions.owner, '/tasks');
+    await page.getByText(s.sharedTask.title).first().click();
+    await expect(page.getByPlaceholder('Task title')).toHaveValue(s.sharedTask.title);
+    const editor = await overflow(page);
+    if (editor > 1) tooWide.push(`the task editor by ${editor}px`);
+
+    expect(tooWide).toEqual([]);
   });
 });

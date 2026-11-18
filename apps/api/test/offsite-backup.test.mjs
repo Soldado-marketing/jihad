@@ -183,7 +183,12 @@ describe('off-site backup copy (MAOS-T20)', () => {
     assert.equal(run(w, UPLOAD).status, 0);
     const wrong = run(w, REHEARSE);
     assert.equal(wrong.status, 1);
-    assert.match(wrong.alerts, /decryption failed/);
+    // What must hold is that the copy is refused. Which guard refuses it is not fixed:
+    // openssl cms does not always report a wrong private key - against padding-oracle
+    // timing it can go on with a random content key - and when it then writes garbage
+    // without an error, the plaintext checksum is the guard that stops the rehearsal.
+    assert.match(wrong.alerts, /decryption failed|decrypted dump checksum mismatch/);
+    assert.doesNotMatch(wrong.alerts, /REHEARSAL OK|passed/i);
   });
 
   it('runs after every successful nightly backup and every passing weekly rehearsal, never instead of them', () => {

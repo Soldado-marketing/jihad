@@ -64,7 +64,7 @@ function RequestsPage() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <Link href="/client" className="text-sm text-brand hover:underline">← Home</Link>
       <PageHeader eyebrow="Requests" title="Request new work"
         description="Need something new from us? Describe the work and our management plans it with you. This is separate from asking for changes to a delivery and from reporting a problem."
@@ -73,7 +73,7 @@ function RequestsPage() {
         )} />
 
       {open && (
-        <form onSubmit={(e) => void submit(e)} aria-labelledby="request-title" className="grid gap-4 rounded-xl border border-line bg-white p-5">
+        <form onSubmit={(e) => void submit(e)} aria-labelledby="request-title" className="grid grid-cols-1 gap-4 rounded-xl border border-line bg-white p-5">
           <h2 id="request-title" className="font-semibold text-ink">Request new work</h2>
           <label className="block text-sm">
             <span className="mb-1 block text-slate-700">What do you need?</span>

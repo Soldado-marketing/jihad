@@ -7,9 +7,9 @@ import { type ProjectProgress, STAGES, percentDone, progressSummary, projectStat
 export function ClientProjectProgress({ projects }: { projects: ProjectProgress[] }) {
   if (projects.length === 0) return null;
   return (
-    <section aria-labelledby="project-status-heading" className="grid gap-2" data-testid="project-progress">
+    <section aria-labelledby="project-status-heading" className="grid grid-cols-1 gap-2" data-testid="project-progress">
       <h2 id="project-status-heading" className="text-sm font-semibold uppercase tracking-wide text-muted">Project status</h2>
-      <ul className="grid gap-2">
+      <ul className="grid grid-cols-1 gap-2">
         {projects.map((project) => {
           const percent = percentDone(project.steps);
           const summary = progressSummary(project.steps);

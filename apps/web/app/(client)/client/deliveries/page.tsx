@@ -44,12 +44,15 @@ function MyWork() {
   const shown = (items ?? []).filter((d) => !project || d.project?.id === project);
 
   return (
-    <div className="grid gap-6">
+    // grid-cols-1: one column that may shrink; otherwise a long name widens the page on a phone.
+    <div className="grid grid-cols-1 gap-6">
       <PageHeader eyebrow="My Work" title="Your deliveries" description="Open a delivery to view it, download it, approve it or ask for a revision." />
       {projects.length > 1 && (
-        <label className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+        // A select is as wide as its longest option. The label may shrink (min-w-0) and the
+        // select is capped to it, so a long project name cannot push the page past a phone screen.
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-700">
           Project
-          <select value={project} onChange={(e) => setProject(e.target.value)} className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink">
+          <select value={project} onChange={(e) => setProject(e.target.value)} className="min-w-0 max-w-full rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink">
             <option value="">All projects</option>
             {projects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
@@ -62,10 +65,10 @@ function MyWork() {
       {items !== null && GROUPS.map((g) => {
         const rows = shown.filter((d) => d.status === g.status);
         return (
-          <section key={g.status} aria-labelledby={`group-${g.status}`} className="grid gap-2">
+          <section key={g.status} aria-labelledby={`group-${g.status}`} className="grid grid-cols-1 gap-2">
             <h2 id={`group-${g.status}`} className="text-sm font-semibold uppercase tracking-wide text-muted">{g.title} ({rows.length})</h2>
             {rows.length === 0 && <p className="text-sm text-slate-500">{g.empty}</p>}
-            <ul className="grid gap-2">
+            <ul className="grid grid-cols-1 gap-2">
               {rows.map((d) => (
                 <li key={d.id}>
                   <Link href={`/client/deliveries/${d.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-4 hover:bg-slate-50">
