@@ -48,7 +48,8 @@ export function notificationHref(
     case 'file': return id ? `/files/${id}` : '/files';
     case 'invoice': return id ? `/finance/invoices/${id}` : '/finance/invoices';
     case 'project': return id ? `/projects/${id}` : '/projects';
-    case 'task':
+    // A task notice (assignment, mention) opens that task's editor on the board.
+    case 'task': return id ? `/tasks?open=${id}` : '/tasks';
     case 'appointment': return '/tasks';
     case 'complaint': return id ? `/complaints?open=${id}` : '/complaints';
     case 'request': return id ? `/requests?open=${id}` : '/requests';

@@ -9,18 +9,11 @@ import {
 } from './task-types';
 import { apiFetch } from '@/lib/fetch';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
+import { TaskComments } from './task-comments';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type InternalNote = {
-  id: string;
-  body: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: { id: string; displayName: string | null } | null;
-};
-
-type SectionKey = 'labels' | 'notes';
+type SectionKey = 'labels';
 type SectionState = 'hidden' | 'collapsed' | 'open';
 
 const LABEL_COLORS = [
@@ -141,41 +134,6 @@ function SectionHeader({
   );
 }
 
-// ─── NoteItem ─────────────────────────────────────────────────────────────────
-
-function NoteItem({ note }: { note: InternalNote }) {
-  const author = note.createdBy;
-  const initials = author?.displayName
-    ? author.displayName.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
-  const dateStr = new Date(note.createdAt).toLocaleDateString(undefined, {
-    month: 'short', day: 'numeric',
-  });
-  const timeStr = new Date(note.createdAt).toLocaleTimeString(undefined, {
-    hour: '2-digit', minute: '2-digit',
-  });
-
-  return (
-    <div className="flex gap-3">
-      <div
-        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5"
-        style={{ backgroundColor: '#0f766e' }}
-      >
-        {initials}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 mb-0.5">
-          <span className="text-xs font-semibold text-ink">
-            {author?.displayName ?? 'Unknown'}
-          </span>
-          <span className="text-[11px] text-muted">{dateStr} {timeStr}</span>
-        </div>
-        <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{note.body}</p>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 export function TaskModal({
@@ -224,18 +182,16 @@ export function TaskModal({
   const [labelError, setLabelError]           = useState('');
   const [togglingLabelId, setTogglingLabelId] = useState<string | null>(null);
 
-  // ── Notes ──
-  const [notes, setNotes]             = useState<InternalNote[]>([]);
-  const [notesLoading, setNotesLoading] = useState(false);
-  const [notesLoaded, setNotesLoaded] = useState(false);
-  const [newNoteBody, setNewNoteBody] = useState('');
-  const [addingNote, setAddingNote]   = useState(false);
-  const [noteError, setNoteError]     = useState('');
+  // ── Comments (the thread itself lives in task-comments.tsx) ──
+  const [commentsCollapsed, setCommentsCollapsed] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
+  // Someone who may not read internal comments (a contractor) gets no Comments section at all.
+  const [commentsRefused, setCommentsRefused] = useState(false);
+  const refuseComments = useCallback(() => setCommentsRefused(true), []);
 
   // ── Optional sections ──
   const [sections, setSections] = useState<Record<SectionKey, SectionState>>(() => ({
     labels: (task.labels?.length ?? 0) > 0 ? 'open' : 'hidden',
-    notes: 'hidden',
   }));
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -265,30 +221,6 @@ export function TaskModal({
       .catch((err) => { setSubtasks([]); setSubError(err instanceof Error ? err.message : 'Could not load the subtasks.'); })
       .finally(() => setSubLoading(false));
   }, [task.id]);
-
-  // ── Load notes when section first opened ──
-  const loadNotes = useCallback(async () => {
-    setNotesLoading(true);
-    setNoteError('');
-    try {
-      const data = await apiFetch<InternalNote[]>(
-        `/collaboration/notes?resourceType=task&resourceId=${task.id}`,
-      );
-      setNotes(Array.isArray(data) ? data : []);
-      setNotesLoaded(true);
-    } catch {
-      setNotes([]);
-    } finally {
-      setNotesLoading(false);
-    }
-  }, [task.id]);
-
-  const notesSection = sections.notes;
-  useEffect(() => {
-    if (notesSection === 'open' && !notesLoaded) {
-      loadNotes();
-    }
-  }, [notesSection, notesLoaded, loadNotes]);
 
   // ── Mark dirty ──
   function mark<T>(setter: (v: T) => void) {
@@ -430,30 +362,6 @@ export function TaskModal({
     }
   }
 
-  // ── Add internal note ──
-  async function addNote() {
-    const body = newNoteBody.trim();
-    setNoteError('');
-    if (!body || addingNote) return;
-    if (body.length < 2) {
-      setNoteError('Note must be at least 2 characters');
-      return;
-    }
-    setAddingNote(true);
-    try {
-      const note = await apiFetch<InternalNote>('/collaboration/notes', {
-        method: 'POST',
-        body: JSON.stringify({ body, resourceType: 'task', resourceId: task.id }),
-      });
-      setNotes((prev) => [note, ...prev]);
-      setNewNoteBody('');
-    } catch (e: unknown) {
-      setNoteError((e as Error).message ?? 'Failed to add note');
-    } finally {
-      setAddingNote(false);
-    }
-  }
-
   // ── Register file metadata ──
   async function registerFile() {
     const name = newFileName.trim();
@@ -497,7 +405,6 @@ export function TaskModal({
 
   const ADD_MENU_OPTIONS: { key: SectionKey; label: string }[] = [
     { key: 'labels', label: 'Labels' },
-    { key: 'notes',  label: 'Internal Notes' },
   ];
   const addMenuItems = ADD_MENU_OPTIONS.filter((o) => sections[o.key] === 'hidden');
 
@@ -944,58 +851,19 @@ export function TaskModal({
               )}
             </section>
 
-            {/* ─── Internal Notes (optional) ─── */}
-            {sections.notes !== 'hidden' && (
-              <section>
-                <SectionHeader
-                  label="Internal Notes"
-                  badge={notes.length > 0 ? notes.length : undefined}
-                  collapsed={sections.notes === 'collapsed'}
-                  onToggle={() =>
-                    setSections((prev) => ({
-                      ...prev,
-                      notes: prev.notes === 'open' ? 'collapsed' : 'open',
-                    }))
-                  }
-                />
-
-                {sections.notes === 'open' && (
-                  <div className="space-y-4">
-                    {/* Add note */}
-                    <div className="space-y-1.5">
-                      <textarea
-                        value={newNoteBody}
-                        onChange={(e) => { setNewNoteBody(e.target.value); setNoteError(''); }}
-                        rows={3}
-                        placeholder="Write an internal note…"
-                        className="w-full resize-none text-sm text-ink bg-soft rounded-xl border border-line px-3 py-2.5 outline-none placeholder:text-muted/60 focus:ring-2 focus:ring-accent/30 leading-relaxed"
-                      />
-                      {noteError && <p className="text-[11px] text-danger">{noteError}</p>}
-                      <button
-                        onClick={addNote}
-                        disabled={!newNoteBody.trim() || addingNote}
-                        className="px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-semibold disabled:opacity-40 hover:bg-accent transition-colors"
-                      >
-                        {addingNote ? 'Adding…' : 'Add Note'}
-                      </button>
-                    </div>
-
-                    {/* Notes list */}
-                    {notesLoading ? (
-                      <p className="text-xs text-muted">Loading notes…</p>
-                    ) : notes.length === 0 ? (
-                      <p className="text-xs text-muted">No notes yet. Add one above.</p>
-                    ) : (
-                      <div className="space-y-4">
-                        {notes.map((note) => (
-                          <NoteItem key={note.id} note={note} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </section>
-            )}
+            {/* ─── Comments (G07): always there, staff only ─── */}
+            <section className={commentsRefused ? 'hidden' : undefined}>
+              <SectionHeader
+                label="Comments"
+                badge={commentCount}
+                collapsed={commentsCollapsed}
+                onToggle={() => setCommentsCollapsed((v) => !v)}
+              />
+              {/* Kept mounted while collapsed, so a half-written comment is not lost. */}
+              <div className={commentsCollapsed ? 'hidden' : undefined}>
+                <TaskComments taskId={task.id} onCount={setCommentCount} onRefused={refuseComments} />
+              </div>
+            </section>
 
             {/* ─── Add block menu ─── */}
             {addMenuItems.length > 0 && (

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/fetch';
 import { PageHeader } from '@/components/ui/page-header';
 import { ErrorState } from '@/components/states/error-state';
+import { plainBody } from '@/lib/mentions';
 
 type Note = { id: string; body: string; createdAt: string; author?: { displayName: string } };
 
@@ -57,7 +58,7 @@ export default function CollaborationPage() {
         {notes.map(n => (
           <div key={n.id} className="rounded-xl border border-line bg-white p-4">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-sm text-ink whitespace-pre-wrap flex-1">{n.body}</p>
+              <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm text-ink [overflow-wrap:anywhere]">{plainBody(n.body)}</p>
               <button onClick={() => deleteNote(n.id)} className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">Delete</button>
             </div>
             <p className="mt-2 text-xs text-muted">{n.author?.displayName ?? 'Unknown'} · {new Date(n.createdAt).toLocaleString()}</p>
