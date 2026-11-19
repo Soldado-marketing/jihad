@@ -832,6 +832,17 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Rehearsed on a disposable local database** next to an unrelated company with rows in every table concerned: seed (second seed refuses); the whole check through the API — four bulk actions 20 of 20 with 20 records each, 20 assignment notices, one mention notice naming the task without the text, client 403 on the notes routes, employee 404 on the hidden task; clean-up — every count back to the count before the seed, no leftovers in 18 tables, the unrelated company identical, a second clean-up harmless. Rehearsal database and its output removed.
 - G10 is DEPLOYED, not DONE; record on PR #179. Gate: the owner's approval of the test and the clean-up (proposed number O63).
 
+## 2026-11-19 — G07 and G10 DONE: check on production passed, fictional data removed
+
+- **Owner message (2026-11-18):** approval to create one isolated fictional company on production for the G07 and G10 check and to delete only the test data afterwards; the owner accepts the three invitations and signs in; document the arrival of the @ notice, the bulk results and the permissions; close nothing before the check passed and the clean-up is confirmed; stop if the permission layer refuses.
+- **Seed** through the private tunnel (not refused): company `g0710-mwmc6z0uce55`, 1 customer, 3 projects, 1 label, 22 tasks, 3 invitations. The owner first tried to sign in before accepting (one refused sign-in), then accepted the Owner, employee and client invitations in the app's browser pane on 2026-11-19; each session was kept in the pane under its own keys.
+- **G10 on production:** status, move, label, assign — the page asked first each time and answered "20 tasks changed."; the database: 20 of 20 for each, 20 audit records per action, one per task, by the Owner; 20 assignment notices; the same label again: "Nothing to change", nothing recorded twice. Phone size: no overflow.
+- **G07 on production:** the list after `@` offered the employee only; the comment showed the mention; the employee's bell carried the notice with the task's name and it opened the task; one notice in the database, naming the task, without the comment text; the employee answered and edited the own comment, 403 on the Owner's; order kept after a reload.
+- **Permissions:** employee 0 of 22 tasks before the assignment, 21 after, 404 on the task that is not theirs by every route, 403 on the member list; client 403 on every comment route, the portal without any comment text, 0 notices; a mention of the client 400.
+- **Clean-up:** every count equals the count before the seed (companies 1, users 4, projects 2, tasks 0, invitations 3, …); removed 1 company, 3 users, 3 invitations, 107 audit and 4 sign-in records; 0 leftovers in 18 tables; a second clean-up found nothing; the three fictional sessions answer 401; tokens removed from the pane; invitation links deleted.
+- **Seen, not changed:** the assignee list offers the client (bar, editor, new-task form) and the API accepts any active member as assignee — proposed as its own task; a bulk assignment sends one notice per task.
+- Records: row 18 of both acceptance files, commit `b95dea6` on PR #179.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
