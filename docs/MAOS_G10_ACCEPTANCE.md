@@ -1,6 +1,6 @@
 # MAOS-G10 — Bulk actions on tasks (move, assign, label, status)
 
-**Closure status (2026-11-18): DEPLOYED — the check on production is PENDING; not DONE.** Built, tested, merged as #178 on the owner's message, main CI green, both services rebuilt and healthy, the bar is in what production serves. Open: nobody has yet selected tasks and run a bulk action on production. That check is prepared together with G07's and rehearsed locally; it writes fictional data to production and therefore waits for the owner's approval of the test and the clean-up. The checklist below was written before any code.
+**Closure status (2026-11-19): DONE.** Built, tested, merged as #178 on the owner's message, main CI green, both services rebuilt and healthy, and checked on production in one session with G07 in a fictional company, with the owner's approval: twenty tasks selected, the four actions stored and recorded per task, the scope respected. The fictional data is removed and every count is back where it was. The checklist below was written before any code.
 
 Task row: "Bulk actions on tasks (move, assign, label, status). Multi-select on list view; uses existing reorder/update endpoints; audit per task. Acceptance: bulk move of 20 tasks persists and audits; scope respected."
 
@@ -49,31 +49,59 @@ The row names four actions: move, assign, label, status. Status is its own actio
 | 15 | CI six jobs green | PR head `71f5937`, run 44342370410: six jobs SUCCESS — isolation gate with both G10 groups ok, browser 148 passed / 6 skipped by design with the three `16-task-bulk-actions` cases on desktop and phone and the phone-width sweep. CI did not start when the PR was opened; closing and reopening started it, and the first of the two runs was cancelled by the workflow's concurrency rule | PASS |
 | 16 | Merge and deployment on the owner's message | owner's message 2026-11-18 ("موافق على دمج #177 التوثيقي و#178 بعد التأكد إن فحوص آخر التزام بكل طلب خضراء"); six checks SUCCESS read on `71f5937` before the merge; merged with `--match-head-commit` → main `41cfcf1` (16:16:06Z). Main CI run 44345234697: six jobs SUCCESS, browser 148 passed / 6 skipped. Railway: `jihad` `d1c44f5d` and `maos-web` `f0031f65` SUCCESS on `41cfcf1`; `/api/health/ready` 200 (database up); the label route answers 401 without a session; API log: started, scheduler started, no error line. Rollback: API `4fa017ef`, web `498a9e46`. No database change | PASS |
 | 17 | The bar is in what production serves | the script chunks of `/tasks` fetched from production (14 files): "Bulk actions", "Select all tasks shown" and "could not be changed" are present, and the comment thread of G07 is still there | PASS |
-| 18 | The check on production: twenty tasks selected in the list, the four actions run, stored and recorded per task; an employee cannot change a task that is not theirs | prepared and rehearsed, **not run** — see the next section | **PENDING — owner's approval of test and clean-up** |
+| 18 | The check on production: twenty tasks selected in the list, the four actions run, stored and recorded per task; an employee cannot change a task that is not theirs | run 2026-11-19 in a fictional company: 20 of 20 for each action with 20 records each, the employee refused on the task that is not theirs; data removed, baseline restored — see "The check on production" below | PASS |
 
-## The check on production — prepared for one session with G07, not run
+## The check on production — run 2026-11-19, passed, data removed
 
-Nothing has been written to production for it. It runs only after the owner approves the test and the clean-up.
+Owner's approval of the test and the clean-up: 2026-11-18 ("موافق على إنشاء شركة اختبار وهمية معزولة على إنتاج MAOS لفحص G07 وG10، وحذف بيانات الاختبار فقط بعدها"). One session for G07 and G10 in one fictional company, `g0710-mwmc6z0uce55` (addresses `@g0710.fiktiv.test`): 1 customer, 3 projects, 1 label, 22 tasks, 3 invitations. The owner accepted the three invitations in the app's browser pane and signed in there; the session typed no password. Production ran main `41cfcf1` (`jihad` `d1c44f5d`, `maos-web` `f0031f65`).
 
-**What it would write (fictional, one separate company, slug prefix `g0710-`, addresses `@g0710.fiktiv.test`):** one customer, three projects, one label, 22 tasks (twenty for the bulk actions, one for the comment thread, one the employee may not see) and three invitations (Owner, employee, client). No user and no password: the owner accepts the three invitations in the app's browser pane and signs in there; the session types no password on production.
+### G10 — bulk actions (as the fictional Owner, in the list view)
 
-**What is then done in the browser, with those three sessions:**
-
-| Step | As | Proves |
+| Action on the twenty tasks | The page | The database afterwards |
 |---|---|---|
-| Select the twenty tasks in the list, set status, move to the other project, assign to the employee, add the label | Owner | G10 rows 2–6, 8 on production |
-| Open the thread task, give it to the employee, write a comment mentioning the employee by picking the name | Owner | G07 rows 1–3 |
-| Find the notice in the bell, follow it to the task, answer, change the own comment; no control on the Owner's comment | employee | G07 rows 4, 6, 11 |
-| A task that is not theirs: not in the list; the single-task routes refuse it | employee | G10 row 7, G07 row 10 |
-| The notes routes refuse; the portal shows the project and no comment | client | G07 row 8 |
-| The list and the thread at phone size | Owner | F08 |
+| Set status → Done | asked "Set 20 tasks to “Done”?", then "20 tasks changed." | 20 of 20 `DONE`; 20 `task.status.changed` records, one per task, by the Owner, SUCCESS |
+| Move → the other project | asked, then "20 tasks changed." | 20 of 20 in the target project; 20 `task.updated` records, one per task |
+| Add label | asked, then "20 tasks changed." | 20 of 20 carry the label; 20 `task.label.added` records, one per task |
+| Assign → the employee | asked, then "20 tasks changed." | 20 of 20 assigned; 20 `task.assigned` records, one per task; 20 assignment notices to the employee |
+| The same label again | "Nothing to change: all 20 tasks were already set." | still exactly 20 label records: nothing recorded twice |
 
-A read-only report then counts, in the database, tasks by status, project and assignee, labels, audit records per action and task, comments and notices — counts and roles only, no text.
+The selection stayed on the twenty after each action; after a reload the twenty were still Done. At phone size (375 px) the list with the bar was not wider than the screen and the task names had room (225 px).
 
-**Clean-up:** the one company by its id and slug prefix (everything in it goes with it), the three users by the fictional address, their audit and sign-in records; it refuses when anything is not what the seed wrote, and ends with every count compared to the count taken before the seed.
+### G07 — comment thread and mention
 
-**Rehearsed on a disposable local database (2026-11-18)** next to an unrelated company that held rows in every table concerned: seed (a second seed refuses), the whole check through the API — 20 of 20 for each of the four actions with 20 records each, 20 assignment notices, one mention notice naming the task without the text, 403 for the client on the notes routes, 404 for the employee on the hidden task — then the clean-up: every count back to the count before the seed, no leftovers in 18 tables, the unrelated company identical before and after, a second clean-up harmless. Scripts: session notes folder `g0710-prod-check/` (seed, state, clean-up, tunnel runner), outside the repository.
+| Step | Result |
+|---|---|
+| Owner opens the thread task: empty thread with its sentence, "Internal — clients never see these comments." | seen |
+| Owner types `@emp`: the list offers the employee only — not the client, not the writer; Enter picks the name | seen; the server's list for that task: 2 people, the client not among them |
+| Owner posts the comment | shown with the author, the time and the name marked as a mention; the box is empty again |
+| **The notice reaches the employee** | the employee's bell: "You were mentioned in a task comment" with the task's name, on top; in the database one notice to the employee that names the task and does not carry the comment text |
+| The notice opens the task | a click on it opens that task's editor on the board; the address is `/tasks` again |
+| Employee sees the Owner's comment without any control, answers, changes the own comment | 2 comments in order after a reload; the employee's one marked "edited"; the Owner sees Edit and Delete on the own comment and Delete only on the employee's |
+| At phone size | the editor with the thread is not wider than the screen |
 
+### Permissions
+
+| Who | Tried | Answer |
+|---|---|---|
+| Employee, before anything was assigned | the task list | 0 of 22 tasks |
+| Employee, after the assignment | the task list | 21 tasks; the task that is not theirs is not listed |
+| Employee | read, change status, add label on the task that is not theirs; read its comments; the mention list for it | 404 each; that task unchanged, no label, no audit record |
+| Employee | change and delete the Owner's comment | 403 each; the comment unchanged |
+| Employee | the company's member list | 403 |
+| Client | the comments of the task, all notes, the mention list, the task itself | 403 each |
+| Client | the portal: projects, progress, deliveries, appointments, invoices, notices | 200; the client's project is there; no comment text in any answer; 0 notices |
+| Client | the workspace task page | sent back to the portal |
+| Owner | a comment that mentions the client | 400 `MENTION_NOT_ALLOWED`; nothing stored (2 comments before and after) |
+
+### Clean-up
+
+Before the seed and after the clean-up, the same counts: companies 1, users 4, memberships 4, customers 0, projects 2, tasks 0, labels 1, task labels 0, notes 0, notices 0, invitations 3, invoices 1, files 2, file versions 0, approvals 1. Removed: the one company with everything in it, the 3 fictional users, 3 invitations, 107 audit records and 4 sign-in records of the fictional company and addresses (one of them the refused sign-in before the first invitation was accepted). Leftovers in 18 tables: 0. A second clean-up found nothing to remove. The three fictional sessions are refused afterwards (401 on a request and on a renewal), and their tokens were removed from the pane. The used invitation links were deleted.
+
+### Seen during the check, not changed
+
+1. **The list of people to assign to offers the client.** The member list the Owner gets contains every active member, so "Assign to" in the bar — and the same list in the task editor and the new-task form — names the client too, and the API accepts any active member as assignee. Not tried on production. Proposed as its own task: leave clients out of assignee lists and refuse a CLIENT as assignee.
+2. **A bulk assignment sends one notice per task**: the employee's bell showed 22 unread after 21 assignments and one mention. That is what "once per task" means today; a single summary notice would be a product decision.
+3. The three fictional accounts carried their address as name, which is what was entered when the invitations were accepted (the code stores the name as typed); mentions and lists therefore showed addresses in this check.
 
 ## What was built
 
