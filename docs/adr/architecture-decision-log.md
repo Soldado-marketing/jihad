@@ -58,3 +58,5 @@ This log tracks Sprint 0 architecture decisions required before implementation b
 | ADR-013 | Approved |
 | ADR-015 | Approved |
 | Sprint 1 readiness | Go |
+| ADR-019 | Proposed (TenantSettings, J01; owner decision O24) |
+| ADR-020 | Proposed (multi-file delivery, D05; owner decision O34) |

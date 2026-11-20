@@ -14,15 +14,27 @@ Usage:
 import argparse, html, json, re, datetime, subprocess
 from pathlib import Path
 
-DEPT_RE = re.compile(r"^## ([A-M]) — (.+)$")
-ROW_RE = re.compile(r"^\| ([A-M]\d{2}) \|")
+DEPT_RE = re.compile(r"^## ([A-Z]) — (.+)$")
+ROW_RE = re.compile(r"^\| ([A-Z]\d{2}) \|")
 PR_RE = re.compile(r"#(\d{2,4})")
 
 def bucket(status: str) -> str:
     s = status.strip()
     u = s.upper()
-    if "AWAITING MERGE" in u:
+    if "AWAITING MERGE" in u or u.startswith("READY FOR RELEASE"):
         return "awaiting"
+    if u.startswith("VERIFIED"):
+        return "done"
+    if u.startswith("DEPLOYED"):
+        return "unverified"
+    if u.startswith("IMPLEMENTED") or u.startswith("TESTED"):
+        return "implemented"
+    if u.startswith("BLOCKED"):
+        return "blocked"
+    if u.startswith("IN PROGRESS"):
+        return "active"
+    if u.startswith("NOT STARTED"):
+        return "todo"
     if u.startswith("IN_PROGRESS"):
         return "active"
     if "BLOCKED_OWNER" in u and not u.startswith("N/A"):
@@ -44,10 +56,10 @@ def bucket(status: str) -> str:
     return "todo"
 
 LABEL = {
-    "done": "DONE", "docs": "DONE (DOCS/TOOLING)", "unverified": "NOT VERIFIED", "awaiting": "AWAITING APPROVAL", "active": "IN PROGRESS",
+    "done": "DONE", "docs": "DONE (DOCS/TOOLING)", "unverified": "NOT VERIFIED", "implemented": "IMPLEMENTED/TESTED", "awaiting": "AWAITING APPROVAL", "active": "IN PROGRESS",
     "blocked": "BLOCKED (owner)", "partial": "PARTIAL", "ready": "READY", "todo": "TODO", "na": "N/A",
 }
-ORDER = ["done", "docs", "unverified", "awaiting", "active", "blocked", "partial", "ready", "todo", "na"]
+ORDER = ["done", "docs", "unverified", "implemented", "awaiting", "active", "blocked", "partial", "ready", "todo", "na"]
 
 def parse_tasks(text: str):
     depts, cur = [], None
@@ -115,7 +127,7 @@ def main():
 
     waiting_ids = set()
     for d in decisions:
-        waiting_ids.update(re.findall(r"\b[A-M]\d{2}\b", d["unblocks"]))
+        waiting_ids.update(re.findall(r"\b[A-Z]\d{2}\b", d["unblocks"]))
 
     all_tasks = [t for d in depts for t in d["tasks"]]
     total = len(all_tasks)
@@ -226,7 +238,7 @@ header .sub {{ color:var(--muted); font-size:11.5px; margin-top:2px }}
 .bar {{ display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--line); margin-top:8px }}
 .bar i {{ display:block; height:100% }}
 .s-done {{ background:var(--ok) }} .s-docs {{ background:color-mix(in srgb,var(--ok) 70%,var(--bg)) }} .s-unverified {{ background:color-mix(in srgb,var(--ok) 45%,var(--bg)) }} .s-awaiting {{ background:var(--warn) }}
-.s-active {{ background:var(--info) }} .s-blocked {{ background:var(--crit) }} .s-partial {{ background:color-mix(in srgb,var(--info) 45%,var(--bg)) }}
+.s-active {{ background:var(--info) }} .s-implemented {{ background:color-mix(in srgb,var(--info) 70%,var(--bg)) }} .s-blocked {{ background:var(--crit) }} .s-partial {{ background:color-mix(in srgb,var(--info) 45%,var(--bg)) }}
 .s-ready, .s-todo, .s-na {{ background:transparent }}
 .legend {{ display:flex; flex-wrap:wrap; gap:4px; margin-top:8px }}
 .stages {{ display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:8px; font-size:11px; color:var(--muted) }}
@@ -235,7 +247,7 @@ header .sub {{ color:var(--muted); font-size:11.5px; margin-top:2px }}
 .chip {{ display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); white-space:nowrap }}
 .chip b {{ font-weight:700; color:var(--fg) }}
 .chip.done {{ color:var(--ok); border-color:var(--ok) }} .chip.docs {{ color:var(--ok); border-style:dotted }} .chip.unverified {{ color:var(--ok); border-style:dashed }}
-.chip.awaiting {{ color:var(--warn); border-color:var(--warn) }} .chip.active {{ color:var(--info); border-color:var(--info) }}
+.chip.implemented {{ color:var(--info); border-style:dotted }} .chip.awaiting {{ color:var(--warn); border-color:var(--warn) }} .chip.active {{ color:var(--info); border-color:var(--info) }}
 .chip.blocked {{ color:var(--crit); border-color:var(--crit) }} .chip.partial {{ color:var(--info); border-style:dashed }}
 .now {{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:grid; gap:8px }}
 .now .k {{ font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted) }}
@@ -293,6 +305,7 @@ footer {{ color:var(--muted); font-size:11px; margin-top:14px; line-height:1.5 }
     <div class="stages" aria-label="Pipeline">{"".join(f'<span class="stage"><b>{stage_counts[k]}</b> {label}</span>' for k, label in STAGES)}</div>
   </div>
   <div class="now">
+    <div><div class="k">Active phase</div><div class="v">{md_inline(resume.get("ACTIVE_PHASE", "—"))}</div></div>
     <div class="active-task"><div class="k">Active task</div><div class="v">{md_inline(resume.get("CURRENT_TASK_ID", "—"))}</div></div>
     <div class="last-task"><div class="k">Latest completed</div><div class="v">{md_inline(resume.get("LAST_COMPLETED_TASK", "—"))}</div></div>
     <div class="next-task"><div class="k">Exact next action</div><div class="v">{md_inline(resume.get("EXACT_NEXT_ACTION", "—"))}</div></div>
@@ -300,12 +313,12 @@ footer {{ color:var(--muted); font-size:11px; margin-top:14px; line-height:1.5 }
     <div><div class="k">Blockers</div><div class="v">{md_inline(resume.get("KNOWN_BLOCKERS", "—"))}</div></div>
   </div>
 </section>
-<h2>Departments A–M</h2>
+<h2>Departments A–R (I = website, out of scope)</h2>
 <div class="tools"><button type="button" id="expand-all">Expand all</button><button type="button" id="collapse-all">Collapse all</button><button type="button" id="only-waiting">Only waiting on you</button></div>
 {"".join(dept_block(d) for d in depts)}
 <h2>Owner decisions open ({len(decisions)})</h2>
 <ul class="decisions">{decisions_html}</ul>
-<footer>Status words come from the task list verbatim (shown under each task). "Verified" counts only rows marked DONE and verified in production; docs, research and tooling rows are shown as DONE (docs/tooling) and never count as verified; the pipeline line counts rows that reached at least that stage (a PR open, every CI job green, merged, deployed, verified); draft PRs are never shown as deployed. This page is a snapshot: Claude regenerates and republishes it at each task boundary from the planning files and GitHub; it does not update by itself. Checkpoint last updated {html.escape(resume.get("LAST_UPDATED", "—"))}.</footer>
+<footer>Status words come from the task list verbatim (shown under each task). "Verified" counts only rows marked DONE and verified in production; docs, research and tooling rows are shown as DONE (docs/tooling) and never count as verified; IMPLEMENTED/TESTED rows are code not yet released; the roadmap and phases live in docs/MAOS_MASTER_DEVELOPMENT_TREE.md; the pipeline line counts rows that reached at least that stage (a PR open, every CI job green, merged, deployed, verified); draft PRs are never shown as deployed. This page is a snapshot: Claude regenerates and republishes it at each task boundary from the planning files and GitHub; it does not update by itself. Checkpoint last updated {html.escape(resume.get("LAST_UPDATED", "—"))}.</footer>
 <script>
 (function () {{
   var KEY = 'maos-panel-open';
