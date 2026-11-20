@@ -68,6 +68,42 @@ tunnel_leader_alive() {
   [ -n "$TUNNEL_LEADER_ID" ] && [ "$(proc_identity "$TUNNEL_PID" || true)" = "$TUNNEL_LEADER_ID" ]
 }
 
+# The identity to keep for a "pid|identity" record: the process's identity now
+# if it has the recorded start time, the recorded identity otherwise.
+record_followed() {
+  local was="${1#*|}" now
+  now="$(proc_identity "${1%%|*}" || true)"
+  if [ -n "$now" ] && [ "${now%%|*}" = "${was%%|*}" ]; then
+    printf '%s' "$now"
+  else
+    printf '%s' "$was"
+  fi
+}
+
+# exec replaces a process's executable and keeps its pid and start time. The
+# real CLI starts through such a chain (this script's subshell -> /usr/bin/env
+# -> node), so the executable recorded right after the fork is not always the
+# final one. On 2026-11-19 the leader was recorded one step too early, never
+# matched its record again, and the run refused its own SSH listener. While the
+# tunnel is starting, a recorded process with the same pid and the same start
+# time is that process: its record follows the new executable. A reused pid has
+# a later start time and is never followed. Once the tunnel is ready, records
+# are final.
+tunnel_follow_exec() {
+  local rec tree=""
+  [ "$TUNNEL_READY" = 1 ] && return 0
+  [ -n "$TUNNEL_PID" ] || return 0
+  [ -n "$TUNNEL_LEADER_ID" ] && TUNNEL_LEADER_ID="$(record_followed "$TUNNEL_PID|$TUNNEL_LEADER_ID")"
+  while IFS= read -r rec; do
+    [ -n "$rec" ] || continue
+    tree="${tree:+$tree
+}${rec%%|*}|$(record_followed "$rec")"
+  done <<EOF_TREE
+$TUNNEL_TREE
+EOF_TREE
+  TUNNEL_TREE="$tree"
+}
+
 # Record, with identity, every current descendant of the tunnel. The real CLI
 # is a chain (Node wrapper -> railway binary -> ssh), and the binary starts ssh
 # in a process group of its own: only the parent chain proves that the SSH
@@ -75,6 +111,7 @@ tunnel_leader_alive() {
 # is verifiably the process this run started.
 tunnel_snapshot() {
   local p id
+  tunnel_follow_exec
   tunnel_leader_alive || return 0
   for p in $(proc_descendants "$TUNNEL_PID"); do
     case "
