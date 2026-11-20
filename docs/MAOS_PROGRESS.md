@@ -843,6 +843,13 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Seen, not changed:** the assignee list offers the client (bar, editor, new-task form) and the API accepts any active member as assignee — proposed as its own task; a bulk assignment sends one notice per task.
 - Records: row 18 of both acceptance files, commit `b95dea6` on PR #179.
 
+## 2026-11-20 — #179 merged; main CI red on a NEW dependency advisory; A07 started
+
+- **Owner message:** merge #179 after the six checks on its last commit; verify main CI; then start A07 on an isolated environment without production data.
+- **#179:** the browser job had failed on `b95dea6` before any test ran — the runner got 503 from the Ubuntu package servers while installing the browser. Rerun of the failed job once: six checks SUCCESS, browser 148 passed / 6 skipped. Merged with `--match-head-commit` → main `52c46ff`; Railway skipped both services (production stays on `41cfcf1`).
+- **Main CI on `52c46ff` (run 44728556646): FAILURE in "Dependency audit" only**; the other five jobs SUCCESS. Cause: advisory GHSA-7589-6fvf-x4pw (high, ReDoS in `effect` <= 3.22.0), published after the PR's own audit had passed. `effect` 3.21.0 comes in through `prisma` 6.19.3 → `@prisma/config`, which pins it exactly; the web app is not affected (0 findings). Nothing in the merge caused it; every PR is red on this job until it is fixed. Fix prepared as its own small change: an `overrides` entry for `effect` in `apps/api/package.json`, as already done for three other packages.
+- **A07 started:** checklist first; scripts in `scripts/perf/` (no new dependency; refuse any target that is not this machine); trial run on a disposable local database.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
