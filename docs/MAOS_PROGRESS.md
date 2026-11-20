@@ -850,6 +850,15 @@ The owner rejected the A09 "READY FOR RELEASE" report: the first PR head carried
 - **Main CI on `52c46ff` (run 44728556646): FAILURE in "Dependency audit" only**; the other five jobs SUCCESS. Cause: advisory GHSA-7589-6fvf-x4pw (high, ReDoS in `effect` <= 3.22.0), published after the PR's own audit had passed. `effect` 3.21.0 comes in through `prisma` 6.19.3 → `@prisma/config`, which pins it exactly; the web app is not affected (0 findings). Nothing in the merge caused it; every PR is red on this job until it is fixed. Fix prepared as its own small change: an `overrides` entry for `effect` in `apps/api/package.json`, as already done for three other packages.
 - **A07 started:** checklist first; scripts in `scripts/perf/` (no new dependency; refuse any target that is not this machine); trial run on a disposable local database.
 
+## 2026-11-20 — A07 measured: one endpoint over the bound; dependency fix on PR #180
+
+- **PR #180** (`fix/dep-effect-advisory`, commit `43c0070`): `effect` 3.21.0 → 3.22.5 through an `overrides` entry (Prisma's config package pins the vulnerable version; `npm audit fix` changes nothing). Production audit clean again; `prisma generate`, `validate`, `migrate deploy` and `migrate status` work on a disposable database; API unit 616 pass / 10 todo; CI six jobs SUCCESS (run 44733326220). Waits for the owner's merge message; a merge rebuilds the API only.
+- **A07** (`perf/a07-load-assessment`, PR #181): everything on this Mac — disposable PostgreSQL container, invented data (50 projects, 2,000 tasks, 500 files, 2,962 subtasks, 1,656 comments, 1,717 notices, 5,041 audit records), the API built from `main`, 20 people for 20 s on each of 26 reads, twice.
+- **Result:** 24 of 26 far under 500 ms; `GET /tasks` as Owner and as Manager over it (p95 698 / 798 and 713 / 809 ms). One person: about 60 ms; the bound is crossed between 10 and 20 people; answers per second stay near 40 however many people ask. The heaviest database statement averages 4.8 ms: the time goes into building and sending 2,000 tasks (1.3 MB) in one process. No index fixes it.
+- **Proposed:** a bounded task list (own task; changes how the board loads); indexes `Notification (tenantId, recipientUserId, createdAt DESC)` and `AuditEvent (tenantId, createdAt DESC, id DESC)` for growth.
+- **A wrong guess, corrected:** two notification endpoints were slower inside the long sequence than alone; I took the rate limiter's bookkeeping for the cause and told the owner so; cutting the simulated addresses from 60,000 to 2,000 did not remove it. Recorded as observed and not explained; both figures are far under the bound.
+- **Tool:** no k6 or autocannon (not installed; a new dependency for one measurement) — a small runner in plain Node with a unit test for its arithmetic and its stay-local guards.
+
 ### Outstanding owner decisions (collected)
 
 | # | Decision | Unblocks |
