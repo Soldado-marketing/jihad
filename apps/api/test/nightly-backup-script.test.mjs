@@ -17,7 +17,11 @@
  *   - the shim keeps the URL and the password out of every argument list;
  *   - private tunnel mode (MAOS-R01): Keychain only, bounded readiness,
  *     rewritten URL, no secret in the log, no public fallback, and the tunnel
- *     (including an SSH child that outlives it) closed on every exit path.
+ *     (including an SSH child that outlives it) closed on every exit path;
+ *   - a tunnel whose first process replaces its executable after it started
+ *     (the real CLI: shell -> env -> node) is still recognised as this run's,
+ *     while a process with another start time never is;
+ *   - a failure during which the Mac went to sleep says so.
  *
  * Every test works in its own temporary directory, removed afterwards.
  */
@@ -116,6 +120,9 @@ function runNightly(c, env = {}) {
       MAOS_BACKUP_PG_DUMP: 'path',
       // Never the real Keychain: the stub exists only when a test installs it.
       SECURITY_BIN: join(c.bin, 'security'),
+      // Never a desktop notification, never this machine's own sleep record.
+      MAOS_NOTIFY_BIN: '/usr/bin/true',
+      SYSCTL_BIN: join(c.bin, 'sysctl'),
       ...env,
     },
   });
@@ -343,6 +350,62 @@ describe('nightly-backup.sh - duration guard', () => {
   });
 });
 
+/** sysctl stub: `kern.sleeptime` as macOS prints it, `offset` seconds from now. */
+function installSleepRecord(c, offset) {
+  const sec = Math.floor(Date.now() / 1000) + offset;
+  writeExe(join(c.bin, 'sysctl'), `[ "$1" = -n ] && [ "$2" = kern.sleeptime ] || exit 1
+echo "{ sec = ${sec}, usec = 133908 } Fri Nov 20 11:57:04 2026"`);
+}
+const alertsOf = (c) => {
+  const p = join(c.home, 'logs', 'alerts.log');
+  return existsSync(p) ? readFileSync(p, 'utf8') : '';
+};
+const SLEPT = /\[the Mac went to sleep during this run - on battery with the lid closed\?\]/;
+
+describe('nightly-backup.sh - a failure during which the Mac slept says so (2026-11-18, 2026-11-20)', () => {
+  it('adds the note to the log line and to the alert when the system slept after the run started', () => {
+    const c = makeCase();
+    setup(c);
+    installSleepRecord(c, 3600);
+    mode(c, 'fail');
+    const r = runNightly(c);
+    assert.equal(r.status, 1, logOf(c));
+    assert.match(logOf(c), new RegExp(`FAIL: exit 1 ${SLEPT.source}`));
+    assert.match(alertsOf(c), new RegExp(`Nightly backup failed - FAIL: exit 1 ${SLEPT.source}`));
+  });
+
+  it('adds nothing when the last sleep was before the run', () => {
+    const c = makeCase();
+    setup(c);
+    installSleepRecord(c, -3600);
+    mode(c, 'fail');
+    assert.equal(runNightly(c).status, 1, logOf(c));
+    assert.match(logOf(c), /FAIL: exit 1\n/);
+    assert.doesNotMatch(logOf(c), SLEPT);
+    assert.doesNotMatch(alertsOf(c), SLEPT);
+  });
+
+  it('adds nothing where the sleep record does not exist (Linux) or cannot be read', () => {
+    const c = makeCase();
+    setup(c);
+    mode(c, 'fail');
+    assert.equal(runNightly(c).status, 1, logOf(c));
+    assert.doesNotMatch(logOf(c), SLEPT);
+    writeExe(join(c.bin, 'sysctl'), 'echo "unexpected output"');
+    assert.equal(runNightly(c).status, 1, logOf(c));
+    assert.doesNotMatch(logOf(c), SLEPT);
+  });
+
+  it('never marks a successful run', () => {
+    const c = makeCase();
+    setup(c);
+    installSleepRecord(c, 3600);
+    assert.equal(runNightly(c).status, 0, logOf(c));
+    assert.match(logOf(c), /SUCCESS: exit 0\n/);
+    assert.doesNotMatch(logOf(c), SLEPT);
+  });
+});
+
 /**
  * Private tunnel mode (MAOS-R01). The railway stub stands in for
  * `railway connect Postgres --ssh --tunnel-only -P <port>`; $STUB_DIR/tunnel.mode:
@@ -354,6 +417,9 @@ describe('nightly-backup.sh - duration guard', () => {
  *           (stricter than the CLI: the native child also gets its own group)
  *   started marks $STUB_DIR/tunnel.started and waits without listening (the test then
  *           puts an unrelated listener on the port)
+ *   wrapper the real start-up (2026-11-19): the process this run started replaces its
+ *           executable a moment later (shell -> node, as `#!/usr/bin/env node` does), then
+ *           starts the listener as a child in a process group of its own
  *   fail    exits 1 without listening
  *   hang    waits without ever listening
  * The listener is a real node process, so readiness, ownership and cleanup are
@@ -390,6 +456,7 @@ case "$mode" in
   started) touch "$STUB_DIR/tunnel.started"; sleep 60 & wait $! ;;
   delayed) ( sleep 1.5; exec "${NODE}" -e "require('net').createServer(s=>s.end()).listen(Number(process.argv[1]),'127.0.0.1')" "$port" ) &
           echo "$!" > "$STUB_DIR/listener.pid"; exit 0 ;;
+  wrapper) sleep 1; exec "${NODE}" "$STUB_DIR/wrapper.js" "$port" ;;
   fail)   exit 1 ;;
   hang)   sleep 60 & wait $! ;;
 esac`,
@@ -425,6 +492,14 @@ function privateCase({ tunnel = 'stay', backup = 'ok', keychain = PRIVATE_KEYCHA
   installKeychain(c, keychain);
   writeFileSync(join(c.stub, 'tunnel.mode'), tunnel);
   writeFileSync(join(c.stub, 'listen.js'), "require('net').createServer(s=>s.end()).listen(Number(process.argv[2]),'127.0.0.1')");
+  writeFileSync(
+    join(c.stub, 'wrapper.js'),
+    `const { spawn } = require('child_process');
+const { join } = require('path');
+const child = spawn(process.execPath, [join(__dirname, 'listen.js'), process.argv[2]], { detached: true, stdio: 'ignore' });
+require('fs').writeFileSync(join(__dirname, 'listener.pid'), String(child.pid));
+setTimeout(() => {}, 60000);`,
+  );
   writeFileSync(join(c.stub, 'backup.mode'), backup);
   c.port = freePort();
   return c;
@@ -548,6 +623,22 @@ describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
     assertTunnelClosed(c);
   });
 
+  it('still owns the tunnel when its first process replaces its executable after starting (2026-11-19)', () => {
+    const c = privateCase({ tunnel: 'wrapper' });
+    const r = runNightly(c, privateEnv(c));
+    const log = logOf(c);
+    assert.equal(r.status, 0, log);
+    const listenerPid = pidFrom(c, 'listener.pid');
+    assert.ok(listenerPid > 0);
+    assert.doesNotMatch(log, /does not belong to this run's tunnel/);
+    assert.doesNotMatch(log, /WARNING/);
+    assert.match(log, /private tunnel ready after [1-9]\d*s/);
+    assert.match(log, /private tunnel closed/);
+    assert.match(log, /SUCCESS: exit 0/);
+    assert.equal(alive(listenerPid), false, 'listener still running');
+    assertTunnelClosed(c);
+  });
+
   it('refuses a listener that appears after the tunnel starts but is not part of it, never kills it, never reports it closed', async () => {
     const c = privateCase({ tunnel: 'started' });
     const { spawn } = await import('node:child_process');
@@ -562,6 +653,8 @@ describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
         MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
         MAOS_BACKUP_PG_DUMP: 'path',
         SECURITY_BIN: join(c.bin, 'security'),
+        MAOS_NOTIFY_BIN: '/usr/bin/true',
+        SYSCTL_BIN: join(c.bin, 'sysctl'),
         ...privateEnv(c, { MAOS_BACKUP_TUNNEL_READY_SECONDS: '10' }),
       },
     });
@@ -639,6 +732,8 @@ describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
         MAOS_BACKUP_SCRIPT: join(c.bin, 'backup-db.sh'),
         MAOS_BACKUP_PG_DUMP: 'path',
         SECURITY_BIN: join(c.bin, 'security'),
+        MAOS_NOTIFY_BIN: '/usr/bin/true',
+        SYSCTL_BIN: join(c.bin, 'sysctl'),
         ...privateEnv(c),
       },
     });
@@ -804,6 +899,61 @@ describe('nightly-backup.sh - private Railway tunnel (MAOS-R01)', () => {
     assert.doesNotMatch(logOf(c), /private tunnel/);
     assert.equal(existsSync(join(c.stub, 'railway.args')), false, 'no tunnel in direct mode');
     assert.equal(readFileSync(join(c.stub, 'url.received'), 'utf8'), PRIVATE_KEYCHAIN_URL);
+  });
+});
+
+describe('private-tunnel.sh - a record follows exec only while the tunnel starts, and only the same process', () => {
+  const LIB = join(repoRoot, 'scripts/lib/private-tunnel.sh');
+  /** Sources the library, runs `body` with $PID = a live process and $ID = its real identity. */
+  function inLib(body) {
+    const r = spawnSync('/bin/bash', ['-c', `log() { :; }; . "${LIB}"
+sleep 30 & PID=$!
+ID="$(proc_identity "$PID")"
+START="\${ID%%|*}"
+${body}
+kill "$PID" 2>/dev/null`], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } });
+    return r.stdout.trim();
+  }
+
+  it('follows the leader to its new executable when pid and start time are the same', () => {
+    const out = inLib(`TUNNEL_PID=$PID; TUNNEL_LEADER_ID="$START|/an/earlier/executable"
+tunnel_leader_alive && echo before=alive
+tunnel_follow_exec
+tunnel_leader_alive && echo after=alive
+[ "$TUNNEL_LEADER_ID" = "$ID" ] && echo record=current`);
+    assert.equal(out, 'after=alive\nrecord=current');
+  });
+
+  it('never follows a process with another start time (a reused pid)', () => {
+    const out = inLib(`TUNNEL_PID=$PID; TUNNEL_LEADER_ID="Thu Jan 1 00:00:00 1970|\${ID#*|}"
+tunnel_follow_exec
+tunnel_leader_alive || echo leader=refused
+TUNNEL_TREE="$PID|Thu Jan 1 00:00:00 1970|/an/earlier/executable"
+tunnel_follow_exec
+record_matches "$PID" "$TUNNEL_TREE" || echo descendant=refused
+echo "$TUNNEL_TREE"`);
+    assert.equal(out, `leader=refused\ndescendant=refused\n${out.split('\n')[2]}`);
+    assert.match(out.split('\n')[2], /^\d+\|Thu Jan 1 00:00:00 1970\|\/an\/earlier\/executable$/);
+  });
+
+  it('follows a recorded descendant the same way and keeps records of other processes unchanged', () => {
+    const out = inLib(`TUNNEL_PID=$PID; TUNNEL_LEADER_ID="$ID"
+TUNNEL_TREE="$PID|$START|/an/earlier/executable
+999999|Thu Jan 1 00:00:00 1970|/gone"
+record_matches "$PID" "$TUNNEL_TREE" || echo before=refused
+tunnel_follow_exec
+record_matches "$PID" "$TUNNEL_TREE" && echo after=matches
+echo "$TUNNEL_TREE" | tail -1`);
+    assert.equal(out, 'before=refused\nafter=matches\n999999|Thu Jan 1 00:00:00 1970|/gone');
+  });
+
+  it('changes no record once the tunnel is ready', () => {
+    const out = inLib(`TUNNEL_PID=$PID; TUNNEL_LEADER_ID="$START|/an/earlier/executable"; TUNNEL_READY=1
+TUNNEL_TREE="$PID|$START|/an/earlier/executable"
+tunnel_follow_exec
+tunnel_leader_alive || echo leader=unchanged
+record_matches "$PID" "$TUNNEL_TREE" || echo descendant=unchanged`);
+    assert.equal(out, 'leader=unchanged\ndescendant=unchanged');
   });
 });
 

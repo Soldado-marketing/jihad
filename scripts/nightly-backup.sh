@@ -49,6 +49,12 @@
 # (MAOS-T19). A skipped run (75) is not a failure and stays silent: the run
 # holding the lock reports for itself.
 #
+# A failure during which this Mac went to sleep says so in its log line and
+# alert: on battery with the lid closed macOS runs the job only in wake slices
+# of a few seconds, which `caffeinate -i` cannot extend, so the tunnel or the
+# dump breaks (2026-11-18 and 2026-11-20). The cause is then the power state,
+# not the Railway login the tunnel message suggests.
+#
 # Environment (all optional):
 #   MAOS_BACKUP_HOME         default $HOME/MAOS_BACKUPS (production/, logs/)
 #   MAOS_BACKUP_MAX_SECONDS  default 7200
@@ -74,6 +80,7 @@
 #                            tunnel; default host.docker.internal (docker
 #                            pg_dump) or 127.0.0.1 (pg_dump from PATH)
 #   LSOF_BIN                 default /usr/sbin/lsof
+#   SYSCTL_BIN               default /usr/sbin/sysctl (macOS: kern.sleeptime)
 
 set -u
 
@@ -104,6 +111,8 @@ else
   TUNNEL_HOST="${MAOS_BACKUP_TUNNEL_HOST:-127.0.0.1}"
 fi
 LSOF_BIN="${LSOF_BIN:-/usr/sbin/lsof}"
+SYSCTL_BIN="${SYSCTL_BIN:-/usr/sbin/sysctl}"
+RUN_STARTED="$(date +%s)"
 
 # Absolute paths only: launchd gives a minimal PATH, never the login shell's.
 PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -113,6 +122,17 @@ mkdir -p "$OUT" "$(dirname "$LOG")"
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >> "$LOG"; }
 redact() { sed -e 's#postgres[a-zA-Z]*://[^ "]*#<REDACTED>#g'; }
+
+# Did this Mac go to sleep after the run started? macOS keeps the time the
+# system last entered sleep in kern.sleeptime ("{ sec = N, usec = M } date"),
+# also for the short sleeps between wake slices. False on any other system and
+# whenever the value cannot be read.
+slept_during_run() {
+  local last
+  last="$("$SYSCTL_BIN" -n kern.sleeptime 2>/dev/null | sed -n 's/^{ sec = \([0-9][0-9]*\),.*/\1/p' | head -1)"
+  case "$last" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$last" -ge "$RUN_STARTED" ]
+}
 
 # ── Private tunnel helpers (MAOS-R01) ─────────────────────────────────────────
 # Shared with the migration tools; audited for this runner (#111).
@@ -186,6 +206,9 @@ finish() {
     log "backup itself completed"
     msg="FAIL: backup completed, but a listener is still open on private tunnel port $TUNNEL_PORT"
     code=5
+  fi
+  if [ "$code" -ne 0 ] && slept_during_run; then
+    msg="$msg [the Mac went to sleep during this run - on battery with the lid closed?]"
   fi
   log "$msg"
   log "=== run end ==="
