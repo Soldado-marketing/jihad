@@ -7,8 +7,8 @@
  * machine is ever addressed (lib.assertLocal).
  *
  * The API keeps its rate limit on (600 requests a minute per client address,
- * as in production). The limit is not what is measured, so every request
- * carries its own simulated client address, the way separate people arrive
+ * as in production). The limit is not what is measured, so the requests are
+ * spread over simulated client addresses, the way separate people arrive
  * behind the proxy; a throttled answer would show up as an error, never as a
  * fast request.
  *
@@ -26,8 +26,12 @@ assertLocal(API, 'the API');
 const seed = JSON.parse(readFileSync(args.seed, 'utf8'));
 const s = seed.sample;
 
+// 2,000 simulated addresses, used in turn: enough that none of them comes near
+// the limit at the highest rate seen (about 3,000 answers a second is 90 a
+// minute per address).
+const ADDRESSES = 2000;
 let address = 0;
-const nextAddress = () => { address = (address + 1) % 60000; return `10.${100 + Math.floor(address / 62500)}.${Math.floor(address / 250) % 250}.${(address % 250) + 1}`; };
+const nextAddress = () => { address = (address + 1) % ADDRESSES; return `10.200.${Math.floor(address / 250)}.${(address % 250) + 1}`; };
 
 async function login(role) {
   const res = await fetch(`${API}/auth/login`, {
